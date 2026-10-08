@@ -7,7 +7,9 @@ import {
   IconMapPin,
   IconShield,
   IconCheck,
-  IconLogOut
+  IconLogOut,
+  IconRadar,
+  IconKey
 } from './Icons';
 
 export const Header = () => {
@@ -15,6 +17,7 @@ export const Header = () => {
     currentUser,
     logout,
     activeTab,
+    setActiveTab,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
     userLocation,
@@ -87,7 +90,17 @@ export const Header = () => {
       case 'superadmin':
         return {
           title: 'Super Admin Control',
-          subtitle: 'CRUD akun pengelola & audit log aktivitas lengkap dengan koordinat GPS'
+          subtitle: 'Audit log aktivitas pengguna lengkap dengan koordinat GPS'
+        };
+      case 'monitoring_lokasi':
+        return {
+          title: 'Monitoring Lokasi & Perangkat',
+          subtitle: 'Radar real-time pengguna aktif dan telemetri perangkat'
+        };
+      case 'kelola_akun':
+        return {
+          title: 'Kelola Akun Sistem',
+          subtitle: 'Kontrol hak akses Super Admin, Pengelola / Operator, dan Owner'
         };
       case 'anak_kos':
         return {
@@ -160,6 +173,19 @@ export const Header = () => {
               : 'Verifikasi GPS'}
           </span>
         </button>
+
+        {/* Super Admin Quick Radar Shortcut */}
+        {currentUser && currentUser.role === 'super_admin' && (
+          <button
+            type="button"
+            className={`header-radar-shortcut ${activeTab === 'monitoring_lokasi' ? 'active' : ''}`}
+            onClick={() => setActiveTab('monitoring_lokasi')}
+            title="Buka Dashboard Monitoring Lokasi & Perangkat"
+          >
+            <IconRadar size={15} />
+            <span className="shortcut-label">Monitoring Live</span>
+          </button>
+        )}
 
         {/* Search input (Hidden on very narrow mobile screens) */}
         <div className="header-search-box">

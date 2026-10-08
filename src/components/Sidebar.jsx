@@ -10,6 +10,8 @@ import {
   IconSettings,
   IconShield,
   IconStar,
+  IconRadar,
+  IconKey,
   IconGladiolLogo,
   IconX,
   IconPhone,
@@ -138,14 +140,35 @@ export const Sidebar = () => {
               </button>
 
               {currentUser.role === 'super_admin' && (
-                <button
-                  type="button"
-                  className={`nav-item ${activeTab === 'superadmin' ? 'active' : ''}`}
-                  onClick={() => handleNavClick('superadmin')}
-                >
-                  <IconShield size={19} />
-                  <span>Super Admin Log</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className={`nav-item ${activeTab === 'monitoring_lokasi' ? 'active' : ''}`}
+                    onClick={() => handleNavClick('monitoring_lokasi')}
+                  >
+                    <IconRadar size={19} />
+                    <span>Monitoring Lokasi</span>
+                    <span className="live-pulse-dot" style={{ marginLeft: 'auto' }}></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`nav-item ${activeTab === 'kelola_akun' ? 'active' : ''}`}
+                    onClick={() => handleNavClick('kelola_akun')}
+                  >
+                    <IconKey size={19} />
+                    <span>Kelola Akun</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`nav-item ${activeTab === 'superadmin' ? 'active' : ''}`}
+                    onClick={() => handleNavClick('superadmin')}
+                  >
+                    <IconShield size={19} />
+                    <span>Super Admin Log</span>
+                  </button>
+                </>
               )}
 
               <button

@@ -1,27 +1,234 @@
-// System Authentication Accounts
+// System Authentication Accounts (Super Admin, Pengelola / Operator, Owner)
 export const SYSTEM_ACCOUNTS = [
   {
+    id: "acc-1",
     username: "admin",
     password: "Amalia2125",
     role: "super_admin",
     name: "Amalia (Super Admin)",
-    phone: "081122334455"
+    phone: "081122334455",
+    email: "admin@gladiolaguesthouse.id",
+    status: "Aktif",
+    createdAt: "2024-01-01"
   },
   {
+    id: "acc-2",
     username: "andre",
     password: "andre123",
     role: "operator",
     name: "Andre (Pengelola Kos)",
-    phone: "081234998877"
+    phone: "081234998877",
+    email: "andre@gladiolaguesthouse.id",
+    status: "Aktif",
+    createdAt: "2024-01-10"
   },
   {
+    id: "acc-3",
     username: "owner",
     password: "owner123",
     role: "owner",
     name: "Bpk. Pemilik (Owner Kos)",
-    phone: "081233441122"
+    phone: "081233441122",
+    email: "owner@gladiolaguesthouse.id",
+    status: "Aktif",
+    createdAt: "2024-01-05"
   }
 ];
+
+// Active Sessions with Geolocation & Device Telemetry
+export const INITIAL_ACTIVE_SESSIONS = [
+  {
+    id: "sess-admin",
+    userId: "acc-1",
+    username: "admin",
+    name: "Amalia (Super Admin)",
+    role: "super_admin",
+    roleLabel: "Super Admin",
+    room: null,
+    phone: "081122334455",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+    status: "Online",
+    isCurrent: false,
+    lastActive: "Sedang Aktif",
+    loginTime: "Hari ini, 00:15 WIB",
+    coords: {
+      lat: -7.9583900,
+      lng: 112.6059550,
+      accuracy: 6
+    },
+    locationName: "Ruang Manajemen Gladiola Guest House, Lt. 1",
+    distanceMeters: 8,
+    isInsideKos: true,
+    device: {
+      model: "Laptop Lenovo ThinkPad X1 Carbon Gen 11",
+      type: "Desktop / PC",
+      os: "Windows 11 Pro (64-bit)",
+      browser: "Google Chrome 129.0",
+      screenRes: "1920 × 1080 (1.25x DPR)",
+      viewport: "1536 × 760",
+      orientation: "Landscape",
+      ipAddress: "103.145.22.84",
+      isp: "Biznet Networks Fiber Malang",
+      networkType: "WiFi Gladiol_Guest_House_5G",
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+      cpuCores: 16,
+      memory: "16 GB"
+    }
+  },
+  {
+    id: "sess-op",
+    userId: "acc-2",
+    username: "andre",
+    name: "Andre (Pengelola Kos)",
+    role: "operator",
+    roleLabel: "Pengelola / Operator",
+    room: null,
+    phone: "081234998877",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+    status: "Online",
+    isCurrent: false,
+    lastActive: "1 menit yang lalu",
+    loginTime: "Hari ini, 00:05 WIB",
+    coords: {
+      lat: -7.9584100,
+      lng: 112.6059650,
+      accuracy: 12
+    },
+    locationName: "Lobby Gladiola Guest House • Pos Jaga Depan",
+    distanceMeters: 14,
+    isInsideKos: true,
+    device: {
+      model: "Samsung Galaxy S24 Ultra 5G",
+      type: "Smartphone (Mobile)",
+      os: "Android 14 (One UI 6.1)",
+      browser: "Chrome Mobile 128.0",
+      screenRes: "1440 × 3120 (3.0x DPR)",
+      viewport: "412 × 915",
+      orientation: "Portrait",
+      ipAddress: "114.125.43.190",
+      isp: "Telkomsel Flash 5G Malang",
+      networkType: "5G Seluler Cepat",
+      userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.127 Mobile Safari/537.36",
+      cpuCores: 8,
+      memory: "12 GB"
+    }
+  },
+  {
+    id: "sess-rizky",
+    userId: "t-1",
+    username: "081233445566",
+    name: "Rizky Ramadhan",
+    role: "anak_kos",
+    roleLabel: "Penghuni Kamar 102",
+    room: "Kamar 102 (Lt. 1)",
+    phone: "081233445566",
+    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
+    status: "Online",
+    isCurrent: false,
+    lastActive: "3 menit yang lalu",
+    loginTime: "Kemarin, 23:40 WIB",
+    coords: {
+      lat: -7.9584210,
+      lng: 112.6059720,
+      accuracy: 5
+    },
+    locationName: "Kamar 102 (Deluxe Taman), Gladiola Kos",
+    distanceMeters: 5,
+    isInsideKos: true,
+    device: {
+      model: "Apple iPhone 15 Pro Max",
+      type: "Smartphone (Mobile)",
+      os: "iOS 18.0.1",
+      browser: "Mobile Safari 18.0",
+      screenRes: "1290 × 2796 (3.0x DPR)",
+      viewport: "430 × 932",
+      orientation: "Portrait",
+      ipAddress: "103.145.22.84",
+      isp: "Biznet WiFi Gladiol",
+      networkType: "WiFi Gladiol_Guest_House_5G",
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+      cpuCores: 6,
+      memory: "8 GB"
+    }
+  },
+  {
+    id: "sess-nabila",
+    userId: "t-2",
+    username: "081345678910",
+    name: "Nabila Putri",
+    role: "anak_kos",
+    roleLabel: "Penghuni Kamar 205",
+    room: "Kamar 205 (Lt. 2)",
+    phone: "081345678910",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+    status: "Online",
+    isCurrent: false,
+    lastActive: "8 menit yang lalu",
+    loginTime: "Kemarin, 22:50 WIB",
+    coords: {
+      lat: -7.9528000,
+      lng: 112.6142000,
+      accuracy: 18
+    },
+    locationName: "Jl. Veteran (Area Kampus UB), Malang",
+    distanceMeters: 1100,
+    isInsideKos: false,
+    device: {
+      model: "Apple MacBook Air 13-inch (M2)",
+      type: "Desktop / PC",
+      os: "macOS Sequoia 15.0",
+      browser: "Google Chrome 129.0",
+      screenRes: "2560 × 1664 (2.0x DPR)",
+      viewport: "1440 × 900",
+      orientation: "Landscape",
+      ipAddress: "182.253.110.45",
+      isp: "Indosat Ooredoo Hutchison 4G/5G",
+      networkType: "Tethering Hotspot Seluler",
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+      cpuCores: 8,
+      memory: "16 GB"
+    }
+  },
+  {
+    id: "sess-owner",
+    userId: "acc-3",
+    username: "owner",
+    name: "Bpk. Pemilik (Owner Kos)",
+    role: "owner",
+    roleLabel: "Pemilik Properti",
+    room: null,
+    phone: "081233441122",
+    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80",
+    status: "Idle",
+    isCurrent: false,
+    lastActive: "15 menit yang lalu",
+    loginTime: "Kemarin, 21:10 WIB",
+    coords: {
+      lat: -7.9625000,
+      lng: 112.6289000,
+      accuracy: 25
+    },
+    locationName: "Klojen, Kota Malang (Kediaman Pemilik)",
+    distanceMeters: 2600,
+    isInsideKos: false,
+    device: {
+      model: "Apple iPad Pro 11-inch (M4)",
+      type: "Tablet",
+      os: "iPadOS 17.6",
+      browser: "Mobile Safari 17.6",
+      screenRes: "1668 × 2388 (2.0x DPR)",
+      viewport: "834 × 1194",
+      orientation: "Portrait",
+      ipAddress: "36.85.12.77",
+      isp: "Telkom Indihome Fiber Malang",
+      networkType: "WiFi Broadband Fiber",
+      userAgent: "Mozilla/5.0 (iPad; CPU OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1",
+      cpuCores: 9,
+      memory: "8 GB"
+    }
+  }
+];
+
 
 // Initial realistic dataset for Gladiola Kos Eksklusif & Guest House
 export const GLADIOLA_COORDS = {

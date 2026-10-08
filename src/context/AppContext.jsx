@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   SYSTEM_ACCOUNTS,
+  INITIAL_ACTIVE_SESSIONS,
   GLADIOLA_COORDS,
   INITIAL_BANK_INFO,
   INITIAL_WIFI_INFO,
@@ -15,6 +16,59 @@ import {
 } from '../data/initialData';
 
 const AppContext = createContext(null);
+
+// Extract live device telemetry from client browser
+export const getLiveDeviceTelemetry = () => {
+  if (typeof window === 'undefined') return {};
+  const ua = navigator.userAgent || '';
+  let deviceType = 'Desktop / PC';
+  if (/mobile|android|iphone/i.test(ua)) {
+    deviceType = /tablet|ipad/i.test(ua) ? 'Tablet' : 'Smartphone (Mobile)';
+  } else if (/tablet|ipad/i.test(ua)) {
+    deviceType = 'Tablet';
+  }
+
+  let os = 'Windows 11 / 10';
+  if (/windows/i.test(ua)) os = 'Windows PC (x64)';
+  else if (/android/i.test(ua)) os = 'Android Mobile';
+  else if (/iphone/i.test(ua)) os = 'Apple iOS (iPhone)';
+  else if (/ipad/i.test(ua)) os = 'Apple iPadOS';
+  else if (/macintosh|mac os x/i.test(ua)) os = 'Apple macOS';
+  else if (/linux/i.test(ua)) os = 'Linux OS';
+
+  let browser = 'Google Chrome';
+  if (/edg/i.test(ua)) browser = 'Microsoft Edge';
+  else if (/opr|opera/i.test(ua)) browser = 'Opera Browser';
+  else if (/firefox|fxios/i.test(ua)) browser = 'Mozilla Firefox';
+  else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = 'Apple Safari';
+  else if (/chrome|crios/i.test(ua)) browser = 'Google Chrome';
+
+  const dpr = window.devicePixelRatio ? window.devicePixelRatio.toFixed(2) : '1.0';
+  const screenRes = `${window.screen?.width || 1920} × ${window.screen?.height || 1080} (${dpr}x DPR)`;
+  const viewport = `${window.innerWidth} × ${window.innerHeight}`;
+  const orientation = window.innerWidth > window.innerHeight ? 'Landscape' : 'Portrait';
+
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const networkType = conn
+    ? (conn.effectiveType ? `${conn.effectiveType.toUpperCase()} Internet` : 'WiFi Gladiol 5G')
+    : 'WiFi Gladiol_Guest_House_5G';
+
+  return {
+    model: `${deviceType} (${os})`,
+    type: deviceType,
+    os,
+    browser,
+    screenRes,
+    viewport,
+    orientation,
+    ipAddress: '103.145.22.84',
+    isp: 'Gladiola Dedicated Fiber Malang',
+    networkType,
+    userAgent: ua,
+    cpuCores: navigator.hardwareConcurrency || 8,
+    memory: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : '8 GB'
+  };
+};
 
 // Calculate Haversine distance in KM
 function calculateDistanceKm(lat1, lon1, lat2, lon2) {
@@ -51,8 +105,20 @@ export const AppProvider = ({ children }) => {
   };
 
   // User Authentication State: null means not logged in (mandatory login)
-  const [currentUser, setCurrentUser] = useState(() =>
-    loadState('currentUser', null)
+  // Supports 30-day Remember Me verification
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = loadState('currentUser', null);
+    if (!saved) return null;
+    if (saved.expiresAt && Date.now() > saved.expiresAt) {
+      // 30 days expired
+      localStorage.removeItem('gladiola_currentUser');
+      return null;
+    }
+    return saved;
+  });
+
+  const [systemAccounts, setSystemAccounts] = useState(() =>
+    loadState('systemAccounts', SYSTEM_ACCOUNTS)
   );
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -82,11 +148,16 @@ export const AppProvider = ({ children }) => {
   const [wifiInfo, setWifiInfo] = useState(() => loadState('wifiInfo', INITIAL_WIFI_INFO));
   const [operators, setOperators] = useState(() => loadState('operators', INITIAL_OPERATORS));
   const [activityLogs, setActivityLogs] = useState(() => loadState('logs', INITIAL_ACTIVITY_LOGS));
+  const [activeSessions, setActiveSessions] = useState(() =>
+    loadState('activeSessions', INITIAL_ACTIVE_SESSIONS)
+  );
   const [notifications, setNotifications] = useState([]);
 
   // Save changes to localStorage
   useEffect(() => saveState('currentUser', currentUser), [currentUser]);
+  useEffect(() => saveState('systemAccounts', systemAccounts), [systemAccounts]);
   useEffect(() => saveState('userLocation', userLocation), [userLocation]);
+  useEffect(() => saveState('activeSessions', activeSessions), [activeSessions]);
   useEffect(() => saveState('tenants', tenants), [tenants]);
   useEffect(() => saveState('rooms', rooms), [rooms]);
   useEffect(() => saveState('payments', payments), [payments]);
@@ -97,6 +168,67 @@ export const AppProvider = ({ children }) => {
   useEffect(() => saveState('wifiInfo', wifiInfo), [wifiInfo]);
   useEffect(() => saveState('operators', operators), [operators]);
   useEffect(() => saveState('logs', activityLogs), [activityLogs]);
+
+  // Sync active sessions with current user & telemetry
+  useEffect(() => {
+    if (!currentUser) return;
+    const telemetry = getLiveDeviceTelemetry();
+    const currentDistKm = userLocation.distanceKm !== null ? userLocation.distanceKm : 0.01;
+    const isInsideKos = currentDistKm <= 0.08;
+    const distanceMeters = Math.round(currentDistKm * 1000);
+
+    setActiveSessions((prevSessions) => {
+      const existingIdx = prevSessions.findIndex(
+        (s) => s.username === currentUser.username || (currentUser.phone && s.phone === currentUser.phone)
+      );
+
+      const userSession = {
+        id: existingIdx >= 0 ? prevSessions[existingIdx].id : `sess-live-${Date.now()}`,
+        userId: currentUser.id || currentUser.tenantId || `usr-${currentUser.role}`,
+        username: currentUser.username || currentUser.phone,
+        name: currentUser.name,
+        role: currentUser.role,
+        roleLabel:
+          currentUser.role === 'super_admin'
+            ? 'Super Admin'
+            : currentUser.role === 'operator'
+            ? 'Pengelola Kos'
+            : currentUser.role === 'owner'
+            ? 'Owner Properti'
+            : `Penghuni (Kamar ${currentUser.roomNumber || '102'})`,
+        room: currentUser.roomNumber ? `Kamar ${currentUser.roomNumber}` : null,
+        phone: currentUser.phone,
+        avatar:
+          currentUser.avatar ||
+          (currentUser.role === 'super_admin'
+            ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+            : currentUser.role === 'operator'
+            ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
+            : currentUser.role === 'owner'
+            ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'
+            : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+        status: 'Online',
+        isCurrent: true,
+        lastActive: 'Sedang Aktif Sekarang',
+        loginTime: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+        coords: {
+          lat: userLocation.lat || GLADIOLA_COORDS.lat,
+          lng: userLocation.lng || GLADIOLA_COORDS.lng,
+          accuracy: userLocation.accuracy || 8
+        },
+        locationName: userLocation.address || 'Gladiola Guest House Area, Malang',
+        distanceMeters,
+        isInsideKos,
+        device: telemetry
+      };
+
+      const others = prevSessions
+        .filter((_, idx) => idx !== existingIdx)
+        .map((s) => ({ ...s, isCurrent: false }));
+
+      return [userSession, ...others];
+    });
+  }, [currentUser, userLocation.lat, userLocation.lng, userLocation.status]);
 
   // Toast notification helper
   const addToast = (message, type = 'info') => {
@@ -234,35 +366,49 @@ export const AppProvider = ({ children }) => {
   };
 
   // Login with Username & Password (Super Admin, Pengelola, Owner)
-  const loginWithCredentials = (username, password) => {
+  const loginWithCredentials = (username, password, rememberMe = false) => {
+    // 1. Mandatory Geolocation enforcement: strictly block login if not granted
+    if (userLocation.status !== 'granted') {
+      setIsLocationEnforcedModalOpen(true);
+      return {
+        success: false,
+        message: 'Akses lokasi GPS wajib diaktifkan sebelum login! Silakan izinkan deteksi lokasi perangkat Anda.'
+      };
+    }
+
     const cleanUser = (username || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
 
-    // 1. Check predefined system accounts
-    const foundSystem = SYSTEM_ACCOUNTS.find(
+    // 2. Check system accounts from state
+    const foundSystem = systemAccounts.find(
       (acc) => acc.username.toLowerCase() === cleanUser && acc.password === cleanPass
     );
 
     if (foundSystem) {
+      const expiresAt = rememberMe ? Date.now() + 30 * 24 * 60 * 60 * 1000 : null;
       const user = {
+        id: foundSystem.id || `acc-${foundSystem.username}`,
         role: foundSystem.role,
         name: foundSystem.name,
         username: foundSystem.username,
         phone: foundSystem.phone,
-        roomNumber: null
+        email: foundSystem.email,
+        roomNumber: null,
+        rememberMe: !!rememberMe,
+        expiresAt
       };
       setCurrentUser(user);
-      setActiveTab('overview');
+      setActiveTab(foundSystem.role === 'super_admin' ? 'monitoring_lokasi' : 'overview');
       logActivity(
-        'Login Berhasil',
-        `User ${foundSystem.username} berhasil login sebagai ${foundSystem.role}`,
+        'Login Berhasil (GPS Terverifikasi)',
+        `User ${foundSystem.username} berhasil login sebagai ${foundSystem.role} (Remember Me: ${rememberMe ? '30 Hari' : 'Sesi'})`,
         user
       );
       addToast(`Selamat datang, ${foundSystem.name}!`, 'success');
       return { success: true, user };
     }
 
-    // 2. Check dynamically created operators
+    // 3. Fallback check operators
     const foundOp = operators.find(
       (op) =>
         op.username.toLowerCase() === cleanUser &&
@@ -270,12 +416,17 @@ export const AppProvider = ({ children }) => {
     );
 
     if (foundOp) {
+      const expiresAt = rememberMe ? Date.now() + 30 * 24 * 60 * 60 * 1000 : null;
       const user = {
+        id: foundOp.id,
         role: 'operator',
         name: foundOp.fullName,
         username: foundOp.username,
         phone: foundOp.phone,
-        roomNumber: null
+        email: foundOp.email,
+        roomNumber: null,
+        rememberMe: !!rememberMe,
+        expiresAt
       };
       setCurrentUser(user);
       setActiveTab('overview');
@@ -295,7 +446,16 @@ export const AppProvider = ({ children }) => {
   };
 
   // Login anak kos by phone only
-  const loginByPhone = (phoneInput) => {
+  const loginByPhone = (phoneInput, rememberMe = false) => {
+    // 1. Mandatory Geolocation enforcement: strictly block login if not granted
+    if (userLocation.status !== 'granted') {
+      setIsLocationEnforcedModalOpen(true);
+      return {
+        success: false,
+        message: 'Akses lokasi GPS wajib diaktifkan sebelum login! Silakan izinkan deteksi lokasi perangkat Anda.'
+      };
+    }
+
     if (!phoneInput || !phoneInput.trim()) {
       return { success: false, message: 'Nomor handphone wajib diisi.' };
     }
@@ -310,17 +470,21 @@ export const AppProvider = ({ children }) => {
     });
 
     if (found) {
+      const expiresAt = rememberMe ? Date.now() + 30 * 24 * 60 * 60 * 1000 : null;
       const user = {
+        id: found.id,
         role: 'anak_kos',
         name: found.name,
         phone: found.phone,
         roomNumber: found.roomNumber,
-        tenantId: found.id
+        tenantId: found.id,
+        rememberMe: !!rememberMe,
+        expiresAt
       };
       setCurrentUser(user);
       setActiveTab('anak_kos');
       logActivity(
-        'Anak Kos Login (No HP)',
+        'Anak Kos Login (No HP & GPS Valid)',
         `Penghuni ${found.name} login via nomor HP ${found.phone} (Kamar ${found.roomNumber})`,
         user
       );
@@ -545,6 +709,65 @@ export const AppProvider = ({ children }) => {
     addToast('Akun operator berhasil dihapus', 'info');
   };
 
+  // System Accounts CRUD (Super Admin)
+  const handleSaveAccount = (accData) => {
+    if (currentUser && currentUser.role !== 'super_admin') {
+      addToast('Hanya Super Admin yang dapat mengelola akun sistem!', 'error');
+      return;
+    }
+
+    if (accData.id) {
+      // Edit
+      setSystemAccounts((prev) =>
+        prev.map((a) => (a.id === accData.id ? { ...a, ...accData } : a))
+      );
+      if (currentUser && currentUser.username === accData.username) {
+        setCurrentUser((prev) => ({
+          ...prev,
+          name: accData.name,
+          phone: accData.phone,
+          email: accData.email,
+          role: accData.role
+        }));
+      }
+      logActivity('Ubah Akun Sistem', `Memperbarui akun: ${accData.username} (${accData.role})`);
+      addToast(`Akun ${accData.username} berhasil diperbarui`, 'success');
+    } else {
+      // Add
+      const newAcc = {
+        ...accData,
+        id: `acc-${Date.now()}`,
+        status: accData.status || 'Aktif',
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+      setSystemAccounts((prev) => [...prev, newAcc]);
+      logActivity('Tambah Akun Sistem Baru', `Membuat akun baru: ${newAcc.username} (${newAcc.role})`);
+      addToast(`Akun ${newAcc.username} (${newAcc.name}) berhasil dibuat`, 'success');
+    }
+  };
+
+  const handleDeleteAccount = (accId) => {
+    if (currentUser && currentUser.role !== 'super_admin') {
+      addToast('Hanya Super Admin yang dapat menghapus akun!', 'error');
+      return;
+    }
+    const target = systemAccounts.find((a) => a.id === accId);
+    if (!target) return;
+    if (currentUser && currentUser.username === target.username) {
+      addToast('Tidak dapat menghapus akun yang sedang Anda gunakan!', 'error');
+      return;
+    }
+    setSystemAccounts((prev) => prev.filter((a) => a.id !== accId));
+    logActivity('Hapus Akun Sistem', `Menghapus akun ${target.username} (${target.role})`);
+    addToast(`Akun ${target.username} berhasil dihapus`, 'info');
+  };
+
+  const refreshActiveSessions = () => {
+    requestLocation();
+    addToast('Memindai sinyal GPS & memperbarui data telemetri...', 'info');
+    logActivity('Refresh Radar Monitoring', 'Memperbarui koordinat GPS dan perangkat aktif');
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -559,6 +782,10 @@ export const AppProvider = ({ children }) => {
         setIsLocationEnforcedModalOpen,
         requestLocation,
         simulateLocationDefault,
+        systemAccounts,
+        activeSessions,
+        setActiveSessions,
+        refreshActiveSessions,
         tenants,
         rooms,
         payments,
@@ -586,7 +813,9 @@ export const AppProvider = ({ children }) => {
         handleSaveStaff,
         handleDeleteStaff,
         handleSaveOperator,
-        handleDeleteOperator
+        handleDeleteOperator,
+        handleSaveAccount,
+        handleDeleteAccount
       }}
     >
       {children}

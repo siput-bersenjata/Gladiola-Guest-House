@@ -6,11 +6,18 @@ import {
   IconPhone,
   IconLock,
   IconCheck,
-  IconMapPin
+  IconMapPin,
+  IconRadar
 } from './Icons';
 
 export const LoginPage = () => {
-  const { loginWithCredentials, loginByPhone } = useApp();
+  const {
+    loginWithCredentials,
+    loginByPhone,
+    userLocation,
+    requestLocation,
+    simulateLocationDefault
+  } = useApp();
 
   // Tab: 'staff' (Super Admin, Pengelola, Pemilik) or 'tenant' (Anak Kos)
   const [activeTab, setActiveTab] = useState('staff');
@@ -19,24 +26,36 @@ export const LoginPage = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMeStaff, setRememberMeStaff] = useState(true);
   const [staffError, setStaffError] = useState('');
   const [isSubmittingStaff, setIsSubmittingStaff] = useState(false);
 
   // Tenant Form
   const [phone, setPhone] = useState('');
+  const [rememberMeTenant, setRememberMeTenant] = useState(true);
   const [tenantError, setTenantError] = useState('');
   const [isSubmittingTenant, setIsSubmittingTenant] = useState(false);
+
+  const isLocationGranted = userLocation && userLocation.status === 'granted';
 
   const handleStaffSubmit = (e) => {
     e.preventDefault();
     setStaffError('');
+
+    // Strict location enforcement
+    if (!isLocationGranted) {
+      setStaffError('Akses lokasi GPS wajib diizinkan sebelum login! Silakan klik tombol "Izinkan Lokasi GPS" di bawah.');
+      requestLocation();
+      return;
+    }
+
     if (!username.trim() || !password.trim()) {
       setStaffError('Username dan kata sandi wajib diisi.');
       return;
     }
 
     setIsSubmittingStaff(true);
-    const result = loginWithCredentials(username, password);
+    const result = loginWithCredentials(username, password, rememberMeStaff);
     if (!result.success) {
       setStaffError(result.message);
       setIsSubmittingStaff(false);
@@ -46,13 +65,21 @@ export const LoginPage = () => {
   const handleTenantSubmit = (e) => {
     e.preventDefault();
     setTenantError('');
+
+    // Strict location enforcement
+    if (!isLocationGranted) {
+      setTenantError('Akses lokasi GPS wajib diizinkan sebelum login! Silakan klik tombol "Izinkan Lokasi GPS" di bawah.');
+      requestLocation();
+      return;
+    }
+
     if (!phone.trim()) {
       setTenantError('Silakan masukkan nomor handphone Anda.');
       return;
     }
 
     setIsSubmittingTenant(true);
-    const result = loginByPhone(phone);
+    const result = loginByPhone(phone, rememberMeTenant);
     if (!result.success) {
       setTenantError(result.message);
       setIsSubmittingTenant(false);
@@ -73,6 +100,48 @@ export const LoginPage = () => {
           <h1 className="login-brand-title">GLADIOL</h1>
           <p className="login-brand-subtitle">KOS EKSKLUSIF • TAMAN SEJUK</p>
           <span className="login-tagline">Portal Akses & Monitoring Kos</span>
+        </div>
+
+        {/* GPS Location Enforcement Banner */}
+        <div className={`login-gps-badge ${isLocationGranted ? 'gps-granted' : 'gps-required'}`}>
+          <div className="gps-badge-header">
+            <div className="gps-badge-status-icon">
+              {isLocationGranted ? (
+                <span className="live-pulse-dot" style={{ backgroundColor: '#22c55e' }}></span>
+              ) : (
+                <IconRadar size={18} className="animate-spin text-amber-500" />
+              )}
+            </div>
+            <div className="gps-badge-text">
+              <strong>{isLocationGranted ? 'GPS Terverifikasi & Aktif' : 'Izin Lokasi GPS Diperlukan'}</strong>
+              <p className="text-xs">
+                {isLocationGranted
+                  ? `${userLocation.address || 'Lokasi terdeteksi'} • Jarak: ${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km` : 'Area Gladiol'}`
+                  : 'Sistem Gladiola mewajibkan verifikasi lokasi untuk keamanan login akun.'}
+              </p>
+            </div>
+          </div>
+
+          {!isLocationGranted && (
+            <div className="gps-actions-quick mt-2">
+              <button
+                type="button"
+                className="btn-enable-gps"
+                onClick={requestLocation}
+              >
+                <IconMapPin size={14} />
+                <span>Izinkan Lokasi GPS Sekarang</span>
+              </button>
+              <button
+                type="button"
+                className="btn-simulate-gps"
+                onClick={() => simulateLocationDefault('Verifikasi Area Gladiola Guest House')}
+                title="Gunakan simulasi lokasi Gladiola jika browser memblokir prompt"
+              >
+                Gunakan Lokasi Gladiola
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tab Selection: Manajemen vs Anak Kos */}
@@ -156,6 +225,19 @@ export const LoginPage = () => {
               </div>
             </div>
 
+            {/* 30-Day Remember Me Option */}
+            <div className="remember-me-row">
+              <label className="remember-me-label">
+                <input
+                  type="checkbox"
+                  className="remember-me-checkbox"
+                  checked={rememberMeStaff}
+                  onChange={(e) => setRememberMeStaff(e.target.checked)}
+                />
+                <span>Ingat saya selama 30 hari (Remember Me)</span>
+              </label>
+            </div>
+
             {staffError && (
               <div className="login-error-alert" role="alert">
                 <span>⚠️ {staffError}</span>
@@ -203,6 +285,19 @@ export const LoginPage = () => {
                   autoFocus
                 />
               </div>
+            </div>
+
+            {/* 30-Day Remember Me Option */}
+            <div className="remember-me-row">
+              <label className="remember-me-label">
+                <input
+                  type="checkbox"
+                  className="remember-me-checkbox"
+                  checked={rememberMeTenant}
+                  onChange={(e) => setRememberMeTenant(e.target.checked)}
+                />
+                <span>Ingat saya selama 30 hari (Remember Me)</span>
+              </label>
             </div>
 
             {tenantError && (

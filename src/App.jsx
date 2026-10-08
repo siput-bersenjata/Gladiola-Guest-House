@@ -15,6 +15,8 @@ import { LaporanView } from './components/LaporanView';
 import { SuperAdminView } from './components/SuperAdminView';
 import { AnakKosPortal } from './components/AnakKosPortal';
 import { PengaturanView } from './components/PengaturanView';
+import { MonitoringLokasiView } from './components/MonitoringLokasiView';
+import { KelolaAkunView } from './components/KelolaAkunView';
 
 const MainLayout = () => {
   const { activeTab, currentUser, notifications } = useApp();
@@ -60,6 +62,10 @@ const MainLayout = () => {
         return <LaporanView />;
       case 'superadmin':
         return <SuperAdminView />;
+      case 'monitoring_lokasi':
+        return <MonitoringLokasiView />;
+      case 'kelola_akun':
+        return <KelolaAkunView />;
       case 'pengaturan':
         return <PengaturanView />;
       default:
