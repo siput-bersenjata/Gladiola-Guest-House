@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
+  SYSTEM_ACCOUNTS,
   GLADIOLA_COORDS,
   INITIAL_BANK_INFO,
   INITIAL_WIFI_INFO,
@@ -49,14 +50,9 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Roles: "super_admin" | "owner" | "operator" | "anak_kos"
+  // User Authentication State: null means not logged in (mandatory login)
   const [currentUser, setCurrentUser] = useState(() =>
-    loadState('currentUser', {
-      role: 'super_admin',
-      name: 'Admin Taman (Super)',
-      phone: '081234567899',
-      roomNumber: null
-    })
+    loadState('currentUser', null)
   );
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -237,17 +233,116 @@ export const AppProvider = ({ children }) => {
     setIsMobileMenuOpen(false);
   };
 
-  // Login anak kos by phone
-  const loginByPhone = (phoneInput) => {
-    const cleanPhone = phoneInput.replace(/[^0-9]/g, '');
-    const found = tenants.find(
-      (t) => t.phone.replace(/[^0-9]/g, '') === cleanPhone || t.phone.includes(cleanPhone)
+  // Login with Username & Password (Super Admin, Pengelola, Owner)
+  const loginWithCredentials = (username, password) => {
+    const cleanUser = (username || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    // 1. Check predefined system accounts
+    const foundSystem = SYSTEM_ACCOUNTS.find(
+      (acc) => acc.username.toLowerCase() === cleanUser && acc.password === cleanPass
     );
+
+    if (foundSystem) {
+      const user = {
+        role: foundSystem.role,
+        name: foundSystem.name,
+        username: foundSystem.username,
+        phone: foundSystem.phone,
+        roomNumber: null
+      };
+      setCurrentUser(user);
+      setActiveTab('overview');
+      logActivity(
+        'Login Berhasil',
+        `User ${foundSystem.username} berhasil login sebagai ${foundSystem.role}`,
+        user
+      );
+      addToast(`Selamat datang, ${foundSystem.name}!`, 'success');
+      return { success: true, user };
+    }
+
+    // 2. Check dynamically created operators
+    const foundOp = operators.find(
+      (op) =>
+        op.username.toLowerCase() === cleanUser &&
+        (op.password ? op.password === cleanPass : cleanPass === 'andre123' || cleanPass === 'operator123')
+    );
+
+    if (foundOp) {
+      const user = {
+        role: 'operator',
+        name: foundOp.fullName,
+        username: foundOp.username,
+        phone: foundOp.phone,
+        roomNumber: null
+      };
+      setCurrentUser(user);
+      setActiveTab('overview');
+      logActivity(
+        'Login Operator Berhasil',
+        `Operator ${foundOp.username} berhasil login ke sistem`,
+        user
+      );
+      addToast(`Selamat datang, ${foundOp.fullName}!`, 'success');
+      return { success: true, user };
+    }
+
+    return {
+      success: false,
+      message: 'Username atau kata sandi tidak valid. Silakan periksa kembali.'
+    };
+  };
+
+  // Login anak kos by phone only
+  const loginByPhone = (phoneInput) => {
+    if (!phoneInput || !phoneInput.trim()) {
+      return { success: false, message: 'Nomor handphone wajib diisi.' };
+    }
+    const cleanInput = phoneInput.replace(/[^0-9]/g, '');
+    const found = tenants.find((t) => {
+      const tenantClean = t.phone.replace(/[^0-9]/g, '');
+      return (
+        tenantClean === cleanInput ||
+        tenantClean.endsWith(cleanInput) ||
+        cleanInput.endsWith(tenantClean)
+      );
+    });
+
     if (found) {
-      switchRole('anak_kos', found.phone);
+      const user = {
+        role: 'anak_kos',
+        name: found.name,
+        phone: found.phone,
+        roomNumber: found.roomNumber,
+        tenantId: found.id
+      };
+      setCurrentUser(user);
+      setActiveTab('anak_kos');
+      logActivity(
+        'Anak Kos Login (No HP)',
+        `Penghuni ${found.name} login via nomor HP ${found.phone} (Kamar ${found.roomNumber})`,
+        user
+      );
+      addToast(`Selamat datang, ${found.name}!`, 'success');
       return { success: true, tenant: found };
     }
-    return { success: false, message: 'Nomor HP tidak terdaftar sebagai anak kos aktif di Gladiola.' };
+
+    return {
+      success: false,
+      message: 'Nomor handphone tidak terdaftar pada data anak kos aktif Gladiola. Hubungi pengelola untuk pendaftaran.'
+    };
+  };
+
+  // Logout function
+  const logout = () => {
+    if (currentUser) {
+      logActivity('Logout', `Pengguna ${currentUser.name} (${currentUser.role}) keluar dari sistem`);
+    }
+    setCurrentUser(null);
+    localStorage.removeItem('gladiola_currentUser');
+    setActiveTab('overview');
+    addToast('Anda telah berhasil keluar dari sistem.', 'info');
   };
 
   // Actions
@@ -480,7 +575,9 @@ export const AppProvider = ({ children }) => {
         addToast,
         logActivity,
         switchRole,
+        loginWithCredentials,
         loginByPhone,
+        logout,
         handleValidatePayment,
         handleAddStaffRating,
         handleSaveTenant,

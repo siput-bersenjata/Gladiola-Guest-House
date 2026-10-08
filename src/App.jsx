@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { LoginPage } from './components/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
@@ -17,6 +18,24 @@ import { PengaturanView } from './components/PengaturanView';
 
 const MainLayout = () => {
   const { activeTab, currentUser, notifications } = useApp();
+
+  // If user is not logged in, enforce mandatory login wall
+  if (!currentUser) {
+    return (
+      <div className="login-root-container">
+        <LocationEnforcerModal />
+        <LoginPage />
+        <div className="toast-container" aria-live="polite">
+          {notifications.map((toast) => (
+            <div key={toast.id} className={`toast-pill ${toast.type}`}>
+              <span className="toast-dot"></span>
+              <span className="toast-text">{toast.message}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const renderActiveView = () => {
     // If user is currently in anak_kos tab or role

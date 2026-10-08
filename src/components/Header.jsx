@@ -13,7 +13,7 @@ import {
 export const Header = () => {
   const {
     currentUser,
-    switchRole,
+    logout,
     activeTab,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
@@ -228,83 +228,23 @@ export const Header = () => {
             <div className="profile-dropdown-menu">
               <div className="profile-dropdown-header">
                 <p className="dropdown-user-name">{currentUser.name}</p>
-                <p className="dropdown-user-role">Role Aktif: <strong>{getRoleLabel()}</strong></p>
+                <p className="dropdown-user-role">Role: <strong>{getRoleLabel()}</strong></p>
                 {currentUser.roomNumber && (
                   <p className="dropdown-user-room">Penghuni Kamar {currentUser.roomNumber}</p>
                 )}
+                {currentUser.phone && (
+                  <p className="dropdown-user-phone text-xs text-gray-500 mt-1">No. HP: {currentUser.phone}</p>
+                )}
               </div>
 
-              <div className="role-switcher-section">
-                <p className="role-switcher-title">Ganti Mode Role (Demo & Akses):</p>
-
-                <button
-                  type="button"
-                  className={`role-option-btn ${currentUser.role === 'super_admin' ? 'active' : ''}`}
-                  onClick={() => {
-                    switchRole('super_admin');
-                    setIsProfileMenuOpen(false);
-                  }}
-                >
-                  <div className="role-option-left">
-                    <IconShield size={16} />
-                    <span>Super Admin</span>
-                  </div>
-                  {currentUser.role === 'super_admin' && <IconCheck size={14} />}
-                </button>
-
-                <button
-                  type="button"
-                  className={`role-option-btn ${currentUser.role === 'owner' ? 'active' : ''}`}
-                  onClick={() => {
-                    switchRole('owner');
-                    setIsProfileMenuOpen(false);
-                  }}
-                >
-                  <div className="role-option-left">
-                    <span>👑</span>
-                    <span>Owner Kos</span>
-                  </div>
-                  {currentUser.role === 'owner' && <IconCheck size={14} />}
-                </button>
-
-                <button
-                  type="button"
-                  className={`role-option-btn ${currentUser.role === 'operator' ? 'active' : ''}`}
-                  onClick={() => {
-                    switchRole('operator');
-                    setIsProfileMenuOpen(false);
-                  }}
-                >
-                  <div className="role-option-left">
-                    <span>🛠️</span>
-                    <span>Operator / Pengelola</span>
-                  </div>
-                  {currentUser.role === 'operator' && <IconCheck size={14} />}
-                </button>
-
-                <div className="tenant-selector-box">
-                  <p className="tenant-selector-label">Pilih Anak Kos (Login No HP):</p>
-                  <select
-                    className="tenant-select"
-                    value={selectedTenantPhone}
-                    onChange={(e) => setSelectedTenantPhone(e.target.value)}
-                  >
-                    {tenants.map((t) => (
-                      <option key={t.id} value={t.phone}>
-                        {t.name} (Kmr {t.roomNumber} - {t.phone})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn-login-tenant"
-                    onClick={() => {
-                      switchRole('anak_kos', selectedTenantPhone);
-                      setIsProfileMenuOpen(false);
-                    }}
-                  >
-                    Masuk Sebagai Anak Kos
-                  </button>
+              <div className="profile-dropdown-info">
+                <div className="dropdown-location-status">
+                  <span className="gps-live-dot"></span>
+                  <span className="text-xs text-gray-600">
+                    {userLocation.status === 'granted'
+                      ? `Terverifikasi GPS (${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km dari kos` : 'Aktif'})`
+                      : 'Menunggu Izin Lokasi'}
+                  </span>
                 </div>
               </div>
 
@@ -313,12 +253,12 @@ export const Header = () => {
                   type="button"
                   className="dropdown-logout-btn"
                   onClick={() => {
-                    switchRole('super_admin');
                     setIsProfileMenuOpen(false);
+                    logout();
                   }}
                 >
-                  <IconLogOut size={14} />
-                  <span>Reset ke Admin Default</span>
+                  <IconLogOut size={16} />
+                  <span>Keluar dari Akun (Logout)</span>
                 </button>
               </div>
             </div>

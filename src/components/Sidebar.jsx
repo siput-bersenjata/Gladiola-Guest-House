@@ -13,7 +13,8 @@ import {
   IconGladiolLogo,
   IconX,
   IconPhone,
-  IconWhatsApp
+  IconWhatsApp,
+  IconLogOut
 } from './Icons';
 
 export const Sidebar = () => {
@@ -21,6 +22,7 @@ export const Sidebar = () => {
     activeTab,
     setActiveTab,
     currentUser,
+    logout,
     isMobileMenuOpen,
     setIsMobileMenuOpen
   } = useApp();
@@ -195,6 +197,19 @@ export const Sidebar = () => {
               </button>
             </>
           )}
+
+          {/* Logout Button */}
+          <button
+            type="button"
+            className="nav-item nav-item-logout"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              logout();
+            }}
+          >
+            <IconLogOut size={19} />
+            <span>Keluar (Logout)</span>
+          </button>
         </nav>
 
         {/* Sidebar Help Widget - Exactly as in screenshot */}

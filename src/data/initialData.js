@@ -1,3 +1,28 @@
+// System Authentication Accounts
+export const SYSTEM_ACCOUNTS = [
+  {
+    username: "admin",
+    password: "Amalia2125",
+    role: "super_admin",
+    name: "Amalia (Super Admin)",
+    phone: "081122334455"
+  },
+  {
+    username: "andre",
+    password: "andre123",
+    role: "operator",
+    name: "Andre (Pengelola Kos)",
+    phone: "081234998877"
+  },
+  {
+    username: "owner",
+    password: "owner123",
+    role: "owner",
+    name: "Bpk. Pemilik (Owner Kos)",
+    phone: "081233441122"
+  }
+];
+
 // Initial realistic dataset for Gladiola Kos Eksklusif & Guest House
 export const GLADIOLA_COORDS = {
   lat: -7.9584011,
@@ -473,9 +498,9 @@ export const INITIAL_ELECTRICITY_BILLS = [
 export const INITIAL_OPERATORS = [
   {
     id: "op-1",
-    username: "admin_taman",
-    fullName: "Ahmad Fauzi (Operator Lapangan)",
-    email: "fauzi@gladiolaguesthouse.id",
+    username: "andre",
+    fullName: "Andre (Pengelola Kos)",
+    email: "andre@gladiolaguesthouse.id",
     phone: "081234998877",
     role: "operator",
     status: "Aktif",
