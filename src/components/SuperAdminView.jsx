@@ -9,7 +9,9 @@ import {
   IconExternalLink,
   IconCheck,
   IconSearch,
-  IconClock
+  IconClock,
+  IconArrowLeft,
+  IconUsers
 } from './Icons';
 
 export const SuperAdminView = () => {
@@ -22,7 +24,7 @@ export const SuperAdminView = () => {
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState('logs'); // 'logs' | 'operators'
-  const [isOpModalOpen, setIsOpModalOpen] = useState(false);
+  const [operatorViewMode, setOperatorViewMode] = useState('list'); // 'list' | 'form'
   const [editingOp, setEditingOp] = useState(null);
   const [logSearch, setLogSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -35,7 +37,7 @@ export const SuperAdminView = () => {
     status: 'Aktif'
   });
 
-  const openAddOpModal = () => {
+  const openAddOpForm = () => {
     setEditingOp(null);
     setOpFormData({
       username: '',
@@ -44,10 +46,10 @@ export const SuperAdminView = () => {
       phone: '',
       status: 'Aktif'
     });
-    setIsOpModalOpen(true);
+    setOperatorViewMode('form');
   };
 
-  const openEditOpModal = (op) => {
+  const openEditOpForm = (op) => {
     setEditingOp(op);
     setOpFormData({
       username: op.username,
@@ -56,7 +58,7 @@ export const SuperAdminView = () => {
       phone: op.phone,
       status: op.status
     });
-    setIsOpModalOpen(true);
+    setOperatorViewMode('form');
   };
 
   const handleOpSubmit = (e) => {
@@ -65,7 +67,7 @@ export const SuperAdminView = () => {
       ...(editingOp ? { id: editingOp.id } : {}),
       ...opFormData
     });
-    setIsOpModalOpen(false);
+    setOperatorViewMode('list');
   };
 
   const filteredLogs = activityLogs.filter((log) => {
@@ -76,6 +78,116 @@ export const SuperAdminView = () => {
     const matchRole = roleFilter === 'all' || log.role === roleFilter;
     return matchSearch && matchRole;
   });
+
+  // Dedicated Full Page Form for Operator Add/Edit
+  if (operatorViewMode === 'form') {
+    return (
+      <div className="form-page-container">
+        <div className="form-page-topbar">
+          <button
+            type="button"
+            className="btn-back-nav"
+            onClick={() => setOperatorViewMode('list')}
+          >
+            <IconArrowLeft size={18} />
+            <span>Kembali ke Daftar Pengelola</span>
+          </button>
+
+          <div className="form-page-title-group">
+            <h2 className="form-page-heading">
+              {editingOp ? `Ubah Akun Pengelola: @${editingOp.username}` : 'Tambah Akun Pengelola Baru'}
+            </h2>
+            <p className="form-page-subheading">
+              Pengelola memiliki hak akses menambah data anak kos, input meteran listrik bulanan, dan memvalidasi pembayaran.
+            </p>
+          </div>
+        </div>
+
+        <div className="form-page-card">
+          <form onSubmit={handleOpSubmit} className="form-page-content">
+            <div className="form-section-block">
+              <div className="form-section-header">
+                <IconUsers size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">Data Akun Pengelola Kos</h3>
+                  <p className="form-section-subtitle">
+                    Kredensial login dan profil penanggung jawab operasional harian
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid">
+                <div className="form-group">
+                  <label className="form-label">Username Pengelola *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={opFormData.username}
+                    onChange={(e) => setOpFormData({ ...opFormData, username: e.target.value })}
+                    placeholder="Contoh: admin_taman2"
+                    required
+                    autoFocus
+                  />
+                  <span className="field-hint">Digunakan untuk login ke sistem</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Nama Lengkap & Jabatan *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={opFormData.fullName}
+                    onChange={(e) => setOpFormData({ ...opFormData, fullName: e.target.value })}
+                    placeholder="Contoh: Budi Santoso (Admin Kasir)"
+                    required
+                  />
+                  <span className="field-hint">Nama staf yang bertugas</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Alamat Email *</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    value={opFormData.email}
+                    onChange={(e) => setOpFormData({ ...opFormData, email: e.target.value })}
+                    placeholder="Contoh: budi@gladiolaguesthouse.id"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Nomor Handphone (WhatsApp) *</label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    value={opFormData.phone}
+                    onChange={(e) => setOpFormData({ ...opFormData, phone: e.target.value })}
+                    placeholder="Contoh: 081234567890"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="form-page-actions-bar">
+              <button
+                type="button"
+                className="btn-secondary-action"
+                onClick={() => setOperatorViewMode('list')}
+              >
+                Batal & Kembali
+              </button>
+              <button type="submit" className="btn-primary-action">
+                <IconCheck size={18} />
+                <span>Simpan Akun Pengelola</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="superadmin-container">
@@ -231,7 +343,7 @@ export const SuperAdminView = () => {
             <button
               type="button"
               className="btn-primary"
-              onClick={openAddOpModal}
+              onClick={openAddOpForm}
             >
               <IconPlus size={16} />
               <span>Tambah Akun Pengelola</span>
@@ -271,8 +383,8 @@ export const SuperAdminView = () => {
                           <button
                             type="button"
                             className="btn-icon-action"
-                            onClick={() => openEditOpModal(op)}
-                            title="Ubah Akun"
+                            onClick={() => openEditOpForm(op)}
+                            title="Ubah Akun (Pindah Halaman)"
                           >
                             <IconEdit size={16} />
                           </button>
@@ -295,84 +407,6 @@ export const SuperAdminView = () => {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Add / Edit Operator */}
-      {isOpModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content-card">
-            <h3 className="modal-title">
-              {editingOp ? 'Ubah Akun Pengelola' : 'Tambah Akun Pengelola Baru'}
-            </h3>
-            <p className="modal-subtitle">
-              Akun ini dapat menambah anak kos, input meteran listrik, dan memvalidasi pembayaran.
-            </p>
-
-            <form onSubmit={handleOpSubmit} className="modal-form-grid">
-              <div className="form-group">
-                <label className="form-label">Username Pengelola *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={opFormData.username}
-                  onChange={(e) => setOpFormData({ ...opFormData, username: e.target.value })}
-                  placeholder="Contoh: admin_taman2"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Nama Lengkap & Jabatan *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={opFormData.fullName}
-                  onChange={(e) => setOpFormData({ ...opFormData, fullName: e.target.value })}
-                  placeholder="Contoh: Budi Santoso (Admin Kasir)"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Alamat Email *</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={opFormData.email}
-                  onChange={(e) => setOpFormData({ ...opFormData, email: e.target.value })}
-                  placeholder="Contoh: budi@gladiolaguesthouse.id"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Nomor Handphone (WhatsApp) *</label>
-                <input
-                  type="tel"
-                  className="form-input"
-                  value={opFormData.phone}
-                  onChange={(e) => setOpFormData({ ...opFormData, phone: e.target.value })}
-                  placeholder="Contoh: 081234567890"
-                  required
-                />
-              </div>
-
-              <div className="modal-actions-row">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsOpModalOpen(false)}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn-primary">
-                  <IconCheck size={16} />
-                  <span>Simpan Akun Pengelola</span>
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

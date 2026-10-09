@@ -284,6 +284,13 @@ export const IconKey = ({ size = 18, className = "" }) => (
   </svg>
 );
 
+export const IconArrowLeft = ({ size = 18, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="19" y1="12" x2="5" y2="12" />
+    <polyline points="12 19 5 12 12 5" />
+  </svg>
+);
+
 export const IconGladiolLogo = ({ size = 32, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
     <path d="M24 4C24 4 19 14 19 22C19 26 21 29 24 31C27 29 29 26 29 22C29 14 24 4 24 4Z" fill="#84A98C" />

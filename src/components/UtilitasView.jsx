@@ -5,7 +5,9 @@ import {
   IconPlus,
   IconCheck,
   IconClock,
-  IconSearch
+  IconSearch,
+  IconArrowLeft,
+  IconRoom
 } from './Icons';
 
 export const UtilitasView = () => {
@@ -17,7 +19,7 @@ export const UtilitasView = () => {
     currentUser
   } = useApp();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'form'
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -46,6 +48,10 @@ export const UtilitasView = () => {
     });
   };
 
+  const openInputForm = () => {
+    setViewMode('form');
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     handleSaveElectricityBill({
@@ -61,7 +67,7 @@ export const UtilitasView = () => {
       status: formData.status,
       paidAt: formData.status === 'Lunas' ? new Date().toLocaleString('id-ID') : null
     });
-    setIsModalOpen(false);
+    setViewMode('list');
   };
 
   const filteredBills = electricityBills.filter((b) => {
@@ -70,29 +76,214 @@ export const UtilitasView = () => {
     return matchMonth && matchStatus;
   });
 
-  const totalKwh = filteredBills.reduce((acc, b) => acc + b.kwhUsage, 0);
-  const totalRupiah = filteredBills.reduce((acc, b) => acc + b.totalBill, 0);
+  // =========================================================================
+  // DEDICATED FULL-PAGE FORM VIEW (NO CUT-OFF POPUP MODAL)
+  // =========================================================================
+  if (viewMode === 'form') {
+    return (
+      <div className="form-page-container">
+        {/* Top Navigation & Breadcrumb */}
+        <div className="form-page-topbar">
+          <button
+            type="button"
+            className="btn-back-nav"
+            onClick={() => setViewMode('list')}
+          >
+            <IconArrowLeft size={18} />
+            <span>Kembali ke Data Utilitas & Listrik</span>
+          </button>
+
+          <div className="form-page-title-group">
+            <h2 className="form-page-heading">Input Pencatatan Meteran Listrik Bulanan</h2>
+            <p className="form-page-subheading">
+              Catat angka stand meter awal & akhir kWh per kamar penghuni untuk menghitung total tagihan otomatis.
+            </p>
+          </div>
+        </div>
+
+        {/* Dedicated Full Form Card */}
+        <div className="form-page-card">
+          <form onSubmit={handleSubmit} className="form-page-content">
+            {/* Section 1: Pemilihan Kamar & Periode */}
+            <div className="form-section-block">
+              <div className="form-section-header">
+                <IconRoom size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">Kamar & Penghuni</h3>
+                  <p className="form-section-subtitle">
+                    Pilih nomor kamar target pencatatan meteran listrik
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid">
+                <div className="form-group">
+                  <label className="form-label">Pilih Kamar *</label>
+                  <select
+                    className="form-select"
+                    value={formData.roomNumber}
+                    onChange={(e) => handleRoomChange(e.target.value)}
+                  >
+                    {rooms.map((r) => (
+                      <option key={r.id} value={r.number}>
+                        Kamar {r.number} ({r.currentTenant || 'Kosong'})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="field-hint">Penghuni terhubung otomatis: <strong>{formData.tenantName}</strong> ({formData.tenantPhone})</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Periode Bulan Penagihan *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.month}
+                    onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                    placeholder="Contoh: Oktober 2026"
+                    required
+                  />
+                  <span className="field-hint">Bulan buku pencatatan meteran</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Angka Meteran & Tarif */}
+            <div className="form-section-block">
+              <div className="form-section-header">
+                <IconLightning size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">Stand Meteran Listrik & Tarif</h3>
+                  <p className="form-section-subtitle">
+                    Kalkulasi otomatis pemakaian kWh dan total tagihan
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid">
+                <div className="form-group">
+                  <label className="form-label">Angka Meter Awal (kWh) *</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.meterStart}
+                    onChange={(e) => setFormData({ ...formData, meterStart: e.target.value })}
+                    required
+                  />
+                  <span className="field-hint">Stand meter bulan sebelumnya</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Angka Meter Akhir (kWh) *</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.meterEnd}
+                    onChange={(e) => setFormData({ ...formData, meterEnd: e.target.value })}
+                    required
+                  />
+                  <span className="field-hint">Stand meter saat pencatatan hari ini</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Tarif Listrik per kWh (Rp) *</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.ratePerKwh}
+                    onChange={(e) => setFormData({ ...formData, ratePerKwh: e.target.value })}
+                    required
+                  />
+                  <span className="field-hint">Tarif standar Gladiola: Rp 1.650 / kWh</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Status Pembayaran</label>
+                  <select
+                    className="form-select"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="Belum Bayar">Belum Bayar (Menunggu Pelunasan)</option>
+                    <option value="Lunas">Lunas (Sudah Dibayarkan)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Live Calculation Preview Box */}
+              <div className="calculation-preview-box mt-4">
+                <div className="calc-row">
+                  <span>Pemakaian Bersih Listrik:</span>
+                  <strong className="text-base text-gray-900">{kwhUsage} kWh</strong>
+                </div>
+                <div className="calc-row">
+                  <span>Total Tagihan Listrik:</span>
+                  <strong className="text-xl text-primary-green">
+                    Rp {totalBill.toLocaleString('id-ID')}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions Bar */}
+            <div className="form-page-actions-bar">
+              <button
+                type="button"
+                className="btn-secondary-action"
+                onClick={() => setViewMode('list')}
+              >
+                Batal & Kembali
+              </button>
+              <button type="submit" className="btn-primary-action">
+                <IconCheck size={18} />
+                <span>Simpan Tagihan Listrik</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // LIST VIEW
+  // =========================================================================
+  const totalKwh = electricityBills.reduce((acc, curr) => acc + curr.kwhUsage, 0);
+  const totalRupiah = electricityBills.reduce((acc, curr) => acc + curr.totalBill, 0);
 
   return (
     <div className="utilitas-container">
-      {/* Summary Cards */}
-      <div className="utilitas-summary-grid">
+      {/* Metric Cards */}
+      <div className="stats-row">
         <div className="stat-card">
-          <span className="stat-card-label">TOTAL PENGGUNAAN LISTRIK</span>
-          <div className="stat-card-val-row">
-            <span className="stat-card-value">{totalKwh.toLocaleString('id-ID')} kWh</span>
+          <div className="stat-card-header">
+            <span className="stat-label">Total Pemakaian Listrik</span>
+            <div className="stat-icon-wrap">
+              <IconLightning size={20} />
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1">Tarif resmi subsidi kos: Rp 1.650 / kWh</p>
+          <div className="stat-value">{totalKwh.toLocaleString('id-ID')} kWh</div>
+          <div className="stat-hint">Seluruh kamar terdata</div>
         </div>
 
         <div className="stat-card">
-          <span className="stat-card-label">TOTAL TAGIHAN LISTRIK BULAN INI</span>
-          <div className="stat-card-val-row">
-            <span className="stat-card-value text-primary-green">
-              Rp {totalRupiah.toLocaleString('id-ID')}
-            </span>
+          <div className="stat-card-header">
+            <span className="stat-label">Total Tagihan Listrik</span>
+            <div className="stat-icon-wrap">
+              <IconLightning size={20} />
+            </div>
           </div>
-          <p className="text-xs text-green-700 mt-1">Tercatat di meteran digital setiap kamar</p>
+          <div className="stat-value">Rp {totalRupiah.toLocaleString('id-ID')}</div>
+          <div className="stat-hint">Bulan Oktober 2026</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-card-header">
+            <span className="stat-label">Tarif per kWh</span>
+            <span className="badge-status badge-success">Standar</span>
+          </div>
+          <div className="stat-value">Rp 1.650</div>
+          <div className="stat-hint">Tarif flat kos eksklusif</div>
         </div>
       </div>
 
@@ -105,9 +296,9 @@ export const UtilitasView = () => {
             onChange={(e) => setFilterMonth(e.target.value)}
           >
             <option value="all">Semua Bulan</option>
-            <option value="Oktober">Oktober 2026</option>
-            <option value="September">September 2026</option>
-            <option value="Agustus">Agustus 2026</option>
+            <option value="Oktober 2026">Oktober 2026</option>
+            <option value="September 2026">September 2026</option>
+            <option value="Agustus 2026">Agustus 2026</option>
           </select>
 
           <select
@@ -121,29 +312,27 @@ export const UtilitasView = () => {
           </select>
         </div>
 
-        {currentUser.role !== 'owner' && (
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <IconPlus size={16} />
-            <span>Input Meteran Listrik Baru</span>
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={openInputForm}
+        >
+          <IconPlus size={16} />
+          <span>Input Meteran Listrik</span>
+        </button>
       </div>
 
-      {/* Electricity Bills Table */}
+      {/* Table */}
       <div className="dashboard-card no-padding">
         <div className="table-responsive-wrapper">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Bulan & Periode</th>
+                <th>Bulan</th>
                 <th>Kamar & Penghuni</th>
                 <th>Meter Awal</th>
                 <th>Meter Akhir</th>
-                <th>Pemakaian (kWh)</th>
+                <th>Pemakaian</th>
                 <th>Tarif/kWh</th>
                 <th>Total Tagihan</th>
                 <th>Status</th>
@@ -198,119 +387,6 @@ export const UtilitasView = () => {
           </table>
         </div>
       </div>
-
-      {/* Input Modal */}
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content-card">
-            <h3 className="modal-title">Input Meteran Listrik Bulanan</h3>
-            <p className="modal-subtitle">
-              Pencatatan angka kWh meteran kamar penghuni Gladiola Guest House
-            </p>
-
-            <form onSubmit={handleSubmit} className="modal-form-grid">
-              <div className="form-group">
-                <label className="form-label">Pilih Kamar *</label>
-                <select
-                  className="form-select"
-                  value={formData.roomNumber}
-                  onChange={(e) => handleRoomChange(e.target.value)}
-                >
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.number}>
-                      Kamar {r.number} ({r.currentTenant || 'Kosong'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Periode Bulan *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.month}
-                  onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Angka Meter Awal (kWh) *</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={formData.meterStart}
-                  onChange={(e) => setFormData({ ...formData, meterStart: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Angka Meter Akhir (kWh) *</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={formData.meterEnd}
-                  onChange={(e) => setFormData({ ...formData, meterEnd: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Tarif per kWh (Rp)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={formData.ratePerKwh}
-                  onChange={(e) => setFormData({ ...formData, ratePerKwh: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Status Pembayaran</label>
-                <select
-                  className="form-select"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <option value="Belum Bayar">Belum Bayar</option>
-                  <option value="Lunas">Lunas</option>
-                </select>
-              </div>
-
-              {/* Live Calculation Preview */}
-              <div className="calculation-preview-box full-width">
-                <div className="calc-row">
-                  <span>Pemakaian Bersih:</span>
-                  <strong>{kwhUsage} kWh</strong>
-                </div>
-                <div className="calc-row">
-                  <span>Total Tagihan Listrik:</span>
-                  <strong className="text-primary-green">
-                    Rp {totalBill.toLocaleString('id-ID')}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="modal-actions-row">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn-primary">
-                  <IconCheck size={16} />
-                  <span>Simpan Tagihan Listrik</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

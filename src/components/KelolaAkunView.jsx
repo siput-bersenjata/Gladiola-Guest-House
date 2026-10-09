@@ -9,7 +9,8 @@ import {
   IconSearch,
   IconPhone,
   IconLock,
-  IconKey
+  IconKey,
+  IconArrowLeft
 } from './Icons';
 
 export const KelolaAkunView = () => {
@@ -22,7 +23,9 @@ export const KelolaAkunView = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // 'list' or 'form' (dedicated full-page view for editing/adding)
+  const [viewMode, setViewMode] = useState('list');
   const [editingAccount, setEditingAccount] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -36,7 +39,7 @@ export const KelolaAkunView = () => {
     status: 'Aktif'
   });
 
-  const openAddModal = () => {
+  const openAddForm = () => {
     setEditingAccount(null);
     setFormData({
       username: '',
@@ -48,10 +51,10 @@ export const KelolaAkunView = () => {
       status: 'Aktif'
     });
     setShowPassword(false);
-    setIsModalOpen(true);
+    setViewMode('form');
   };
 
-  const openEditModal = (acc) => {
+  const openEditForm = (acc) => {
     setEditingAccount(acc);
     setFormData({
       username: acc.username,
@@ -63,7 +66,7 @@ export const KelolaAkunView = () => {
       status: acc.status || 'Aktif'
     });
     setShowPassword(false);
-    setIsModalOpen(true);
+    setViewMode('form');
   };
 
   const handleSubmit = (e) => {
@@ -72,7 +75,7 @@ export const KelolaAkunView = () => {
       ...(editingAccount ? { id: editingAccount.id } : {}),
       ...formData
     });
-    setIsModalOpen(false);
+    setViewMode('list');
   };
 
   const filteredAccounts = systemAccounts.filter((acc) => {
@@ -89,6 +92,191 @@ export const KelolaAkunView = () => {
   const countOp = systemAccounts.filter((a) => a.role === 'operator').length;
   const countOwner = systemAccounts.filter((a) => a.role === 'owner').length;
 
+  // =========================================================================
+  // DEDICATED FULL-PAGE FORM VIEW (NO CUT-OFF POPUP MODAL)
+  // =========================================================================
+  if (viewMode === 'form') {
+    return (
+      <div className="form-page-container">
+        {/* Top Navigation & Breadcrumb */}
+        <div className="form-page-topbar">
+          <button
+            type="button"
+            className="btn-back-nav"
+            onClick={() => setViewMode('list')}
+          >
+            <IconArrowLeft size={18} />
+            <span>Kembali ke Daftar Akun</span>
+          </button>
+
+          <div className="form-page-title-group">
+            <h2 className="form-page-heading">
+              {editingAccount ? `Ubah Akun Sistem: @${editingAccount.username}` : 'Tambah Akun Manajemen Baru'}
+            </h2>
+            <p className="form-page-subheading">
+              {editingAccount
+                ? `Perbarui kata sandi, nama lengkap, hak akses (role), dan kontak akun ${editingAccount.name}`
+                : 'Daftarkan kredensial baru untuk Super Admin, Pengelola Kos, atau Pemilik (Owner)'}
+            </p>
+          </div>
+        </div>
+
+        {/* Dedicated Full Form Card */}
+        <div className="form-page-card">
+          <form onSubmit={handleSubmit} className="form-page-content">
+            <div className="form-section-block">
+              <div className="form-section-header">
+                <IconKey size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">Kredensial Login & Hak Akses</h3>
+                  <p className="form-section-subtitle">
+                    Username unik, kata sandi terenkripsi, dan tingkat kewenangan sistem
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid">
+                <div className="form-group">
+                  <label className="form-label">Username Akun *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="Contoh: admin_taman"
+                    required
+                    autoFocus
+                  />
+                  <span className="field-hint">Digunakan saat masuk ke sistem pada form login manajemen</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Kata Sandi (Password) *</label>
+                  <div className="password-input-wrap">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className="form-input"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Masukkan kata sandi akun"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="btn-toggle-eye"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label="Toggle Password Visibility"
+                    >
+                      {showPassword ? '👁️' : '👁️‍🗨️'}
+                    </button>
+                  </div>
+                  <span className="field-hint">Pastikan kata sandi aman dan terjaga kerahasiaannya</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Hak Akses (Role Sistem) *</label>
+                  <select
+                    className="form-select"
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    required
+                  >
+                    <option value="operator">Pengelola / Operator (Kasir Pembayaran, Meteran Listrik & Data Kos)</option>
+                    <option value="super_admin">Super Admin (Akses Penuh Seluruh Sistem & Monitoring Lokasi)</option>
+                    <option value="owner">Pemilik / Owner (Laporan Okupansi & Keuangan Read-Only)</option>
+                  </select>
+                  <span className="field-hint">Kewenangan yang diberikan kepada pengguna ini</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Status Akun</label>
+                  <select
+                    className="form-select"
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  >
+                    <option value="Aktif">Aktif (Dapat Login)</option>
+                    <option value="Nonaktif">Nonaktif (Akses Dinonaktifkan)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="form-section-block">
+              <div className="form-section-header">
+                <IconShield size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">Profil & Kontak Pengguna</h3>
+                  <p className="form-section-subtitle">
+                    Identitas nama lengkap dan kontak penanggung jawab
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid">
+                <div className="form-group">
+                  <label className="form-label">Nama Lengkap & Panggilan *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Contoh: Siti Amalia (Admin)"
+                    required
+                  />
+                  <span className="field-hint">Nama yang akan tampil pada header sistem dan audit log</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Nomor Handphone (WhatsApp) *</label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="Contoh: 081234567890"
+                    required
+                  />
+                  <span className="field-hint">Kontak aktif untuk koordinasi internal</span>
+                </div>
+
+                <div className="form-group full-width">
+                  <label className="form-label">Alamat Email Resmi</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Contoh: staff@gladiolaguesthouse.id"
+                  />
+                  <span className="field-hint">Email operasional untuk notifikasi sistem (opsional)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions Bar */}
+            <div className="form-page-actions-bar">
+              <button
+                type="button"
+                className="btn-secondary-action"
+                onClick={() => setViewMode('list')}
+              >
+                Batal & Kembali
+              </button>
+              <button type="submit" className="btn-primary-action">
+                <IconCheck size={18} />
+                <span>{editingAccount ? 'Simpan Perubahan Akun' : 'Buat Akun Sistem'}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // LIST VIEW
+  // =========================================================================
   return (
     <div className="kelola-akun-page">
       {/* Page Header */}
@@ -106,7 +294,7 @@ export const KelolaAkunView = () => {
         <button
           type="button"
           className="btn-primary"
-          onClick={openAddModal}
+          onClick={openAddForm}
         >
           <IconPlus size={16} />
           <span>Tambah Akun Baru</span>
@@ -266,8 +454,8 @@ export const KelolaAkunView = () => {
                         <button
                           type="button"
                           className="btn-icon-action"
-                          onClick={() => openEditModal(acc)}
-                          title="Ubah Akun"
+                          onClick={() => openEditForm(acc)}
+                          title="Ubah Akun (Pindah Halaman)"
                         >
                           <IconEdit size={16} />
                         </button>
@@ -295,131 +483,6 @@ export const KelolaAkunView = () => {
           </table>
         </div>
       </div>
-
-      {/* Add / Edit Account Modal */}
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content-card max-w-lg">
-            <h3 className="modal-title">
-              {editingAccount ? `Ubah Akun @${editingAccount.username}` : 'Tambah Akun Manajemen Baru'}
-            </h3>
-            <p className="modal-subtitle">
-              Pastikan informasi login dan peran akses sesuai dengan tanggung jawab pengguna.
-            </p>
-
-            <form onSubmit={handleSubmit} className="modal-form-grid mt-4">
-              <div className="form-group">
-                <label className="form-label">Username Akun *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="Contoh: admin_taman"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Kata Sandi (Password) *</label>
-                <div className="password-input-wrap">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="form-input"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Masukkan kata sandi"
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="btn-toggle-eye"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label="Toggle Password Visibility"
-                  >
-                    {showPassword ? '👁️' : '👁️‍🗨️'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Nama Lengkap & Panggilan *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Contoh: Siti Amalia (Admin)"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Hak Akses (Role Sistem) *</label>
-                <select
-                  className="form-input"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  required
-                >
-                  <option value="operator">Pengelola / Operator (Kasir & Meteran Listrik)</option>
-                  <option value="super_admin">Super Admin (Akses Penuh & Monitoring Lokasi)</option>
-                  <option value="owner">Pemilik / Owner (Laporan & Keuangan Read-Only)</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Nomor Handphone (WhatsApp) *</label>
-                <input
-                  type="tel"
-                  className="form-input"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Contoh: 081234567890"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Alamat Email</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Contoh: staff@gladiolaguesthouse.id"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Status Akun</label>
-                <select
-                  className="form-input"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <option value="Aktif">Aktif</option>
-                  <option value="Nonaktif">Nonaktif</option>
-                </select>
-              </div>
-
-              <div className="modal-actions-row">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn-primary">
-                  <IconCheck size={16} />
-                  <span>Simpan Akun</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
