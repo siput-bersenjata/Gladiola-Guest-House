@@ -214,9 +214,9 @@ export const PetugasView = () => {
       {/* Header Toolbar */}
       <div className="section-toolbar">
         <div>
-          <h3 className="card-headline">Daftar Petugas Operasional & Rating Penghuni</h3>
+          <h2 className="card-headline">Tim Operasional Lapangan</h2>
           <p className="card-subheadline">
-            Penghuni dapat menghubungi via WhatsApp dan wajib memberikan ulasan setelah pembayaran tervalidasi
+            Kontak WhatsApp staf jaga dan informasi shift kerja aktif
           </p>
         </div>
 
@@ -242,17 +242,15 @@ export const PetugasView = () => {
                 <h4 className="staff-card-name">{staff.name}</h4>
                 <span className="staff-card-role">{staff.role}</span>
                 <div className="staff-rating-badge">
-                  <IconStar size={13} filled={true} className="text-yellow-400" />
+                  <IconStar size={13} filled={true} className="star-gold" />
                   <span>{staff.avgRating} ({staff.totalReviews} Ulasan)</span>
                 </div>
               </div>
             </div>
 
-            <div className="staff-info-row">
-              <div className="info-meta">
-                <IconClock size={14} className="text-gray-400" />
-                <span>Shift: {staff.shift}</span>
-              </div>
+            <div className="staff-shift-row">
+              <IconClock size={14} className="text-gray-400" />
+              <span>Shift: <strong>{staff.shift}</strong></span>
             </div>
 
             <div className="staff-actions-row">
@@ -267,7 +265,7 @@ export const PetugasView = () => {
               </a>
 
               {canManageStaff && (
-                <div className="flex gap-1">
+                <div className="staff-action-buttons">
                   <button
                     type="button"
                     className="btn-icon-action"
@@ -296,7 +294,7 @@ export const PetugasView = () => {
       </div>
 
       {/* Reviews & Ratings Section */}
-      <div className="dashboard-card">
+      <div className="dashboard-card reviews-card-wrapper">
         <div className="chart-card-header">
           <div>
             <h3 className="card-headline">Daftar Rating & Ulasan dari Anak Kos</h3>
@@ -305,55 +303,80 @@ export const PetugasView = () => {
             </p>
           </div>
 
-          <select
-            className="filter-select"
-            value={selectedStaffFilter}
-            onChange={(e) => setSelectedStaffFilter(e.target.value)}
-          >
-            <option value="all">Semua Petugas</option>
-            {staffList.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.avgRating} ★)
-              </option>
-            ))}
-          </select>
+          <div className="reviews-filter-box">
+            <span className="filter-label">Filter Petugas:</span>
+            <select
+              className="filter-select"
+              value={selectedStaffFilter}
+              onChange={(e) => setSelectedStaffFilter(e.target.value)}
+            >
+              <option value="all">Semua Petugas ({staffRatings.length})</option>
+              {staffList.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.avgRating} ★)
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="reviews-list-grid mt-4">
+        <div className="reviews-list-grid">
           {filteredRatings.length > 0 ? (
             filteredRatings.map((rev) => (
               <div key={rev.id} className="review-item-card">
-                <div className="review-header">
-                  <div>
-                    <strong className="text-gray-900 block">{rev.tenantName}</strong>
-                    <span className="text-xs text-gray-500 font-mono">
-                      {rev.room} • {rev.verifiedPaymentMonth}
-                    </span>
+                <div className="review-card-header">
+                  <div className="review-author-meta">
+                    <div className="review-author-avatar">
+                      {rev.tenantName ? rev.tenantName.charAt(0) : 'P'}
+                    </div>
+                    <div className="review-author-text">
+                      <strong className="review-tenant-name">{rev.tenantName}</strong>
+                      <div className="review-tags-wrap">
+                        <span className="badge-room-tag">{rev.room}</span>
+                        <span className="badge-period-tag">{rev.verifiedPaymentMonth}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="review-stars-wrap">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <IconStar
-                        key={i}
-                        size={14}
-                        filled={i < rev.rating}
-                        className={i < rev.rating ? 'text-yellow-400' : 'text-gray-300'}
-                      />
-                    ))}
-                    <span className="text-xs font-bold text-gray-700 ml-1">{rev.rating}.0</span>
+
+                  <div className="review-stars-pill">
+                    <div className="review-stars-icons">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <IconStar
+                          key={i}
+                          size={13}
+                          filled={i < rev.rating}
+                          className={i < rev.rating ? 'star-gold' : 'star-muted'}
+                        />
+                      ))}
+                    </div>
+                    <span className="review-rating-num">{rev.rating}.0</span>
                   </div>
                 </div>
 
-                <div className="review-target-pill">
-                  <span>Untuk: <strong>{rev.staffName}</strong></span>
+                <div className="review-recipient-banner">
+                  <span className="recipient-label">Ulasan untuk:</span>
+                  <span className="recipient-name">{rev.staffName}</span>
                 </div>
 
-                <p className="review-comment-text">"{rev.comment}"</p>
-                <span className="review-date-text">{rev.date}</span>
+                <div className="review-body-box">
+                  <p className="review-comment-paragraph">"{rev.comment}"</p>
+                </div>
+
+                <div className="review-card-footer">
+                  <div className="review-timestamp">
+                    <IconClock size={13} className="text-gray-400" />
+                    <span>{rev.date}</span>
+                  </div>
+                  <div className="review-verified-tag">
+                    <IconCheck size={12} className="text-forest-600" />
+                    <span>Pembayaran Tervalidasi</span>
+                  </div>
+                </div>
               </div>
             ))
           ) : (
-            <div className="py-8 text-center text-gray-400 col-span-2">
-              Belum ada ulasan untuk filter petugas ini.
+            <div className="reviews-empty-state">
+              <p>Belum ada ulasan untuk filter petugas ini.</p>
             </div>
           )}
         </div>
