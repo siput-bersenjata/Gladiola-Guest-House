@@ -4428,5 +4428,288 @@ html, body {
   box-shadow: 0 6px 18px rgba(22, 57, 40, 0.28);
 }
 
+/* ==========================================================================
+   SEARCHABLE ROOM DROPDOWN (PENCARIAN CEPAT)
+   ========================================================================== */
+.searchable-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.searchable-select-trigger:hover {
+  border-color: var(--forest-500);
+}
+
+.searchable-select-trigger.is-active,
+.searchable-select-trigger:focus {
+  border-color: var(--forest-700);
+  box-shadow: 0 0 0 3px rgba(22, 57, 40, 0.1);
+}
+
+.trigger-left-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.trigger-room-icon {
+  color: var(--forest-600);
+  flex-shrink: 0;
+}
+
+.trigger-selected-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trigger-tenant-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.trigger-placeholder {
+  color: var(--text-subtle);
+  font-size: 0.86rem;
+}
+
+.trigger-right-content {
+  margin-left: 8px;
+}
+
+.trigger-arrow-icon {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.searchable-select-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1.5px solid var(--forest-600);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(16, 38, 27, 0.16);
+  z-index: 1000;
+  overflow: hidden;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.searchable-select-header {
+  padding: 10px;
+  background: var(--forest-50);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dropdown-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  transition: border-color 0.15s ease;
+}
+
+.dropdown-search-box:focus-within {
+  border-color: var(--forest-600);
+  box-shadow: 0 0 0 2px rgba(22, 57, 40, 0.08);
+}
+
+.search-icon-left {
+  color: var(--forest-600);
+  flex-shrink: 0;
+}
+
+.dropdown-search-input {
+  border: none;
+  outline: none;
+  font-size: 0.86rem;
+  font-family: inherit;
+  color: var(--text-main);
+  width: 100%;
+  background: transparent;
+}
+
+.btn-clear-search {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.btn-clear-search:hover {
+  color: var(--text-main);
+}
+
+.dropdown-search-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+.hint-active-tag {
+  color: var(--forest-700);
+  font-weight: 700;
+}
+
+.searchable-select-options-list {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.searchable-option-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.searchable-option-item:hover {
+  background: var(--forest-50);
+  border-color: var(--forest-100);
+}
+
+.searchable-option-item.selected {
+  background: var(--forest-100);
+  border-color: var(--forest-300);
+}
+
+.option-info-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.option-room-badge {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--forest-800);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.option-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.option-tenant-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.option-room-type {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.option-info-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.badge-status-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.badge-terisi {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-booking {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-kosong {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.searchable-no-options {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.searchable-no-options p {
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
 
 

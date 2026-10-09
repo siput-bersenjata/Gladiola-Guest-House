@@ -709,11 +709,32 @@ export const AppProvider = ({ children }) => {
     addToast('Akun operator berhasil dihapus', 'info');
   };
 
-  // System Accounts CRUD (Super Admin)
+  // System Accounts CRUD (Super Admin, Owner, Operator)
   const handleSaveAccount = (accData) => {
-    if (currentUser && currentUser.role !== 'super_admin') {
-      addToast('Hanya Super Admin yang dapat mengelola akun sistem!', 'error');
+    const isSuper = currentUser && currentUser.role === 'super_admin';
+    const isOwner = currentUser && currentUser.role === 'owner';
+    const isOperator = currentUser && currentUser.role === 'operator';
+
+    if (!isSuper && !isOwner && !isOperator) {
+      addToast('Anda tidak memiliki wewenang mengelola akun sistem!', 'error');
       return;
+    }
+
+    // Role-specific constraints for Operator:
+    if (isOperator) {
+      // Adding new account: only operator role allowed
+      if (!accData.id && accData.role !== 'operator') {
+        addToast('Pengelola hanya dapat menambahkan akun Pengelola / Operator!', 'error');
+        return;
+      }
+      // Editing existing account: only operator accounts can be edited
+      if (accData.id) {
+        const target = systemAccounts.find((a) => a.id === accData.id);
+        if (target && target.role !== 'operator') {
+          addToast('Pengelola hanya dapat mengedit akun sesama Pengelola / Operator!', 'error');
+          return;
+        }
+      }
     }
 
     if (accData.id) {
@@ -730,8 +751,8 @@ export const AppProvider = ({ children }) => {
           role: accData.role
         }));
       }
-      logActivity('Ubah Akun Sistem', `Memperbarui akun: ${accData.username} (${accData.role})`);
-      addToast(`Akun ${accData.username} berhasil diperbarui`, 'success');
+      logActivity('Ubah Akun Sistem', `Memperbarui akun: ${accData.username} (${accData.role}) oleh ${currentUser.name}`);
+      addToast(`Akun @${accData.username} berhasil diperbarui`, 'success');
     } else {
       // Add
       const newAcc = {
@@ -741,25 +762,38 @@ export const AppProvider = ({ children }) => {
         createdAt: new Date().toISOString().split('T')[0]
       };
       setSystemAccounts((prev) => [...prev, newAcc]);
-      logActivity('Tambah Akun Sistem Baru', `Membuat akun baru: ${newAcc.username} (${newAcc.role})`);
-      addToast(`Akun ${newAcc.username} (${newAcc.name}) berhasil dibuat`, 'success');
+      logActivity('Tambah Akun Sistem Baru', `Membuat akun baru: ${newAcc.username} (${newAcc.role}) oleh ${currentUser.name}`);
+      addToast(`Akun @${newAcc.username} (${newAcc.name}) berhasil dibuat`, 'success');
     }
   };
 
   const handleDeleteAccount = (accId) => {
-    if (currentUser && currentUser.role !== 'super_admin') {
-      addToast('Hanya Super Admin yang dapat menghapus akun!', 'error');
+    const isSuper = currentUser && currentUser.role === 'super_admin';
+    const isOwner = currentUser && currentUser.role === 'owner';
+
+    // Operator is NOT allowed to delete accounts!
+    if (!isSuper && !isOwner) {
+      addToast('Pengelola tidak memiliki hak akses untuk menghapus akun sistem!', 'error');
       return;
     }
+
     const target = systemAccounts.find((a) => a.id === accId);
     if (!target) return;
+
     if (currentUser && currentUser.username === target.username) {
       addToast('Tidak dapat menghapus akun yang sedang Anda gunakan!', 'error');
       return;
     }
+
+    // Owner can only delete operator accounts, cannot delete super_admin or other owners
+    if (isOwner && target.role !== 'operator') {
+      addToast('Owner hanya berwenang menghapus akun Pengelola (Operator)!', 'error');
+      return;
+    }
+
     setSystemAccounts((prev) => prev.filter((a) => a.id !== accId));
-    logActivity('Hapus Akun Sistem', `Menghapus akun ${target.username} (${target.role})`);
-    addToast(`Akun ${target.username} berhasil dihapus`, 'info');
+    logActivity('Hapus Akun Sistem', `Menghapus akun @${target.username} (${target.role}) oleh ${currentUser.name}`);
+    addToast(`Akun @${target.username} (${target.name}) berhasil dihapus`, 'info');
   };
 
   const refreshActiveSessions = () => {

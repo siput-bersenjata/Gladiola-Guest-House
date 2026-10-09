@@ -9,6 +9,7 @@ import {
   IconArrowLeft,
   IconRoom
 } from './Icons';
+import { SearchableRoomSelect } from './SearchableRoomSelect';
 
 export const UtilitasView = () => {
   const {
@@ -118,18 +119,13 @@ export const UtilitasView = () => {
 
               <div className="form-responsive-grid">
                 <div className="form-group">
-                  <label className="form-label">Pilih Kamar *</label>
-                  <select
-                    className="form-select"
+                  <label className="form-label">Pilih Kamar * (Pencarian Cepat)</label>
+                  <SearchableRoomSelect
+                    rooms={rooms}
                     value={formData.roomNumber}
-                    onChange={(e) => handleRoomChange(e.target.value)}
-                  >
-                    {rooms.map((r) => (
-                      <option key={r.id} value={r.number}>
-                        Kamar {r.number} ({r.currentTenant || 'Kosong'})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(roomNum) => handleRoomChange(roomNum)}
+                    placeholder="Pilih atau cari nomor kamar..."
+                  />
                   <span className="field-hint">Penghuni terhubung otomatis: <strong>{formData.tenantName}</strong> ({formData.tenantPhone})</span>
                 </div>
 

@@ -12,6 +12,7 @@ import {
   IconCheck,
   IconArrowLeft
 } from './Icons';
+import { SearchableRoomSelect } from './SearchableRoomSelect';
 
 export const PenyewaView = () => {
   const {
@@ -183,18 +184,20 @@ export const PenyewaView = () => {
 
               <div className="form-responsive-grid">
                 <div className="form-group">
-                  <label className="form-label">Pilih Nomor Kamar *</label>
-                  <select
-                    className="form-select"
+                  <label className="form-label">Pilih Nomor Kamar * (Pencarian Cepat)</label>
+                  <SearchableRoomSelect
+                    rooms={rooms}
                     value={formData.roomNumber}
-                    onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })}
-                  >
-                    {rooms.map((r) => (
-                      <option key={r.id} value={r.number}>
-                        Kamar {r.number} ({r.type} - Status: {r.status})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(roomNum) => {
+                      const matched = rooms.find((r) => String(r.number) === String(roomNum));
+                      setFormData({
+                        ...formData,
+                        roomNumber: roomNum,
+                        ...(matched ? { roomType: matched.type, monthlyRent: matched.price } : {})
+                      });
+                    }}
+                    placeholder="Pilih atau cari nomor kamar..."
+                  />
                   <span className="field-hint">Pilih dari 50 kamar di lantai 1 - 3 Gladiola</span>
                 </div>
 

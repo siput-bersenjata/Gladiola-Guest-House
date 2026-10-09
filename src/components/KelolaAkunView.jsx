@@ -21,6 +21,10 @@ export const KelolaAkunView = () => {
     currentUser
   } = useApp();
 
+  const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
+  const isOwner = currentUser && currentUser.role === 'owner';
+  const isOperator = currentUser && currentUser.role === 'operator';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   
@@ -45,7 +49,7 @@ export const KelolaAkunView = () => {
       username: '',
       password: '',
       name: '',
-      role: 'operator',
+      role: 'operator', // If operator, always default and lock to operator
       phone: '',
       email: '',
       status: 'Aktif'
@@ -55,12 +59,17 @@ export const KelolaAkunView = () => {
   };
 
   const openEditForm = (acc) => {
+    // If current user is operator, verify they are only editing operator accounts
+    if (isOperator && acc.role !== 'operator' && acc.username !== currentUser.username) {
+      return;
+    }
+
     setEditingAccount(acc);
     setFormData({
       username: acc.username,
       password: acc.password || '',
       name: acc.name,
-      role: acc.role,
+      role: isOperator ? 'operator' : acc.role,
       phone: acc.phone || '',
       email: acc.email || '',
       status: acc.status || 'Aktif'
@@ -71,9 +80,11 @@ export const KelolaAkunView = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const finalRole = isOperator ? 'operator' : formData.role;
     handleSaveAccount({
       ...(editingAccount ? { id: editingAccount.id } : {}),
-      ...formData
+      ...formData,
+      role: finalRole
     });
     setViewMode('list');
   };
@@ -175,17 +186,34 @@ export const KelolaAkunView = () => {
 
                 <div className="form-group">
                   <label className="form-label">Hak Akses (Role Sistem) *</label>
-                  <select
-                    className="form-select"
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    required
-                  >
-                    <option value="operator">Pengelola / Operator (Kasir Pembayaran, Meteran Listrik & Data Kos)</option>
-                    <option value="super_admin">Super Admin (Akses Penuh Seluruh Sistem & Monitoring Lokasi)</option>
-                    <option value="owner">Pemilik / Owner (Laporan Okupansi & Keuangan Read-Only)</option>
-                  </select>
-                  <span className="field-hint">Kewenangan yang diberikan kepada pengguna ini</span>
+                  {isOperator ? (
+                    <div>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value="Pengelola / Operator Kos"
+                        disabled
+                        style={{ background: '#f8fafc', color: '#163928', fontWeight: 600 }}
+                      />
+                      <span className="field-hint">
+                        Sebagai Pengelola, Anda berwenang membuat dan memperbarui akun sesama Pengelola / Operator Kos.
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        className="form-select"
+                        value={formData.role}
+                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                        required
+                      >
+                        <option value="operator">Pengelola / Operator (Kasir Pembayaran, Meteran Listrik & Data Kos)</option>
+                        <option value="super_admin">Super Admin (Akses Penuh Seluruh Sistem & Monitoring Lokasi)</option>
+                        <option value="owner">Pemilik / Owner (Laporan Okupansi & Keuangan Read-Only)</option>
+                      </select>
+                      <span className="field-hint">Kewenangan yang diberikan kepada pengguna ini</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -279,15 +307,30 @@ export const KelolaAkunView = () => {
   // =========================================================================
   return (
     <div className="kelola-akun-page">
+      {/* Role Notice for Operator */}
+      {isOperator && (
+        <div className="owner-readonly-banner" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534', marginBottom: '20px' }}>
+          <IconShield size={20} className="text-emerald-700" />
+          <div>
+            <strong className="block text-emerald-900">Hak Akses Kelola Akun: Pengelola Kos</strong>
+            <span className="text-sm text-emerald-800">
+              Anda berwenang menambah akun pengelola baru dan mengubah data akun pengelola. Fitur penghapusan akun dinonaktifkan untuk Pengelola dan dikhususkan untuk Pemilik (Owner) serta Super Admin.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="section-toolbar mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <IconKey size={26} className="text-primary-green" />
-            <span>Kelola Akun Manajemen & Sistem</span>
+            <span>{isOperator ? 'Kelola Akun Pengelola Kos' : 'Kelola Akun Manajemen & Sistem'}</span>
           </h2>
           <p className="card-subheadline">
-            Kontrol akses akun Super Admin, Pengelola / Operator Kos, dan Pemilik (Owner) Gladiola
+            {isOperator
+              ? 'Tambah akun pengelola baru atau ubah data akun pengelola operasional Gladiola'
+              : 'Kontrol akses akun Super Admin, Pengelola / Operator Kos, dan Pemilik (Owner) Gladiola'}
           </p>
         </div>
 
@@ -297,7 +340,7 @@ export const KelolaAkunView = () => {
           onClick={openAddForm}
         >
           <IconPlus size={16} />
-          <span>Tambah Akun Baru</span>
+          <span>{isOperator ? 'Tambah Akun Pengelola' : 'Tambah Akun Baru'}</span>
         </button>
       </div>
 
@@ -451,29 +494,54 @@ export const KelolaAkunView = () => {
 
                     <td>
                       <div className="action-buttons-row">
-                        <button
-                          type="button"
-                          className="btn-icon-action"
-                          onClick={() => openEditForm(acc)}
-                          title="Ubah Akun (Pindah Halaman)"
-                        >
-                          <IconEdit size={16} />
-                        </button>
+                        {/* Edit Button: Operator can edit their own or other operator accounts */}
+                        {(!isOperator || acc.role === 'operator' || isCurrent) ? (
+                          <button
+                            type="button"
+                            className="btn-icon-action"
+                            onClick={() => openEditForm(acc)}
+                            title="Ubah Data Akun (Pindah Halaman)"
+                          >
+                            <IconEdit size={16} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-icon-action"
+                            disabled
+                            style={{ opacity: 0.3, cursor: 'not-allowed' }}
+                            title="Hanya Super Admin atau Owner yang dapat mengedit akun ini"
+                          >
+                            <IconEdit size={16} />
+                          </button>
+                        )}
 
-                        <button
-                          type="button"
-                          className={`btn-icon-action danger ${isCurrent ? 'opacity-40 cursor-not-allowed' : ''}`}
-                          disabled={isCurrent}
-                          onClick={() => {
-                            if (isCurrent) return;
-                            if (window.confirm(`Hapus akun @${acc.username} (${acc.name})?`)) {
-                              handleDeleteAccount(acc.id);
+                        {/* Delete Button: Strictly hidden for Operator! Available for Super Admin & Owner */}
+                        {!isOperator && (
+                          <button
+                            type="button"
+                            className={`btn-icon-action danger ${
+                              (isCurrent || (isOwner && acc.role !== 'operator')) ? 'opacity-40 cursor-not-allowed' : ''
+                            }`}
+                            disabled={isCurrent || (isOwner && acc.role !== 'operator')}
+                            onClick={() => {
+                              if (isCurrent) return;
+                              if (isOwner && acc.role !== 'operator') return;
+                              if (window.confirm(`Hapus akun @${acc.username} (${acc.name})?`)) {
+                                handleDeleteAccount(acc.id);
+                              }
+                            }}
+                            title={
+                              isCurrent
+                                ? 'Tidak dapat menghapus akun yang sedang digunakan'
+                                : isOwner && acc.role !== 'operator'
+                                ? 'Owner hanya berwenang menghapus akun Pengelola'
+                                : 'Hapus Akun'
                             }
-                          }}
-                          title={isCurrent ? 'Tidak dapat menghapus akun yang sedang digunakan' : 'Hapus Akun'}
-                        >
-                          <IconTrash size={16} />
-                        </button>
+                          >
+                            <IconTrash size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
