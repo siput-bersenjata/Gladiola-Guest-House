@@ -30,7 +30,8 @@ export const Header = () => {
     cloudSyncStatus,
     isCloudSyncing,
     syncWithCloud,
-    lastSyncedTime
+    lastSyncedTime,
+    firebaseConnected
   } = useApp();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -174,7 +175,7 @@ export const Header = () => {
           <span className={`cloud-status-dot ${isCloudSyncing ? 'pulsing' : cloudSyncStatus}`}></span>
           <IconCloud size={14} className={isCloudSyncing ? "text-primary-green spin-animate" : "text-primary-green"} />
           <span className="cloud-chip-text">
-            {isCloudSyncing ? 'Sync...' : cloudSyncStatus === 'offline' ? 'Offline' : 'Cloud Aktif'}
+            {isCloudSyncing ? 'Sync...' : firebaseConnected ? 'Firebase Realtime' : cloudSyncStatus === 'offline' ? 'Offline' : 'Cloud Aktif'}
           </span>
         </button>
 

@@ -27,14 +27,65 @@ export const PengaturanView = () => {
     cloudBinId,
     setCloudBinId,
     syncWithCloud,
-    forcePushLocalToCloud
+    forcePushLocalToCloud,
+    firebaseConfig,
+    firebaseConnected,
+    handleUpdateFirebaseConfig,
+    testFirebaseConnection
   } = useApp();
 
   const [bankFormData, setBankFormData] = useState({ ...bankInfo });
   const [wifiFormData, setWifiFormData] = useState({ ...wifiInfo });
   const [customBinId, setCustomBinId] = useState(cloudBinId);
 
+  // Firebase Realtime Database Form State
+  const [firebaseForm, setFirebaseForm] = useState({
+    databaseURL: firebaseConfig?.databaseURL || '',
+    apiKey: firebaseConfig?.apiKey || '',
+    projectId: firebaseConfig?.projectId || ''
+  });
+  const [isTestingFirebase, setIsTestingFirebase] = useState(false);
+  const [firebaseTestFeedback, setFirebaseTestFeedback] = useState(null);
+  const [showFirebaseGuide, setShowFirebaseGuide] = useState(false);
+
   const canEdit = currentUser.role === 'operator' || currentUser.role === 'super_admin';
+
+  const handleTestFirebase = async () => {
+    if (!firebaseForm.databaseURL) {
+      addToast('Masukkan URL Database Firebase terlebih dahulu!', 'warning');
+      return;
+    }
+    setIsTestingFirebase(true);
+    setFirebaseTestFeedback(null);
+    try {
+      const res = await testFirebaseConnection(firebaseForm);
+      setFirebaseTestFeedback(res);
+      if (res.success) {
+        addToast(res.message, 'success');
+      } else {
+        addToast(res.message, 'error');
+      }
+    } catch (e) {
+      setFirebaseTestFeedback({ success: false, message: e.message });
+    } finally {
+      setIsTestingFirebase(false);
+    }
+  };
+
+  const handleSaveFirebase = async (e) => {
+    e.preventDefault();
+    if (!canEdit) return;
+    await handleUpdateFirebaseConfig(
+      firebaseForm.databaseURL.trim() ? firebaseForm : null
+    );
+  };
+
+  const handleResetFirebase = async () => {
+    if (!canEdit) return;
+    setFirebaseForm({ databaseURL: '', apiKey: '', projectId: '' });
+    setFirebaseTestFeedback(null);
+    await handleUpdateFirebaseConfig(null);
+  };
 
   const handleSaveBank = (e) => {
     e.preventDefault();
@@ -229,52 +280,202 @@ export const PengaturanView = () => {
         </div>
       </div>
 
-      {/* Card 4: Sinkronisasi Multi-Perangkat (Cloud Sync Realtime) */}
+      {/* Card 4: Database Google Firebase (Sinkronisasi Realtime Antar Perangkat) */}
       <div className="dashboard-card mt-6">
         <div className="chart-card-header">
           <div className="icon-badge-box bg-blue-tint">
             <IconCloud size={22} className="text-accent-blue" />
           </div>
           <div>
-            <h3 className="card-headline">Sinkronisasi Cloud Multi-Perangkat (Realtime Sync)</h3>
+            <h3 className="card-headline">Database Cloud & Google Firebase (Sinkronisasi Realtime)</h3>
             <p className="card-subheadline">
-              Memastikan perubahan data langsung tersinkronisasi otomatis saat diakses dari HP, laptop, atau jaringan lain
+              Hubungkan ke Google Firebase Realtime Database (100% Gratis) agar setiap perubahan data anak kos langsung ter-update di semua HP & laptop secara instan
             </p>
           </div>
         </div>
 
         <div className="location-settings-box">
-          <div className="cloud-sync-status-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '14px' }}>
-            <span style={{ fontSize: '0.9rem', color: '#4b5563' }}>Status Koneksi Cloud:</span>
+          {/* Status Bar */}
+          <div className="cloud-sync-status-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <span style={{ fontSize: '0.9rem', color: '#4b5563', fontWeight: 600 }}>Status Sinkronisasi:</span>
             <span style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '4px 12px',
+              padding: '5px 14px',
               borderRadius: '999px',
               fontWeight: 600,
               fontSize: '0.82rem',
-              backgroundColor: cloudSyncStatus === 'offline' ? '#fee2e2' : '#dcfce7',
-              color: cloudSyncStatus === 'offline' ? '#b91c1c' : '#15803d'
+              backgroundColor: firebaseConnected
+                ? '#dcfce7'
+                : cloudSyncStatus === 'offline'
+                ? '#fee2e2'
+                : '#e0f2fe',
+              color: firebaseConnected
+                ? '#15803d'
+                : cloudSyncStatus === 'offline'
+                ? '#b91c1c'
+                : '#0369a1'
             }}>
               <span style={{
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: cloudSyncStatus === 'offline' ? '#ef4444' : '#22c55e'
+                backgroundColor: firebaseConnected
+                  ? '#22c55e'
+                  : cloudSyncStatus === 'offline'
+                  ? '#ef4444'
+                  : '#0ea5e9'
               }}></span>
-              {isCloudSyncing ? 'Sedang Menyinkronkan...' : cloudSyncStatus === 'offline' ? 'Offline / Terputus' : 'Online & Tersinkronisasi'}
+              {isCloudSyncing
+                ? 'Menyinkronkan...'
+                : firebaseConnected
+                ? '🔥 Firebase Realtime Live'
+                : cloudSyncStatus === 'offline'
+                ? 'Offline / Terputus'
+                : 'Cloud Cadangan Aktif'}
             </span>
             <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
               • Terakhir diperbarui: <strong>{lastSyncedTime}</strong>
             </span>
           </div>
 
-          <p className="text-gray-600 text-sm mb-4">
-            Sistem Gladiola dilengkapi integrasi penyimpanan cloud otomatis. Setiap kali Anda menambah atau mengubah data anak kos, tagihan, atau pembayaran di satu perangkat, data akan otomatis tersimpan ke cloud dan sinkron ke seluruh gadget lain secara real-time.
-          </p>
+          {/* Form Konfigurasi Firebase */}
+          <form onSubmit={handleSaveFirebase} className="modal-form-grid" style={{ marginBottom: '18px' }}>
+            <div className="form-group full-width">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>URL Firebase Realtime Database</span>
+                <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 600 }}>Gratis (Spark Plan)</span>
+              </label>
+              <input
+                type="url"
+                className="form-input"
+                placeholder="https://gladiola-kos-default-rtdb.firebaseio.com"
+                value={firebaseForm.databaseURL}
+                onChange={(e) => setFirebaseForm({ ...firebaseForm, databaseURL: e.target.value })}
+                disabled={!canEdit}
+              />
+              <span style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px', display: 'block' }}>
+                Dapatkan gratis dari Firebase Console &gt; Realtime Database (akhiran <code>.firebaseio.com</code>).
+              </span>
+            </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="form-group">
+              <label className="form-label">Project ID Firebase (Opsional)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="gladiola-guest-house"
+                value={firebaseForm.projectId}
+                onChange={(e) => setFirebaseForm({ ...firebaseForm, projectId: e.target.value })}
+                disabled={!canEdit}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">API Key Web (Opsional)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="AIzaSy..."
+                value={firebaseForm.apiKey}
+                onChange={(e) => setFirebaseForm({ ...firebaseForm, apiKey: e.target.value })}
+                disabled={!canEdit}
+              />
+            </div>
+
+            {firebaseTestFeedback && (
+              <div
+                className="full-width"
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  backgroundColor: firebaseTestFeedback.success ? '#f0fdf4' : '#fef2f2',
+                  color: firebaseTestFeedback.success ? '#166534' : '#991b1b',
+                  border: `1px solid ${firebaseTestFeedback.success ? '#bbf7d0' : '#fecaca'}`
+                }}
+              >
+                {firebaseTestFeedback.success ? '✓ ' : '✕ '} {firebaseTestFeedback.message}
+              </div>
+            )}
+
+            {canEdit && (
+              <div className="modal-actions-row full-width" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleTestFirebase}
+                  disabled={isTestingFirebase}
+                >
+                  <IconRefresh size={14} className={isTestingFirebase ? 'spin-animate' : ''} />
+                  <span>{isTestingFirebase ? 'Menguji...' : 'Tes Koneksi Firebase'}</span>
+                </button>
+
+                <button type="submit" className="btn-primary">
+                  <IconCheck size={16} />
+                  <span>Simpan & Terapkan Firebase</span>
+                </button>
+
+                {firebaseConfig?.databaseURL && (
+                  <button
+                    type="button"
+                    className="btn-outline-danger"
+                    onClick={handleResetFirebase}
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    Reset ke Default
+                  </button>
+                )}
+              </div>
+            )}
+          </form>
+
+          {/* Tutorial / Petunjuk Cara Buat Firebase Gratis */}
+          <div style={{
+            border: '1px dashed #cbd5e1',
+            borderRadius: '10px',
+            padding: '14px 16px',
+            backgroundColor: '#f8fafc',
+            marginBottom: '16px'
+          }}>
+            <div
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              onClick={() => setShowFirebaseGuide(!showFirebaseGuide)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, color: '#1e293b', fontSize: '0.88rem' }}>
+                <span>📖 Panduan: Cara Membuat Firebase Realtime Database Gratis (2 Menit)</span>
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#2563eb', fontWeight: 500 }}>
+                {showFirebaseGuide ? 'Tutup Panduan ▲' : 'Buka Panduan ▼'}
+              </span>
+            </div>
+
+            {showFirebaseGuide && (
+              <div style={{ marginTop: '12px', fontSize: '0.82rem', color: '#475569', lineHeight: '1.6' }}>
+                <ol style={{ paddingLeft: '18px', margin: 0 }}>
+                  <li style={{ marginBottom: '6px' }}>
+                    Buka <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>console.firebase.google.com</a> dan login dengan akun Google Anda.
+                  </li>
+                  <li style={{ marginBottom: '6px' }}>
+                    Klik <strong>"Tambahkan project"</strong> (Add Project) &gt; Beri nama <em>Gladiola Kos</em> &gt; Klik Lanjutkan.
+                  </li>
+                  <li style={{ marginBottom: '6px' }}>
+                    Di menu navigasi kiri, pilih <strong>Build &gt; Realtime Database</strong> &gt; Klik tombol <strong>Create Database</strong> (Pilih lokasi terdekat: <em>Singapore</em> atau <em>United States</em>).
+                  </li>
+                  <li style={{ marginBottom: '6px' }}>
+                    Pada pilihan Security rules, pilih <strong>Start in test mode</strong> (agar izin baca/tulis aktif).
+                  </li>
+                  <li>
+                    Salin <strong>URL Database</strong> yang muncul di bagian atas (berformat <code>https://nama-project-default-rtdb.firebaseio.com/</code>), lalu tempelkan ke kolom URL Firebase di atas dan klik <strong>Simpan & Terapkan</strong>.
+                  </li>
+                </ol>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Sync Action Buttons */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
             <button
               type="button"
               className="btn-primary"

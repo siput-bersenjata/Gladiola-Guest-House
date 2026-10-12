@@ -14,6 +14,14 @@ import {
   INITIAL_OPERATORS,
   INITIAL_ACTIVITY_LOGS
 } from '../data/initialData';
+import {
+  getStoredFirebaseConfig,
+  saveStoredFirebaseConfig,
+  subscribeToFirebase,
+  pushDataToFirebase,
+  fetchOnceFromFirebase,
+  testFirebaseConnection
+} from '../services/firebaseSync';
 
 const AppContext = createContext(null);
 
@@ -137,9 +145,18 @@ export const AppProvider = ({ children }) => {
   );
   const [isLocationEnforcedModalOpen, setIsLocationEnforcedModalOpen] = useState(false);
 
-  // Default Cloud Storage Bin ID
-  const DEFAULT_CLOUD_BIN = 'dcceadc';
-  const [cloudBinId, setCloudBinId] = useState(() => loadState('cloudBinId', DEFAULT_CLOUD_BIN));
+  // Default Cloud Storage Bin ID (Clean seeded bin 'afebcbe')
+  const DEFAULT_CLOUD_BIN = 'afebcbe';
+  const [cloudBinId, setCloudBinId] = useState(() => {
+    const saved = loadState('cloudBinId', DEFAULT_CLOUD_BIN);
+    // Migrate corrupted legacy bin automatically
+    return saved === 'dcceadc' || !saved ? DEFAULT_CLOUD_BIN : saved;
+  });
+
+  // Google Firebase Realtime Database configuration
+  const [firebaseConfig, setFirebaseConfig] = useState(() => getStoredFirebaseConfig());
+  const [firebaseConnected, setFirebaseConnected] = useState(false);
+
   const [cloudSyncStatus, setCloudSyncStatus] = useState('synced'); // 'synced' | 'syncing' | 'offline'
   const [lastSyncedTime, setLastSyncedTime] = useState(() => {
     return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
@@ -203,38 +220,63 @@ export const AppProvider = ({ children }) => {
   useEffect(() => saveState('logs', activityLogs), [activityLogs]);
   useEffect(() => saveState('cloudBinId', cloudBinId), [cloudBinId]);
 
+  // Apply remote payload cleanly across all local states
+  const applyRemoteData = (cloudData) => {
+    if (!cloudData || !Array.isArray(cloudData.tenants) || cloudData.tenants.length === 0) return;
+    const remoteTime = cloudData.updatedAt || 0;
+    if (remoteTime > lastUploadedTimestampRef.current) {
+      isApplyingRemoteRef.current = true;
+      setTenants(cloudData.tenants);
+      if (Array.isArray(cloudData.rooms)) setRooms(cloudData.rooms);
+      if (Array.isArray(cloudData.payments)) setPayments(cloudData.payments);
+      if (Array.isArray(cloudData.electricityBills)) setElectricityBills(cloudData.electricityBills);
+      if (Array.isArray(cloudData.staffList)) setStaffList(cloudData.staffList);
+      if (Array.isArray(cloudData.staffRatings)) setStaffRatings(cloudData.staffRatings);
+      if (cloudData.bankInfo) setBankInfo(cloudData.bankInfo);
+      if (cloudData.wifiInfo) setWifiInfo(cloudData.wifiInfo);
+      if (Array.isArray(cloudData.operators)) setOperators(cloudData.operators);
+      if (Array.isArray(cloudData.systemAccounts)) setSystemAccounts(cloudData.systemAccounts);
+      if (Array.isArray(cloudData.activityLogs)) setActivityLogs(cloudData.activityLogs);
+      lastUploadedTimestampRef.current = remoteTime;
+      setTimeout(() => {
+        isApplyingRemoteRef.current = false;
+      }, 300);
+      setCloudSyncStatus('synced');
+      setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
+    }
+  };
+
   // =========================================================================
-  // MULTI-DEVICE CLOUD SYNC ENGINE (CROSS-NETWORK / CROSS-DEVICE REALTIME)
+  // MULTI-DEVICE CLOUD SYNC ENGINE (GOOGLE FIREBASE + REALTIME FALLBACK)
   // =========================================================================
   const fetchCloudData = async (silent = false) => {
     try {
       if (!silent) setIsCloudSyncing(true);
-      const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}?t=${Date.now()}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const cloudData = await res.json();
+      let cloudData = null;
+
+      // 1. Try Firebase Realtime Database first if configured
+      if (firebaseConfig?.databaseURL) {
+        cloudData = await fetchOnceFromFirebase(firebaseConfig);
+        if (cloudData && Array.isArray(cloudData.tenants)) {
+          setFirebaseConnected(true);
+        }
+      }
+
+      // 2. Fallback to clean cloud bin if Firebase is not yet configured or returned null
+      if (!cloudData || !Array.isArray(cloudData.tenants)) {
+        try {
+          const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}?t=${Date.now()}`);
+          if (res.ok) {
+            cloudData = await res.json();
+          }
+        } catch (binErr) {
+          console.warn('Fallback bin fetch error:', binErr);
+        }
+      }
 
       if (cloudData && Array.isArray(cloudData.tenants) && cloudData.tenants.length > 0) {
-        const remoteTime = cloudData.updatedAt || 0;
-        if (remoteTime > lastUploadedTimestampRef.current) {
-          isApplyingRemoteRef.current = true;
-          setTenants(cloudData.tenants);
-          if (Array.isArray(cloudData.rooms)) setRooms(cloudData.rooms);
-          if (Array.isArray(cloudData.payments)) setPayments(cloudData.payments);
-          if (Array.isArray(cloudData.electricityBills)) setElectricityBills(cloudData.electricityBills);
-          if (Array.isArray(cloudData.staffList)) setStaffList(cloudData.staffList);
-          if (Array.isArray(cloudData.staffRatings)) setStaffRatings(cloudData.staffRatings);
-          if (cloudData.bankInfo) setBankInfo(cloudData.bankInfo);
-          if (cloudData.wifiInfo) setWifiInfo(cloudData.wifiInfo);
-          if (Array.isArray(cloudData.operators)) setOperators(cloudData.operators);
-          if (Array.isArray(cloudData.systemAccounts)) setSystemAccounts(cloudData.systemAccounts);
-          if (Array.isArray(cloudData.activityLogs)) setActivityLogs(cloudData.activityLogs);
-          lastUploadedTimestampRef.current = remoteTime;
-          setTimeout(() => {
-            isApplyingRemoteRef.current = false;
-          }, 400);
-        }
+        applyRemoteData(cloudData);
         setCloudSyncStatus('synced');
-        setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
       }
     } catch (err) {
       console.warn('Sync cloud fetch warning:', err);
@@ -268,13 +310,24 @@ export const AppProvider = ({ children }) => {
         activityLogs: overrideData?.activityLogs || activityLogs
       };
 
-      const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      // 1. Push to Firebase Realtime Database (Sub-second broadcast to all devices!)
+      let firebaseSuccess = false;
+      if (firebaseConfig?.databaseURL) {
+        firebaseSuccess = await pushDataToFirebase(firebaseConfig, payload);
+        if (firebaseSuccess) setFirebaseConnected(true);
+      }
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // 2. Push to fallback cloud bin as redundant safe backup
+      try {
+        await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (binErr) {
+        console.warn('Backup bin push warning:', binErr);
+      }
+
       setCloudSyncStatus('synced');
       setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
     } catch (err) {
@@ -286,7 +339,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const syncWithCloud = async () => {
-    addToast('Menghubungi server cloud Gladiola...', 'info');
+    addToast('Menghubungi server cloud database...', 'info');
     await fetchCloudData(false);
     addToast('Sinkronisasi cloud multi-perangkat berhasil!', 'success');
   };
@@ -296,6 +349,45 @@ export const AppProvider = ({ children }) => {
     await pushToCloud();
     addToast('Seluruh data lokal berhasil disimpan ke cloud!', 'success');
   };
+
+  const handleUpdateFirebaseConfig = async (newConfig) => {
+    saveStoredFirebaseConfig(newConfig);
+    setFirebaseConfig(newConfig);
+    if (newConfig?.databaseURL) {
+      addToast('Mengecek dan menghubungkan ke Firebase...', 'info');
+      const test = await testFirebaseConnection(newConfig);
+      if (test.success) {
+        setFirebaseConnected(true);
+        addToast('Firebase Realtime Database tersambung! Menyinkronkan data...', 'success');
+        // Push current local data to initialize Firebase
+        await pushToCloud();
+      } else {
+        addToast(`Peringatan Firebase: ${test.message}`, 'warning');
+      }
+    } else {
+      setFirebaseConnected(false);
+      addToast('Firebase dinonaktifkan, menggunakan fallback cloud bin.', 'info');
+    }
+  };
+
+  // Realtime WebSocket listener with Firebase
+  useEffect(() => {
+    if (!firebaseConfig?.databaseURL) {
+      setFirebaseConnected(false);
+      return;
+    }
+
+    const unsubscribe = subscribeToFirebase(firebaseConfig, (remoteData) => {
+      if (remoteData) {
+        setFirebaseConnected(true);
+        applyRemoteData(remoteData);
+      }
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [firebaseConfig]);
 
   // Push automatically on local state changes (debounced by 800ms)
   useEffect(() => {
@@ -328,7 +420,7 @@ export const AppProvider = ({ children }) => {
     activityLogs
   ]);
 
-  // Window focus & periodic polling sync (detects changes made on other devices)
+  // Periodic polling sync (every 6s) & on tab focus
   useEffect(() => {
     const handleFocus = () => fetchCloudData(true);
     const handleVisibility = () => {
@@ -340,14 +432,14 @@ export const AppProvider = ({ children }) => {
 
     const pollInterval = setInterval(() => {
       fetchCloudData(true);
-    }, 10000);
+    }, 6000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(pollInterval);
     };
-  }, [cloudBinId]);
+  }, [cloudBinId, firebaseConfig]);
 
   // Sync active sessions with current user & telemetry
   useEffect(() => {
@@ -1306,7 +1398,11 @@ export const AppProvider = ({ children }) => {
         cloudBinId,
         setCloudBinId,
         syncWithCloud,
-        forcePushLocalToCloud
+        forcePushLocalToCloud,
+        firebaseConfig,
+        firebaseConnected,
+        handleUpdateFirebaseConfig,
+        testFirebaseConnection
       }}
     >
       {children}
