@@ -235,12 +235,17 @@ export const AppProvider = ({ children }) => {
   // Apply remote payload cleanly across all local states
   const applyRemoteData = (cloudData) => {
     if (!cloudData || !Array.isArray(cloudData.tenants) || cloudData.tenants.length === 0) return;
+    const remoteVersion = cloudData.version || 0;
     const remoteTime = cloudData.updatedAt || 0;
+    const localVersion = loadState('lastLocalVersion', 0);
     const localTime = loadState('lastLocalEditTime', 0);
 
+    const isRemoteNewer = remoteVersion > localVersion || (remoteVersion === localVersion && remoteTime > localTime);
+
     // ONLY apply remote data if remote is strictly NEWER than our local edits!
-    if (remoteTime > localTime) {
+    if (isRemoteNewer) {
       isApplyingRemoteRef.current = true;
+      saveState('lastLocalVersion', remoteVersion);
       saveState('lastLocalEditTime', remoteTime);
       setTenants(cloudData.tenants);
       if (Array.isArray(cloudData.rooms)) setRooms(cloudData.rooms);
@@ -259,7 +264,7 @@ export const AppProvider = ({ children }) => {
       }, 300);
       setCloudSyncStatus('synced');
       setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
-    } else if (localTime > remoteTime && remoteTime > 0) {
+    } else if (localVersion > remoteVersion || (localVersion === remoteVersion && localTime > remoteTime && remoteTime > 0)) {
       // Local changes are NEWER than the cloud copy!
       // Immediately push local data up to cloud so cloud catches up!
       pushToCloud();
@@ -312,10 +317,15 @@ export const AppProvider = ({ children }) => {
       setIsCloudSyncing(true);
       setCloudSyncStatus('syncing');
       const now = Date.now();
+      const currentVer = loadState('lastLocalVersion', 0);
+      const nextVer = currentVer + 1;
+
       lastUploadedTimestampRef.current = now;
+      saveState('lastLocalVersion', nextVer);
       saveState('lastLocalEditTime', now);
 
       const payload = {
+        version: nextVer,
         updatedAt: now,
         source: 'client_push',
         tenants: overrideData?.tenants || tenants,
@@ -450,7 +460,7 @@ export const AppProvider = ({ children }) => {
 
     const pollInterval = setInterval(() => {
       fetchCloudData(true);
-    }, 3500);
+    }, 2500);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
