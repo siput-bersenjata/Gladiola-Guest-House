@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
-  IconSettings,
   IconPayment,
   IconWifi,
   IconMapPin,
@@ -11,7 +10,6 @@ import {
   IconRefresh
 } from './Icons';
 import { GLADIOLA_COORDS } from '../data/initialData';
-import { sanitizeFirebaseConfig } from '../services/firebaseSync';
 
 export const PengaturanView = () => {
   const {
@@ -25,100 +23,15 @@ export const PengaturanView = () => {
     cloudSyncStatus,
     lastSyncedTime,
     isCloudSyncing,
-    cloudBinId,
-    setCloudBinId,
     syncWithCloud,
     forcePushLocalToCloud,
-    firebaseConfig,
-    firebaseConnected,
-    handleUpdateFirebaseConfig,
-    testFirebaseConnection
+    firebaseConnected
   } = useApp();
 
   const [bankFormData, setBankFormData] = useState({ ...bankInfo });
   const [wifiFormData, setWifiFormData] = useState({ ...wifiInfo });
-  const [customBinId, setCustomBinId] = useState(cloudBinId);
-
-  // Firebase Realtime Database Form State
-  const [firebaseForm, setFirebaseForm] = useState({
-    databaseURL: firebaseConfig?.databaseURL || '',
-    apiKey: firebaseConfig?.apiKey || '',
-    projectId: firebaseConfig?.projectId || ''
-  });
-  const [isTestingFirebase, setIsTestingFirebase] = useState(false);
-  const [firebaseTestFeedback, setFirebaseTestFeedback] = useState(null);
-  const [showFirebaseGuide, setShowFirebaseGuide] = useState(true);
-  const [detectedAutoFix, setDetectedAutoFix] = useState(false);
 
   const canEdit = currentUser.role === 'operator' || currentUser.role === 'super_admin';
-
-  const handleDatabaseUrlChange = (val) => {
-    setFirebaseTestFeedback(null);
-    if (val.includes('console.firebase.google.com')) {
-      const sanitized = sanitizeFirebaseConfig({ databaseURL: val, projectId: firebaseForm.projectId });
-      if (sanitized) {
-        setFirebaseForm({
-          ...firebaseForm,
-          databaseURL: sanitized.databaseURL,
-          projectId: sanitized.projectId
-        });
-        setDetectedAutoFix(true);
-        addToast(`URL Console otomatis diubah ke URL Realtime Database: ${sanitized.databaseURL}`, 'info');
-        return;
-      }
-    }
-    setDetectedAutoFix(false);
-    setFirebaseForm({ ...firebaseForm, databaseURL: val });
-  };
-
-  const handleTestFirebase = async () => {
-    if (!firebaseForm.databaseURL) {
-      addToast('Masukkan URL Database Firebase terlebih dahulu!', 'warning');
-      return;
-    }
-    setIsTestingFirebase(true);
-    setFirebaseTestFeedback(null);
-    try {
-      const sanitized = sanitizeFirebaseConfig(firebaseForm);
-      if (sanitized.databaseURL !== firebaseForm.databaseURL) {
-        setFirebaseForm(sanitized);
-      }
-      const res = await testFirebaseConnection(sanitized);
-      setFirebaseTestFeedback(res);
-      if (res.success) {
-        if (res.databaseURL && res.databaseURL !== sanitized.databaseURL) {
-          setFirebaseForm((prev) => ({ ...prev, databaseURL: res.databaseURL }));
-        }
-        addToast(res.message, 'success');
-      } else {
-        addToast(res.message, 'warning');
-      }
-    } catch (e) {
-      setFirebaseTestFeedback({ success: false, message: e.message });
-    } finally {
-      setIsTestingFirebase(false);
-    }
-  };
-
-  const handleSaveFirebase = async (e) => {
-    e.preventDefault();
-    if (!canEdit) return;
-    const sanitized = sanitizeFirebaseConfig(firebaseForm);
-    if (sanitized && sanitized.databaseURL) {
-      setFirebaseForm(sanitized);
-      await handleUpdateFirebaseConfig(sanitized);
-    } else {
-      await handleUpdateFirebaseConfig(null);
-    }
-  };
-
-  const handleResetFirebase = async () => {
-    if (!canEdit) return;
-    setFirebaseForm({ databaseURL: '', apiKey: '', projectId: '' });
-    setFirebaseTestFeedback(null);
-    setDetectedAutoFix(false);
-    await handleUpdateFirebaseConfig(null);
-  };
 
   const handleSaveBank = (e) => {
     e.preventDefault();
@@ -313,16 +226,16 @@ export const PengaturanView = () => {
         </div>
       </div>
 
-      {/* Card 4: Database Google Firebase (Sinkronisasi Realtime Antar Perangkat) */}
+      {/* Card 4: Database Realtime & Cloud Gladiola (Permanen Terkunci) */}
       <div className="dashboard-card mt-6">
         <div className="chart-card-header">
           <div className="icon-badge-box bg-blue-tint">
             <IconCloud size={22} className="text-accent-blue" />
           </div>
           <div>
-            <h3 className="card-headline">Database Cloud & Google Firebase (Sinkronisasi Realtime)</h3>
+            <h3 className="card-headline">Database Cloud & Sinkronisasi Realtime (Permanen)</h3>
             <p className="card-subheadline">
-              Hubungkan ke Google Firebase Realtime Database (100% Gratis) agar setiap perubahan data anak kos langsung ter-update di semua HP & laptop secara instan
+              Database terkunci permanen pada project <strong>gladiola-1d671</strong>. Sinkronisasi data antar seluruh perangkat (HP, laptop, tablet) berjalan otomatis dan realtime tanpa perlu pengaturan manual.
             </p>
           </div>
         </div>
@@ -364,228 +277,53 @@ export const PengaturanView = () => {
                 ? 'Menyinkronkan...'
                 : firebaseConnected
                 ? '🔥 Firebase Realtime Live'
-                : cloudSyncStatus === 'offline'
-                ? 'Offline / Terputus'
-                : 'Cloud Cadangan Aktif'}
+                : '⚡ Cloud Realtime Otomatis Aktif'}
             </span>
             <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
               • Terakhir diperbarui: <strong>{lastSyncedTime}</strong>
             </span>
           </div>
 
-          {/* Form Konfigurasi Firebase */}
-          <form onSubmit={handleSaveFirebase} className="modal-form-grid" style={{ marginBottom: '18px' }}>
-            <div className="form-group full-width">
-              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>URL Firebase Realtime Database</span>
-                <span style={{ fontSize: '0.78rem', color: '#16a34a', fontWeight: 600 }}>Gratis (Spark Plan)</span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="https://gladiola-1d671-default-rtdb.firebaseio.com"
-                value={firebaseForm.databaseURL}
-                onChange={(e) => handleDatabaseUrlChange(e.target.value)}
-                disabled={!canEdit}
-              />
-
-              {/* Fast Presets for gladiola-1d671 */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Pilihan Cepat:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFirebaseForm({
-                      databaseURL: 'https://gladiola-1d671-default-rtdb.firebaseio.com',
-                      projectId: 'gladiola-1d671',
-                      apiKey: firebaseForm.apiKey
-                    });
-                    setDetectedAutoFix(false);
-                    setFirebaseTestFeedback(null);
-                    addToast('URL disetel ke: gladiola-1d671 (US)', 'info');
-                  }}
-                  style={{
-                    fontSize: '0.75rem',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    cursor: 'pointer',
-                    color: '#0f172a'
-                  }}
-                >
-                  ⚡ gladiola-1d671 (United States)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFirebaseForm({
-                      databaseURL: 'https://gladiola-1d671-default-rtdb.asia-southeast1.firebasedatabase.app',
-                      projectId: 'gladiola-1d671',
-                      apiKey: firebaseForm.apiKey
-                    });
-                    setDetectedAutoFix(false);
-                    setFirebaseTestFeedback(null);
-                    addToast('URL disetel ke: gladiola-1d671 (Singapore)', 'info');
-                  }}
-                  style={{
-                    fontSize: '0.75rem',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    backgroundColor: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    cursor: 'pointer',
-                    color: '#0f172a'
-                  }}
-                >
-                  ⚡ gladiola-1d671 (Singapore)
-                </button>
-              </div>
-
-              {detectedAutoFix && (
-                <div style={{
-                  marginTop: '8px',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  backgroundColor: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  color: '#1e40af'
-                }}>
-                  ✨ <strong>URL Diperbaiki Otomatis:</strong> Link Firebase Console Anda telah diubah ke format database <code>{firebaseForm.databaseURL}</code>. Pastikan Anda sudah mengklik <em>Create Database</em> di Firebase Console.
-                </div>
-              )}
-
-              <span style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '6px', display: 'block' }}>
-                Format benar berakhiran <code>.firebaseio.com</code> atau <code>.asia-southeast1.firebasedatabase.app</code> (bukan link website console).
-              </span>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Project ID Firebase (Opsional)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="gladiola-1d671"
-                value={firebaseForm.projectId}
-                onChange={(e) => setFirebaseForm({ ...firebaseForm, projectId: e.target.value })}
-                disabled={!canEdit}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">API Key Web (Opsional)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="AIzaSy..."
-                value={firebaseForm.apiKey}
-                onChange={(e) => setFirebaseForm({ ...firebaseForm, apiKey: e.target.value })}
-                disabled={!canEdit}
-              />
-            </div>
-
-            {firebaseTestFeedback && (
-              <div
-                className="full-width"
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  fontSize: '0.85rem',
-                  backgroundColor: firebaseTestFeedback.success ? '#f0fdf4' : '#fef2f2',
-                  color: firebaseTestFeedback.success ? '#166534' : '#991b1b',
-                  border: `1px solid ${firebaseTestFeedback.success ? '#bbf7d0' : '#fecaca'}`,
-                  lineHeight: '1.5'
-                }}
-              >
-                {firebaseTestFeedback.success ? '✓ ' : '✕ '} {firebaseTestFeedback.message}
-              </div>
-            )}
-
-            {canEdit && (
-              <div className="modal-actions-row full-width" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleTestFirebase}
-                  disabled={isTestingFirebase}
-                >
-                  <IconRefresh size={14} className={isTestingFirebase ? 'spin-animate' : ''} />
-                  <span>{isTestingFirebase ? 'Menguji...' : 'Tes Koneksi Firebase'}</span>
-                </button>
-
-                <button type="submit" className="btn-primary">
-                  <IconCheck size={16} />
-                  <span>Simpan & Terapkan Firebase</span>
-                </button>
-
-                {firebaseConfig?.databaseURL && (
-                  <button
-                    type="button"
-                    className="btn-outline-danger"
-                    onClick={handleResetFirebase}
-                    style={{ marginLeft: 'auto' }}
-                  >
-                    Reset ke Default
-                  </button>
-                )}
-              </div>
-            )}
-          </form>
-
-          {/* Tutorial / Petunjuk Cara Buat Firebase Gratis */}
+          {/* Three Summary Cards */}
           <div style={{
-            border: '1px solid #bfdbfe',
-            borderRadius: '10px',
-            padding: '14px 16px',
-            backgroundColor: '#f0f9ff',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '12px',
             marginBottom: '16px'
           }}>
-            <div
-              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-              onClick={() => setShowFirebaseGuide(!showFirebaseGuide)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, color: '#0369a1', fontSize: '0.88rem' }}>
-                <span>📖 Panduan: Cara Mengaktifkan Realtime Database di gladiola-1d671</span>
-              </div>
-              <span style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 600 }}>
-                {showFirebaseGuide ? 'Tutup Panduan ▲' : 'Buka Panduan ▼'}
-              </span>
+            <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Database Terkunci</div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginTop: '3px' }}>gladiola-1d671</div>
+              <div style={{ fontSize: '0.78rem', color: '#10b981', marginTop: '2px', fontWeight: 500 }}>✓ Permanen Terhubung</div>
             </div>
 
-            {showFirebaseGuide && (
-              <div style={{ marginTop: '12px', fontSize: '0.84rem', color: '#334155', lineHeight: '1.6' }}>
-                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#0f172a' }}>
-                  Langkah mengaktifkan Realtime Database di project Firebase Anda:
-                </p>
-                <ol style={{ paddingLeft: '18px', margin: 0 }}>
-                  <li style={{ marginBottom: '8px' }}>
-                    Buka langsung halaman Realtime Database project Anda:{' '}
-                    <a
-                      href="https://console.firebase.google.com/u/0/project/gladiola-1d671/database"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'underline' }}
-                    >
-                      Buka Realtime Database gladiola-1d671 ↗
-                    </a>
-                  </li>
-                  <li style={{ marginBottom: '8px' }}>
-                    Klik tombol biru <strong>"Create Database"</strong> (Buat Database).
-                  </li>
-                  <li style={{ marginBottom: '8px' }}>
-                    Pilih lokasi database (misal: <em>United States</em> atau <em>Singapore</em>), lalu klik <strong>Next</strong>.
-                  </li>
-                  <li style={{ marginBottom: '8px' }}>
-                    Pada opsi Security Rules, pilih <strong>"Start in test mode"</strong> (agar akses baca & tulis langsung aktif tanpa login), lalu klik <strong>Enable</strong> (Aktifkan).
-                  </li>
-                  <li>
-                    Kembali ke halaman ini, klik tombol <strong>"⚡ gladiola-1d671"</strong> di atas, lalu klik <strong>"Simpan & Terapkan Firebase"</strong>. Selesai! Data langsung tersinkronisasi realtime ke semua HP & laptop.
-                  </li>
-                </ol>
-              </div>
-            )}
+            <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Multi-Perangkat</div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginTop: '3px' }}>Semua HP & Laptop</div>
+              <div style={{ fontSize: '0.78rem', color: '#0284c7', marginTop: '2px', fontWeight: 500 }}>✓ Sinkron Otomatis Tanpa Setting</div>
+            </div>
+
+            <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Cakupan Data</div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginTop: '3px' }}>Penyewa, Kamar & Tagihan</div>
+              <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>✓ Instan saat disimpan</div>
+            </div>
           </div>
+
+          {!firebaseConnected && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              backgroundColor: '#fefce8',
+              border: '1px solid #fef08a',
+              fontSize: '0.82rem',
+              color: '#854d0e',
+              lineHeight: '1.6'
+            }}>
+              <strong>💡 Catatan Server Firebase:</strong> Database sudah terkunci permanen ke <code>gladiola-1d671</code>. Saat ini data otomatis tersinkron via Cloud Realtime Cadangan. Untuk mengaktifkan koneksi sub-detik langsung Google WebSocket, cukup klik tombol <em>"Create Database"</em> 1x di <a href="https://console.firebase.google.com/u/0/project/gladiola-1d671/database" target="_blank" rel="noopener noreferrer" style={{ color: '#b45309', fontWeight: 600, textDecoration: 'underline' }}>Console Firebase gladiola-1d671 ↗</a>.
+            </div>
+          )}
 
           {/* Quick Sync Action Buttons */}
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>

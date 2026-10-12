@@ -444,7 +444,7 @@ export const AppProvider = ({ children }) => {
 
     const pollInterval = setInterval(() => {
       fetchCloudData(true);
-    }, 6000);
+    }, 3500);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
