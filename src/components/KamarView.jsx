@@ -8,7 +8,8 @@ import {
   IconPlus,
   IconEdit,
   IconTrash,
-  IconArrowLeft
+  IconArrowLeft,
+  IconLightning
 } from './Icons';
 
 const AVAILABLE_FACILITIES = [
@@ -25,6 +26,12 @@ const AVAILABLE_FACILITIES = [
   "Jendela Hadap Taman",
   "Kulkas Mini"
 ];
+
+// Helper to generate a realistic 20-digit PLN electricity token
+const generateRandomToken = () => {
+  const part = () => Math.floor(1000 + Math.random() * 9000);
+  return `${part()}-${part()}-${part()}-${part()}-${part()}`;
+};
 
 export const KamarView = () => {
   const {
@@ -52,6 +59,8 @@ export const KamarView = () => {
     price: 1750000,
     status: 'Kosong',
     currentTenant: '',
+    electricityToken: '',
+    meterId: '',
     facilities: [
       'AC Split',
       'Spring Bed Queen',
@@ -78,6 +87,8 @@ export const KamarView = () => {
       price: 1750000,
       status: 'Kosong',
       currentTenant: '',
+      electricityToken: generateRandomToken(),
+      meterId: `PLN-14${Math.floor(10000000 + Math.random() * 90000000)}`,
       facilities: [
         'AC Split',
         'Spring Bed Queen',
@@ -100,6 +111,8 @@ export const KamarView = () => {
       price: room.price || 1750000,
       status: room.status || 'Kosong',
       currentTenant: room.currentTenant || '',
+      electricityToken: room.electricityToken || generateRandomToken(),
+      meterId: room.meterId || `PLN-14${Math.floor(10000000 + Math.random() * 90000000)}`,
       facilities: Array.isArray(room.facilities) && room.facilities.length > 0
         ? [...room.facilities]
         : ['AC Split', 'Spring Bed Queen', 'Kamar Mandi Dalam', 'Smart Lock']
@@ -124,6 +137,8 @@ export const KamarView = () => {
       price: Number(formData.price),
       status: formData.status,
       currentTenant: formData.status === 'Kosong' ? null : (formData.currentTenant?.trim() || null),
+      electricityToken: formData.electricityToken?.trim() || '',
+      meterId: formData.meterId?.trim() || '',
       facilities: formData.facilities
     });
 
@@ -324,7 +339,69 @@ export const KamarView = () => {
               </div>
             </div>
 
-            {/* Section 3: Fasilitas Kamar */}
+            {/* Section 3: Kelistrikan & Token Listrik PLN Tetap */}
+            <div className="form-section-block">
+              <div className="form-section-header">
+                <IconLightning size={20} className="text-forest-gold" />
+                <div>
+                  <h3 className="form-section-title">Kelistrikan & Nomor Token Listrik PLN Tetap</h3>
+                  <p className="form-section-subtitle">
+                    Kunci nomor token listrik PLN 20 digit atau nomor seri meteran khusus kamar ini agar otomatis sinkron ke tagihan utilitas & anak kos
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid">
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Nomor Token PLN Tetap *</span>
+                    <span style={{ fontSize: '0.74rem', color: '#16a34a', fontWeight: 600 }}>Terkunci Tetap (Fixed)</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.electricityToken}
+                      onChange={(e) => setFormData({ ...formData, electricityToken: e.target.value })}
+                      placeholder="Contoh: 3819-2041-8812-9014-5521"
+                      required
+                      disabled={isOwnerReadOnly}
+                      style={{ letterSpacing: '0.04em', fontWeight: 600, fontFamily: 'monospace' }}
+                    />
+                    {!isOwnerReadOnly && (
+                      <button
+                        type="button"
+                        className="btn-secondary-sm"
+                        onClick={() => setFormData({ ...formData, electricityToken: generateRandomToken() })}
+                        title="Generate contoh 20 digit token PLN otomatis"
+                        style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px', height: '42px', padding: '0 12px' }}
+                      >
+                        <IconLightning size={14} className="text-forest-gold" />
+                        <span>Auto Token</span>
+                      </button>
+                    )}
+                  </div>
+                  <span className="field-hint">
+                    Nomor token PLN ini terkunci tetap untuk Kamar {formData.number || 'ini'}. Saat generate tagihan utilitas bulanan, token otomatis terisi dari sini.
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">No. ID Meter / Seri PLN (Opsional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.meterId}
+                    onChange={(e) => setFormData({ ...formData, meterId: e.target.value })}
+                    placeholder="Contoh: PLN-142899120441"
+                    disabled={isOwnerReadOnly}
+                  />
+                  <span className="field-hint">Nomor seri ID meteran PLN yang tertempel pada box kWh kamar</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Fasilitas Kamar */}
             <div className="form-section-block">
               <div className="form-section-header">
                 <IconCheck size={20} className="text-primary-green" />
@@ -506,6 +583,13 @@ export const KamarView = () => {
               <IconUsers size={14} className="text-gray-400" />
               <span className="room-tenant-name">
                 {room.currentTenant || 'Tersedia untuk disewa'}
+              </span>
+            </div>
+
+            <div className="room-card-token-row">
+              <IconLightning size={12} className="text-forest-gold" />
+              <span className="room-card-token-text">
+                Token: <strong>{room.electricityToken ? `${room.electricityToken.slice(0, 9)}...` : 'Belum Ada'}</strong>
               </span>
             </div>
 

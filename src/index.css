@@ -5239,6 +5239,33 @@ html, body {
   color: #b91c1c;
 }
 
+.room-card-token-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #14532d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin: 6px 0 8px 0;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.room-card-token-text {
+  font-size: 0.74rem;
+  color: #166534;
+}
+
+.room-card-token-text strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+
 
 
 

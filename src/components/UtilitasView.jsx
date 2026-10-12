@@ -96,6 +96,7 @@ export const UtilitasView = () => {
 
   const handleRoomChange = (roomNum) => {
     const tenant = tenants.find((t) => t.roomNumber === roomNum);
+    const roomObj = rooms.find((r) => r.number === roomNum);
     const prevBill = electricityBills.find((b) => b.roomNumber === roomNum && b.meterEnd);
     const startVal = prevBill ? prevBill.meterEnd : 1240;
 
@@ -105,11 +106,16 @@ export const UtilitasView = () => {
       tenantName: tenant ? tenant.name : `Penghuni Kamar ${roomNum}`,
       tenantPhone: tenant ? tenant.phone : '-',
       meterStart: startVal,
-      meterEnd: startVal + 75
+      meterEnd: startVal + 75,
+      token: roomObj?.electricityToken || formData.token || ''
     });
   };
 
   const openInputForm = () => {
+    const initialRoom = rooms.find((r) => r.number === formData.roomNumber);
+    if (initialRoom?.electricityToken && !formData.token) {
+      setFormData((prev) => ({ ...prev, token: initialRoom.electricityToken }));
+    }
     setViewMode('form');
   };
 
@@ -171,16 +177,17 @@ export const UtilitasView = () => {
     setEditingTokenIds((prev) => ({ ...prev, [bill.id]: false }));
   };
 
-  // Auto-fill realistic 20-digit token for a single row
-  const handleAutoFillToken = (billId) => {
-    const generated = generateRandomPlnToken();
+  // Auto-fill realistic 20-digit token for a single row (prioritize room fixed token)
+  const handleAutoFillToken = (billId, roomNumber) => {
+    const roomObj = rooms.find((r) => r.number === roomNumber);
+    const generated = roomObj?.electricityToken || generateRandomPlnToken();
     setTokenInputMap((prev) => ({ ...prev, [billId]: generated }));
   };
 
-  // Bulk fill demo tokens for all empty rooms in the selected month
+  // Bulk fill tokens from rooms master for all empty rooms in the selected month
   const handleBulkFillDemoTokens = () => {
     if (filterMonth === 'all') {
-      addToast('Pilih bulan spesifik di dropdown sebelum generate token massal.', 'info');
+      addToast('Pilih bulan spesifik di dropdown sebelum sinkron token massal.', 'info');
       return;
     }
     const targetBills = electricityBills.filter(
@@ -196,11 +203,12 @@ export const UtilitasView = () => {
     }
 
     targetBills.forEach((b) => {
-      const token = generateRandomPlnToken();
+      const roomObj = rooms.find((r) => r.number === b.roomNumber);
+      const token = roomObj?.electricityToken || generateRandomPlnToken();
       handleUpdateElectricityToken(b.id, token, 'Lunas');
     });
 
-    addToast(`Berhasil mengisikan token listrik PLN untuk seluruh (${targetBills.length}) kamar!`, 'success');
+    addToast(`Berhasil mengisikan token listrik PLN dari nomor tetap kamar untuk (${targetBills.length}) kamar!`, 'success');
   };
 
   // Save quick meter end edit
@@ -637,7 +645,7 @@ export const UtilitasView = () => {
                               <input
                                 type="text"
                                 className="token-input-field"
-                                placeholder="Ketik 20 digit token..."
+                                placeholder={rooms.find((r) => r.number === b.roomNumber)?.electricityToken ? `Tetap: ${rooms.find((r) => r.number === b.roomNumber).electricityToken.slice(0, 14)}...` : "Ketik 20 digit token..."}
                                 value={currentTokenVal}
                                 onChange={(e) =>
                                   setTokenInputMap({ ...tokenInputMap, [b.id]: e.target.value })
@@ -649,8 +657,8 @@ export const UtilitasView = () => {
                               <button
                                 type="button"
                                 className="btn-auto-token-gen"
-                                onClick={() => handleAutoFillToken(b.id)}
-                                title="Auto-fill 20 digit token PLN"
+                                onClick={() => handleAutoFillToken(b.id, b.roomNumber)}
+                                title="Ambil nomor token PLN tetap kamar ini"
                               >
                                 ⚡ Auto
                               </button>

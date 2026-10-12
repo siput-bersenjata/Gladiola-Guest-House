@@ -177,7 +177,19 @@ export const AppProvider = ({ children }) => {
     }
     return saved;
   });
-  const [rooms, setRooms] = useState(() => loadState('rooms', INITIAL_ROOMS));
+  const [rooms, setRooms] = useState(() => {
+    const saved = loadState('rooms', INITIAL_ROOMS);
+    if (!saved || !Array.isArray(saved) || saved.length === 0) return INITIAL_ROOMS;
+    return saved.map((r, idx) => {
+      if (r.electricityToken) return r;
+      const initialMatch = INITIAL_ROOMS.find((ir) => ir.number === r.number) || INITIAL_ROOMS[idx];
+      return {
+        ...r,
+        electricityToken: initialMatch?.electricityToken || `3819-2041-${String(8800 + (idx + 1) * 3).padStart(4, "0")}-9014-${String(5520 + (idx + 1)).padStart(4, "0")}`,
+        meterId: r.meterId || initialMatch?.meterId || `PLN-14${String(28000000 + (idx + 1) * 137).slice(-8)}`
+      };
+    });
+  });
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
     if (!saved || !Array.isArray(saved) || saved.length < 10) {
@@ -1018,8 +1030,20 @@ export const AppProvider = ({ children }) => {
       setRooms((prev) =>
         prev.map((r) => (r.id === roomData.id ? { ...r, ...roomData } : r))
       );
-      logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Status: ${roomData.status})`);
-      addToast(`Data Kamar ${roomData.number} berhasil diperbarui`, 'success');
+
+      // Auto-sync electricity bills for this room with the fixed token
+      if (roomData.electricityToken) {
+        setElectricityBills((prev) =>
+          prev.map((b) =>
+            b.roomNumber === roomData.number
+              ? { ...b, token: roomData.electricityToken }
+              : b
+          )
+        );
+      }
+
+      logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Token Listrik: ${roomData.electricityToken || '-'})`);
+      addToast(`Data Kamar ${roomData.number} & Token PLN berhasil diperbarui`, 'success');
     } else {
       // Add room
       const newRoom = {
@@ -1087,6 +1111,10 @@ export const AppProvider = ({ children }) => {
           const baseStart = prevBill ? prevBill.meterEnd : 1000 + (parseInt(tenant.roomNumber) || 100) * 3;
           const monthClean = targetMonth.replace(/\s+/g, '').toLowerCase();
 
+          // Get fixed room token from rooms master
+          const roomObj = rooms.find((r) => r.number === tenant.roomNumber);
+          const defaultFixedToken = roomObj?.electricityToken || '';
+
           newBills.push({
             id: `elec-${monthClean}-${tenant.roomNumber}`,
             tenantId: tenant.id,
@@ -1099,7 +1127,7 @@ export const AppProvider = ({ children }) => {
             kwhUsage: 0,
             ratePerKwh: 1650,
             totalBill: 0,
-            token: '', // Kolom token siap diisi oleh petugas
+            token: defaultFixedToken, // Otomatis terisi nomor token tetap dari CRUD kamar!
             status: 'Belum Bayar',
             paidAt: null,
             recordedBy: currentUser ? currentUser.name : 'Petugas Gladiola'

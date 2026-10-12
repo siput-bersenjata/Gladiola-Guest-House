@@ -435,6 +435,14 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
     price = matchedTenant ? matchedTenant.price : (type.includes("Executive") ? 2100000 : type.includes("Standard") ? 1500000 : 1750000);
   }
 
+  const tokenP1 = "3819";
+  const tokenP2 = String(2000 + (i + 1) * 7).padStart(4, "0");
+  const tokenP3 = String(8800 + (i + 1) * 11).slice(-4);
+  const tokenP4 = String(9014 + (i + 1) * 3).slice(-4);
+  const tokenP5 = String(5520 + (i + 1)).padStart(4, "0");
+  const electricityToken = `${tokenP1}-${tokenP2}-${tokenP3}-${tokenP4}-${tokenP5}`;
+  const meterId = `PLN-14${String(28000000 + (i + 1) * 137).slice(-8)}`;
+
   return {
     id: `rm-${i + 1}`,
     number: roomNumber,
@@ -443,6 +451,8 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
     price,
     status, // "Terisi" | "Booking" | "Kosong"
     currentTenant: tenant,
+    electricityToken,
+    meterId,
     facilities: ["AC Split", "Spring Bed Queen", "Kamar Mandi Dalam", "Water Heater", "Lemari Jati", "Meja Belajar", "Smart Lock"]
   };
 });
