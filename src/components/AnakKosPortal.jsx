@@ -304,6 +304,26 @@ export const AnakKosPortal = () => {
               </span>
             </div>
 
+            {currentElecBill.token && (
+              <div className="token-display-box">
+                <div className="token-label-row">
+                  <span className="token-badge-title">⚡ Token Listrik Prabayar PLN Kamar Anda:</span>
+                  <button
+                    type="button"
+                    className="btn-copy-token"
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentElecBill.token);
+                      addToast('Kode token PLN berhasil disalin!', 'success');
+                    }}
+                  >
+                    <IconCopy size={13} />
+                    <span>Salin Token</span>
+                  </button>
+                </div>
+                <div className="token-code-text">{currentElecBill.token}</div>
+              </div>
+            )}
+
             <div className="bill-total-row">
               <span>Total Pembayaran Bulan Ini:</span>
               <strong className="bill-total-number">

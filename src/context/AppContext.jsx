@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   SYSTEM_ACCOUNTS,
   INITIAL_ACTIVE_SESSIONS,
@@ -137,11 +137,44 @@ export const AppProvider = ({ children }) => {
   );
   const [isLocationEnforcedModalOpen, setIsLocationEnforcedModalOpen] = useState(false);
 
-  // App Data States
-  const [tenants, setTenants] = useState(() => loadState('tenants', INITIAL_TENANTS));
+  // Default Cloud Storage Bin ID
+  const DEFAULT_CLOUD_BIN = 'dcceadc';
+  const [cloudBinId, setCloudBinId] = useState(() => loadState('cloudBinId', DEFAULT_CLOUD_BIN));
+  const [cloudSyncStatus, setCloudSyncStatus] = useState('synced'); // 'synced' | 'syncing' | 'offline'
+  const [lastSyncedTime, setLastSyncedTime] = useState(() => {
+    return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+  });
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+
+  // Guard refs to prevent circular sync loops
+  const isApplyingRemoteRef = useRef(false);
+  const lastUploadedTimestampRef = useRef(0);
+  const isInitialMountRef = useRef(true);
+  const debounceTimerRef = useRef(null);
+
+  // App Data States - smart fallback ensures full 48 tenants on fresh/old installs
+  const [tenants, setTenants] = useState(() => {
+    const saved = loadState('tenants', null);
+    if (!saved || !Array.isArray(saved) || saved.length < 10) {
+      return INITIAL_TENANTS;
+    }
+    return saved;
+  });
   const [rooms, setRooms] = useState(() => loadState('rooms', INITIAL_ROOMS));
-  const [payments, setPayments] = useState(() => loadState('payments', INITIAL_RENT_PAYMENTS));
-  const [electricityBills, setElectricityBills] = useState(() => loadState('electricity', INITIAL_ELECTRICITY_BILLS));
+  const [payments, setPayments] = useState(() => {
+    const saved = loadState('payments', null);
+    if (!saved || !Array.isArray(saved) || saved.length < 10) {
+      return INITIAL_RENT_PAYMENTS;
+    }
+    return saved;
+  });
+  const [electricityBills, setElectricityBills] = useState(() => {
+    const saved = loadState('electricity', null);
+    if (!saved || !Array.isArray(saved) || saved.length < 10) {
+      return INITIAL_ELECTRICITY_BILLS;
+    }
+    return saved;
+  });
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));
   const [bankInfo, setBankInfo] = useState(() => loadState('bankInfo', INITIAL_BANK_INFO));
@@ -168,6 +201,153 @@ export const AppProvider = ({ children }) => {
   useEffect(() => saveState('wifiInfo', wifiInfo), [wifiInfo]);
   useEffect(() => saveState('operators', operators), [operators]);
   useEffect(() => saveState('logs', activityLogs), [activityLogs]);
+  useEffect(() => saveState('cloudBinId', cloudBinId), [cloudBinId]);
+
+  // =========================================================================
+  // MULTI-DEVICE CLOUD SYNC ENGINE (CROSS-NETWORK / CROSS-DEVICE REALTIME)
+  // =========================================================================
+  const fetchCloudData = async (silent = false) => {
+    try {
+      if (!silent) setIsCloudSyncing(true);
+      const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}?t=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const cloudData = await res.json();
+
+      if (cloudData && Array.isArray(cloudData.tenants) && cloudData.tenants.length > 0) {
+        const remoteTime = cloudData.updatedAt || 0;
+        if (remoteTime > lastUploadedTimestampRef.current) {
+          isApplyingRemoteRef.current = true;
+          setTenants(cloudData.tenants);
+          if (Array.isArray(cloudData.rooms)) setRooms(cloudData.rooms);
+          if (Array.isArray(cloudData.payments)) setPayments(cloudData.payments);
+          if (Array.isArray(cloudData.electricityBills)) setElectricityBills(cloudData.electricityBills);
+          if (Array.isArray(cloudData.staffList)) setStaffList(cloudData.staffList);
+          if (Array.isArray(cloudData.staffRatings)) setStaffRatings(cloudData.staffRatings);
+          if (cloudData.bankInfo) setBankInfo(cloudData.bankInfo);
+          if (cloudData.wifiInfo) setWifiInfo(cloudData.wifiInfo);
+          if (Array.isArray(cloudData.operators)) setOperators(cloudData.operators);
+          if (Array.isArray(cloudData.systemAccounts)) setSystemAccounts(cloudData.systemAccounts);
+          if (Array.isArray(cloudData.activityLogs)) setActivityLogs(cloudData.activityLogs);
+          lastUploadedTimestampRef.current = remoteTime;
+          setTimeout(() => {
+            isApplyingRemoteRef.current = false;
+          }, 400);
+        }
+        setCloudSyncStatus('synced');
+        setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
+      }
+    } catch (err) {
+      console.warn('Sync cloud fetch warning:', err);
+      setCloudSyncStatus('offline');
+    } finally {
+      if (!silent) setIsCloudSyncing(false);
+    }
+  };
+
+  const pushToCloud = async (overrideData = null) => {
+    if (isApplyingRemoteRef.current) return;
+    try {
+      setIsCloudSyncing(true);
+      setCloudSyncStatus('syncing');
+      const now = Date.now();
+      lastUploadedTimestampRef.current = now;
+
+      const payload = {
+        updatedAt: now,
+        source: 'client_push',
+        tenants: overrideData?.tenants || tenants,
+        rooms: overrideData?.rooms || rooms,
+        payments: overrideData?.payments || payments,
+        electricityBills: overrideData?.electricityBills || electricityBills,
+        staffList: overrideData?.staffList || staffList,
+        staffRatings: overrideData?.staffRatings || staffRatings,
+        bankInfo: overrideData?.bankInfo || bankInfo,
+        wifiInfo: overrideData?.wifiInfo || wifiInfo,
+        operators: overrideData?.operators || operators,
+        systemAccounts: overrideData?.systemAccounts || systemAccounts,
+        activityLogs: overrideData?.activityLogs || activityLogs
+      };
+
+      const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setCloudSyncStatus('synced');
+      setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
+    } catch (err) {
+      console.warn('Sync cloud push warning:', err);
+      setCloudSyncStatus('offline');
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  const syncWithCloud = async () => {
+    addToast('Menghubungi server cloud Gladiola...', 'info');
+    await fetchCloudData(false);
+    addToast('Sinkronisasi cloud multi-perangkat berhasil!', 'success');
+  };
+
+  const forcePushLocalToCloud = async () => {
+    addToast('Mengunggah data lokal ke cloud...', 'info');
+    await pushToCloud();
+    addToast('Seluruh data lokal berhasil disimpan ke cloud!', 'success');
+  };
+
+  // Push automatically on local state changes (debounced by 800ms)
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      fetchCloudData(true);
+      return;
+    }
+    if (isApplyingRemoteRef.current) return;
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      pushToCloud();
+    }, 800);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [
+    tenants,
+    rooms,
+    payments,
+    electricityBills,
+    staffList,
+    staffRatings,
+    bankInfo,
+    wifiInfo,
+    operators,
+    systemAccounts,
+    activityLogs
+  ]);
+
+  // Window focus & periodic polling sync (detects changes made on other devices)
+  useEffect(() => {
+    const handleFocus = () => fetchCloudData(true);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchCloudData(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const pollInterval = setInterval(() => {
+      fetchCloudData(true);
+    }, 10000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(pollInterval);
+    };
+  }, [cloudBinId]);
 
   // Sync active sessions with current user & telemetry
   useEffect(() => {
@@ -509,28 +689,133 @@ export const AppProvider = ({ children }) => {
     addToast('Anda telah berhasil keluar dari sistem.', 'info');
   };
 
+  // Generate Monthly Bills for all active tenants when a month changes or is selected
+  const generateMonthlyBills = (targetMonth) => {
+    if (!targetMonth || targetMonth === 'all') return 0;
+
+    const activeTenants = tenants.filter((t) => t.status === 'Aktif');
+    let addedCount = 0;
+
+    setPayments((prev) => {
+      const newBills = [];
+      activeTenants.forEach((tenant) => {
+        const hasBill = prev.some((p) => {
+          const matchMonth =
+            p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
+            p.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
+          const matchTenant = p.tenantId === tenant.id || p.roomNumber === tenant.roomNumber;
+          return matchMonth && matchTenant;
+        });
+
+        if (!hasBill) {
+          const monthClean = targetMonth.replace(/\s+/g, '').toLowerCase();
+          newBills.push({
+            id: `pay-${monthClean}-${tenant.roomNumber}`,
+            tenantId: tenant.id,
+            tenantName: tenant.name,
+            tenantPhone: tenant.phone,
+            roomNumber: tenant.roomNumber,
+            month: targetMonth,
+            amount: tenant.monthlyRent || 1750000,
+            paidAt: null,
+            paymentMethod: 'Belum Transfer',
+            status: 'Belum Bayar',
+            validatedBy: null,
+            validatedAt: null,
+            proofUrl: null,
+            ratingGiven: false
+          });
+        }
+      });
+
+      if (newBills.length > 0) {
+        addedCount = newBills.length;
+        logActivity(
+          `Penerbitan Tagihan: ${targetMonth}`,
+          `Otomatis menerbitkan ${newBills.length} tagihan sewa bulanan ${targetMonth} untuk seluruh penghuni aktif.`
+        );
+        return [...prev, ...newBills];
+      }
+      return prev;
+    });
+
+    return addedCount;
+  };
+
   // Actions
-  const handleValidatePayment = (paymentId, newStatus) => {
+  const handleValidatePayment = (paymentId, newStatus, customMethod = null) => {
+    const nowStr = new Date().toLocaleString('id-ID');
+    const isApproval = newStatus === 'Tervalidasi';
+
     setPayments((prev) =>
       prev.map((p) => {
         if (p.id === paymentId) {
           return {
             ...p,
             status: newStatus,
-            validatedBy: currentUser.name,
-            validatedAt: new Date().toLocaleString('id-ID')
+            paymentMethod: isApproval
+              ? (customMethod || (p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA'))
+              : (newStatus === 'Belum Bayar' ? 'Belum Transfer' : p.paymentMethod),
+            paidAt: isApproval ? (p.paidAt || nowStr) : (newStatus === 'Belum Bayar' ? null : p.paidAt),
+            validatedBy: isApproval ? (currentUser?.name || 'Petugas Gladiola') : null,
+            validatedAt: isApproval ? nowStr : null
           };
         }
         return p;
       })
     );
     const target = payments.find((p) => p.id === paymentId);
+    const label = target ? `Kamar ${target.roomNumber} (${target.tenantName})` : `ID ${paymentId}`;
     logActivity(
       `Validasi Pembayaran: ${newStatus}`,
-      `Pembayaran ID ${paymentId} (${target ? target.tenantName : ''}) diubah menjadi ${newStatus}`
+      `Tagihan sewa ${label} diubah menjadi ${newStatus} oleh ${currentUser?.name || 'Petugas'}`
     );
-    addToast(`Status pembayaran berhasil diubah menjadi ${newStatus}`, 'success');
+    addToast(`Tagihan sewa ${label} berhasil diubah ke ${newStatus}`, 'success');
   };
+
+  // Bulk validate all bills for a specific month (memudahkan petugas dalam 1 klik)
+  const handleBulkValidateMonth = (targetMonth) => {
+    if (!targetMonth || targetMonth === 'all') return;
+    const nowStr = new Date().toLocaleString('id-ID');
+    let updatedCount = 0;
+
+    setPayments((prev) =>
+      prev.map((p) => {
+        const matchMonth =
+          p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
+          p.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
+        if (matchMonth && p.status !== 'Tervalidasi') {
+          updatedCount++;
+          return {
+            ...p,
+            status: 'Tervalidasi',
+            paymentMethod: p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA',
+            paidAt: p.paidAt || nowStr,
+            validatedBy: currentUser?.name || 'Petugas Gladiola',
+            validatedAt: nowStr
+          };
+        }
+        return p;
+      })
+    );
+
+    if (updatedCount > 0) {
+      logActivity(
+        `Validasi Massal: ${targetMonth}`,
+        `Petugas ${currentUser?.name || 'Pengelola'} memvalidasi sekaligus ${updatedCount} tagihan sewa ${targetMonth}`
+      );
+      addToast(`Berhasil memvalidasi seluruh (${updatedCount}) tagihan sewa ${targetMonth}!`, 'success');
+    } else {
+      addToast(`Semua tagihan untuk ${targetMonth} sudah berstatus Tervalidasi.`, 'info');
+    }
+  };
+
+  // Auto-generate current month bills (Oktober 2026) for all active tenants on load if missing
+  useEffect(() => {
+    if (tenants && tenants.length > 0) {
+      generateMonthlyBills('Oktober 2026');
+    }
+  }, [tenants.length]);
 
   const handleAddStaffRating = (staffId, rating, comment) => {
     if (!comment || comment.trim().length < 5) {
@@ -629,6 +914,45 @@ export const AppProvider = ({ children }) => {
     addToast(`Data penghuni ${tenantToDelete.name} telah dihapus`, 'info');
   };
 
+  // Room CRUD
+  const handleSaveRoom = (roomData) => {
+    if (currentUser.role === 'owner') {
+      addToast('Owner tidak diizinkan menambah atau mengubah data kamar!', 'error');
+      return;
+    }
+
+    if (roomData.id) {
+      // Edit room
+      setRooms((prev) =>
+        prev.map((r) => (r.id === roomData.id ? { ...r, ...roomData } : r))
+      );
+      logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Status: ${roomData.status})`);
+      addToast(`Data Kamar ${roomData.number} berhasil diperbarui`, 'success');
+    } else {
+      // Add room
+      const newRoom = {
+        ...roomData,
+        id: `rm-${Date.now()}`
+      };
+      setRooms((prev) => [...prev, newRoom]);
+      logActivity('Tambah Kamar Baru', `Menambahkan Kamar ${newRoom.number} di Lantai ${newRoom.floor}`);
+      addToast(`Kamar ${newRoom.number} berhasil ditambahkan`, 'success');
+    }
+  };
+
+  const handleDeleteRoom = (roomId) => {
+    if (currentUser.role === 'owner') {
+      addToast('Owner tidak diizinkan menghapus data kamar!', 'error');
+      return;
+    }
+    const roomToDelete = rooms.find((r) => r.id === roomId);
+    if (!roomToDelete) return;
+
+    setRooms((prev) => prev.filter((r) => r.id !== roomId));
+    logActivity('Hapus Kamar', `Menghapus unit Kamar ${roomToDelete.number}`);
+    addToast(`Kamar ${roomToDelete.number} telah dihapus dari sistem`, 'info');
+  };
+
   // Electricity record save
   const handleSaveElectricityBill = (billData) => {
     if (billData.id) {
@@ -646,6 +970,125 @@ export const AppProvider = ({ children }) => {
       addToast(`Tagihan listrik kamar ${newBill.roomNumber} berhasil disimpan`, 'success');
     }
   };
+
+  // Generate Monthly Electricity Bills for all active tenants when a month changes or is selected
+  const generateMonthlyElectricityBills = (targetMonth) => {
+    if (!targetMonth || targetMonth === 'all') return 0;
+
+    const activeTenants = tenants.filter((t) => t.status === 'Aktif');
+    let addedCount = 0;
+
+    setElectricityBills((prev) => {
+      const newBills = [];
+      activeTenants.forEach((tenant) => {
+        const hasBill = prev.some((b) => {
+          const matchMonth =
+            b.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
+            b.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
+          const matchTenant = b.tenantId === tenant.id || b.roomNumber === tenant.roomNumber;
+          return matchMonth && matchTenant;
+        });
+
+        if (!hasBill) {
+          // Look for latest previous month's meterEnd for this room
+          const prevBill = prev.find((b) => b.roomNumber === tenant.roomNumber && b.meterEnd);
+          const baseStart = prevBill ? prevBill.meterEnd : 1000 + (parseInt(tenant.roomNumber) || 100) * 3;
+          const monthClean = targetMonth.replace(/\s+/g, '').toLowerCase();
+
+          newBills.push({
+            id: `elec-${monthClean}-${tenant.roomNumber}`,
+            tenantId: tenant.id,
+            tenantName: tenant.name,
+            tenantPhone: tenant.phone,
+            roomNumber: tenant.roomNumber,
+            month: targetMonth,
+            meterStart: baseStart,
+            meterEnd: baseStart, // Stand awal sama dengan stand akhir sebelumnya
+            kwhUsage: 0,
+            ratePerKwh: 1650,
+            totalBill: 0,
+            token: '', // Kolom token siap diisi oleh petugas
+            status: 'Belum Bayar',
+            paidAt: null,
+            recordedBy: currentUser ? currentUser.name : 'Petugas Gladiola'
+          });
+        }
+      });
+
+      if (newBills.length > 0) {
+        addedCount = newBills.length;
+        logActivity(
+          `Penerbitan Utilitas Listrik: ${targetMonth}`,
+          `Otomatis menerbitkan ${newBills.length} data tagihan listrik ${targetMonth} untuk seluruh penghuni aktif.`
+        );
+        return [...prev, ...newBills];
+      }
+      return prev;
+    });
+
+    return addedCount;
+  };
+
+  // Quick Update Electricity Token
+  const handleUpdateElectricityToken = (billId, tokenValue, newStatus = null) => {
+    setElectricityBills((prev) =>
+      prev.map((b) => {
+        if (b.id === billId) {
+          const cleanToken = tokenValue ? tokenValue.trim() : '';
+          const isLunas = newStatus ? newStatus === 'Lunas' : (cleanToken.length >= 8);
+          return {
+            ...b,
+            token: cleanToken,
+            status: isLunas ? 'Lunas' : (newStatus || b.status),
+            paidAt: isLunas ? (b.paidAt || new Date().toLocaleString('id-ID')) : b.paidAt,
+            recordedBy: currentUser ? currentUser.name : b.recordedBy,
+            updatedAt: new Date().toLocaleString('id-ID')
+          };
+        }
+        return b;
+      })
+    );
+    const target = electricityBills.find((b) => b.id === billId);
+    const roomStr = target ? `Kamar ${target.roomNumber}` : `ID ${billId}`;
+    logActivity('Input Token Listrik', `Petugas ${currentUser?.name || 'Pengelola'} memperbarui token listrik untuk ${roomStr}`);
+    addToast(`Token listrik ${roomStr} berhasil disimpan!`, 'success');
+  };
+
+  // Quick update any meter readings directly
+  const handleQuickUpdateElectricity = (billId, updates) => {
+    setElectricityBills((prev) =>
+      prev.map((b) => {
+        if (b.id === billId) {
+          const merged = { ...b, ...updates };
+          const meterStart = parseInt(merged.meterStart) || 0;
+          const meterEnd = parseInt(merged.meterEnd) || meterStart;
+          const kwhUsage = Math.max(0, meterEnd - meterStart);
+          const ratePerKwh = parseInt(merged.ratePerKwh) || 1650;
+          const totalBill = kwhUsage * ratePerKwh;
+
+          return {
+            ...merged,
+            meterStart,
+            meterEnd,
+            kwhUsage,
+            ratePerKwh,
+            totalBill,
+            recordedBy: currentUser ? currentUser.name : b.recordedBy,
+            updatedAt: new Date().toLocaleString('id-ID')
+          };
+        }
+        return b;
+      })
+    );
+    addToast('Data meteran listrik berhasil diperbarui!', 'success');
+  };
+
+  // Auto-generate current month electricity bills (Oktober 2026) for all active tenants on load if missing
+  useEffect(() => {
+    if (tenants && tenants.length > 0) {
+      generateMonthlyElectricityBills('Oktober 2026');
+    }
+  }, [tenants.length]);
 
   // Staff CRUD
   const handleSaveStaff = (staffData) => {
@@ -840,16 +1283,30 @@ export const AppProvider = ({ children }) => {
         loginByPhone,
         logout,
         handleValidatePayment,
+        generateMonthlyBills,
+        handleBulkValidateMonth,
         handleAddStaffRating,
         handleSaveTenant,
         handleDeleteTenant,
+        handleSaveRoom,
+        handleDeleteRoom,
         handleSaveElectricityBill,
+        generateMonthlyElectricityBills,
+        handleUpdateElectricityToken,
+        handleQuickUpdateElectricity,
         handleSaveStaff,
         handleDeleteStaff,
         handleSaveOperator,
         handleDeleteOperator,
         handleSaveAccount,
-        handleDeleteAccount
+        handleDeleteAccount,
+        cloudSyncStatus,
+        lastSyncedTime,
+        isCloudSyncing,
+        cloudBinId,
+        setCloudBinId,
+        syncWithCloud,
+        forcePushLocalToCloud
       }}
     >
       {children}

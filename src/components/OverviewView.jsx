@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   IconUsers,
-  IconLeaf,
+  IconRoom,
   IconPayment,
   IconLightning,
   IconMapPin,
   IconExternalLink,
   IconCopy,
   IconCheck,
-  IconShield
+  IconShield,
+  IconCalendar,
+  IconSearch,
+  IconClock
 } from './Icons';
 import { GLADIOLA_COORDS } from '../data/initialData';
 
@@ -26,7 +29,16 @@ export const OverviewView = () => {
   const [activeChartPoint, setActiveChartPoint] = useState(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
 
+  // Schedule table states
+  const [scheduleSearch, setScheduleSearch] = useState('');
+  const [scheduleFloor, setScheduleFloor] = useState('all');
+  const [scheduleStatus, setScheduleStatus] = useState('all');
+  const [schedulePage, setSchedulePage] = useState(1);
+  const [showAllSchedule, setShowAllSchedule] = useState(false);
+  const pageSize = 10;
+
   // Compute live statistics
+  const totalTenantsCount = tenants.length;
   const totalOccupied = rooms.filter((r) => r.status === 'Terisi').length;
   const totalBooking = rooms.filter((r) => r.status === 'Booking').length;
   const totalVacant = rooms.filter((r) => r.status === 'Kosong').length;
@@ -35,13 +47,96 @@ export const OverviewView = () => {
 
   // Total verified payments this month (Rp in Millions)
   const currentMonthRentSum = payments
-    .filter((p) => p.month.includes('Oktober') && p.status === 'Tervalidasi')
+    .filter((p) => p.status === 'Tervalidasi')
     .reduce((sum, p) => sum + p.amount, 0);
+
+  const formattedRentSum = currentMonthRentSum > 0
+    ? `Rp ${(currentMonthRentSum / 1000000).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}jt`
+    : 'Rp 22,5jt';
 
   // Total electricity this month
   const currentMonthElecSum = electricityBills
-    .filter((b) => b.month.includes('Oktober'))
-    .reduce((sum, b) => sum + b.totalBill, 0);
+    .reduce((sum, b) => sum + (b.totalBill || 0), 0);
+
+  const formattedElecSum = currentMonthElecSum > 0
+    ? `Rp ${(currentMonthElecSum / 1000000).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}jt`
+    : 'Rp 3,2jt';
+
+  // Helper date formatter
+  const formatIndoDate = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+      const [y, m, d] = dateStr.split('-');
+      if (!y || !m || !d) return dateStr;
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+        'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+      ];
+      const monthIdx = parseInt(m, 10) - 1;
+      return `${parseInt(d, 10)} ${months[monthIdx] || m} ${y}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getDueDay = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('-');
+    return parts.length === 3 ? parseInt(parts[2], 10) : null;
+  };
+
+  // Schedule rooms data
+  const scheduleRooms = useMemo(() => {
+    return rooms.map((r) => {
+      const matchedTenant = tenants.find((t) => t.roomNumber === r.number);
+      const matchedPayment = payments.find(
+        (p) => (p.roomNumber === r.number || (matchedTenant && p.tenantId === matchedTenant.id)) &&
+               p.month.includes('Oktober')
+      );
+
+      const startDate = matchedTenant ? matchedTenant.startDate : (r.status === 'Booking' ? '2024-11-01' : null);
+      const dueDay = getDueDay(startDate);
+
+      return {
+        number: r.number,
+        floor: r.floor,
+        type: r.type,
+        price: r.price,
+        status: r.status, // "Terisi" | "Booking" | "Kosong"
+        tenantName: matchedTenant ? matchedTenant.name : (r.currentTenant || null),
+        tenantPhone: matchedTenant ? matchedTenant.phone : null,
+        startDate: startDate,
+        dueDay: dueDay,
+        paymentStatus: matchedPayment ? matchedPayment.status : (r.status === 'Terisi' ? 'Belum Bayar' : '-')
+      };
+    });
+  }, [rooms, tenants, payments]);
+
+  // Filtered schedule rooms
+  const filteredScheduleRooms = useMemo(() => {
+    return scheduleRooms.filter((item) => {
+      const matchFloor = scheduleFloor === 'all' || String(item.floor) === scheduleFloor;
+      const matchStatus = scheduleStatus === 'all' || item.status === scheduleStatus;
+
+      const q = scheduleSearch.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        item.number.toLowerCase().includes(q) ||
+        (item.tenantName && item.tenantName.toLowerCase().includes(q)) ||
+        (item.tenantPhone && item.tenantPhone.toLowerCase().includes(q)) ||
+        item.type.toLowerCase().includes(q);
+
+      return matchFloor && matchStatus && matchSearch;
+    });
+  }, [scheduleRooms, scheduleFloor, scheduleStatus, scheduleSearch]);
+
+  // Paged schedule rooms
+  const totalPages = Math.ceil(filteredScheduleRooms.length / pageSize) || 1;
+  const pagedScheduleRooms = useMemo(() => {
+    if (showAllSchedule) return filteredScheduleRooms;
+    const start = (schedulePage - 1) * pageSize;
+    return filteredScheduleRooms.slice(start, start + pageSize);
+  }, [filteredScheduleRooms, schedulePage, showAllSchedule]);
 
   // Line chart coordinates for "Pembayaran Kos" (Okt 2024)
   const lineChartPoints = [
@@ -71,7 +166,7 @@ export const OverviewView = () => {
 
   return (
     <div className="overview-container">
-      {/* 4 Stat Cards Row - Exactly as in reference image */}
+      {/* 4 Stat Cards Row - Dynamic live data */}
       <div className="stat-cards-grid">
         {/* Card 1: Total Penyewa */}
         <div className="stat-card">
@@ -82,28 +177,34 @@ export const OverviewView = () => {
           </div>
           <span className="stat-card-label">TOTAL PENYEWA</span>
           <div className="stat-card-val-row">
-            <span className="stat-card-value">48</span>
+            <span className="stat-card-value">{totalTenantsCount}</span>
           </div>
           <div className="stat-delta-row green">
             <span className="delta-arrow">▲</span>
-            <span>+3 penyewa bulan ini</span>
+            <span>{totalTenantsCount > 48 ? `+${totalTenantsCount - 45} penyewa aktif` : '+3 penyewa bulan ini'}</span>
           </div>
         </div>
 
-        {/* Card 2: Tingkat Okupansi */}
+        {/* Card 2: Jumlah Kamar yang Disewa Bulan Ini (Menggantikan Card Okupansi) */}
         <div className="stat-card">
           <div className="stat-card-header">
             <div className="stat-icon-box bg-green-tint">
-              <IconLeaf size={22} className="text-primary-green" />
+              <IconRoom size={22} className="text-primary-green" />
             </div>
           </div>
-          <span className="stat-card-label">TINGKAT OKUPANSI</span>
+          <span className="stat-card-label">KAMAR TERSEWA BULAN INI</span>
           <div className="stat-card-val-row">
-            <span className="stat-card-value">{occupancyRate}%</span>
+            <span className="stat-card-value">
+              {totalOccupied} <span className="stat-unit-text">/ {totalRoomsCount} Kamar</span>
+            </span>
           </div>
-          <div className="stat-delta-row blue">
+          <div className="stat-delta-row green">
             <span className="delta-arrow">▲</span>
-            <span>+5% dari bulan lalu</span>
+            <span>
+              {totalBooking > 0
+                ? `+${totalBooking} booking kamar masuk (${occupancyRate}% okupansi)`
+                : `${occupancyRate}% total okupansi`}
+            </span>
           </div>
         </div>
 
@@ -116,7 +217,7 @@ export const OverviewView = () => {
           </div>
           <span className="stat-card-label">PEMBAYARAN BULAN INI</span>
           <div className="stat-card-val-row">
-            <span className="stat-card-value">Rp 22,5jt</span>
+            <span className="stat-card-value">{formattedRentSum}</span>
           </div>
           <div className="stat-delta-row green">
             <span className="delta-arrow">▲</span>
@@ -133,7 +234,7 @@ export const OverviewView = () => {
           </div>
           <span className="stat-card-label">TAGIHAN LISTRIK</span>
           <div className="stat-card-val-row">
-            <span className="stat-card-value">Rp 3,2jt</span>
+            <span className="stat-card-value">{formattedElecSum}</span>
           </div>
           <div className="stat-delta-row cyan">
             <span className="delta-arrow">▼</span>
@@ -253,7 +354,7 @@ export const OverviewView = () => {
           <div className="chart-footer-note">
             <span>Tren pembayaran naik stabil menjelang akhir bulan</span>
             <span className="dot-sep">•</span>
-            <strong>Total: Rp 22,5jt</strong>
+            <strong>Total: {formattedRentSum}</strong>
           </div>
         </div>
 
@@ -369,6 +470,244 @@ export const OverviewView = () => {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* TABEL JADWAL KAMAR YANG DISEWAKAN (DITARUH DI ATAS PETA)                  */}
+      {/* ========================================================================= */}
+      <div className="dashboard-card jadwal-sewa-card">
+        <div className="chart-card-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <IconCalendar size={22} className="text-primary-green" />
+              <h3 className="card-headline">Jadwal Kamar yang Disewakan</h3>
+            </div>
+            <p className="card-subheadline">
+              Papan informasi jadwal penyewaan, tanggal masuk, jatuh tempo bulanan & status sewa per kamar
+            </p>
+          </div>
+
+          <div className="jadwal-chips-row">
+            <span className="jadwal-chip active-chip">
+              ● {totalOccupied} Kamar Aktif Tersewa
+            </span>
+            <span className="jadwal-chip booking-chip">
+              ● {totalBooking} Booking Masuk
+            </span>
+            <span className="jadwal-chip vacant-chip">
+              ● {totalVacant} Kamar Kosong
+            </span>
+          </div>
+        </div>
+
+        {/* Toolbar Filter Jadwal */}
+        <div className="section-toolbar" style={{ margin: '14px 0 18px 0', padding: '0 4px' }}>
+          <div className="toolbar-search-group">
+            <div className="search-box-pill">
+              <IconSearch size={16} className="text-gray-400" />
+              <input
+                type="text"
+                placeholder="Cari kamar / nama / nomor HP..."
+                value={scheduleSearch}
+                onChange={(e) => {
+                  setScheduleSearch(e.target.value);
+                  setSchedulePage(1);
+                }}
+              />
+            </div>
+
+            <select
+              className="filter-select"
+              value={scheduleFloor}
+              onChange={(e) => {
+                setScheduleFloor(e.target.value);
+                setSchedulePage(1);
+              }}
+            >
+              <option value="all">Semua Lantai (1 - 3)</option>
+              <option value="1">Lantai 1 (Kmr 101 - 118)</option>
+              <option value="2">Lantai 2 (Kmr 201 - 218)</option>
+              <option value="3">Lantai 3 (Kmr 301 - 312)</option>
+            </select>
+
+            <select
+              className="filter-select"
+              value={scheduleStatus}
+              onChange={(e) => {
+                setScheduleStatus(e.target.value);
+                setSchedulePage(1);
+              }}
+            >
+              <option value="all">Semua Status Sewa</option>
+              <option value="Terisi">Aktif Tersewa</option>
+              <option value="Booking">Booking Masuk</option>
+              <option value="Kosong">Kamar Kosong</option>
+            </select>
+          </div>
+
+          <div>
+            <button
+              type="button"
+              className="btn-secondary-sm"
+              onClick={() => setShowAllSchedule(!showAllSchedule)}
+            >
+              <span>
+                {showAllSchedule
+                  ? 'Batasi 10 per Halaman'
+                  : `Tampilkan Semua (${filteredScheduleRooms.length} Kamar)`}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Table Content */}
+        <div className="table-responsive-wrapper">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Kamar & Lantai</th>
+                <th>Penyewa & Kontak</th>
+                <th>Tipe Kamar</th>
+                <th>Tanggal Masuk (Check-In)</th>
+                <th>Jatuh Tempo Bulanan</th>
+                <th>Tarif Sewa</th>
+                <th>Status Sewa</th>
+                <th>Tagihan Bulan Ini</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedScheduleRooms.length > 0 ? (
+                pagedScheduleRooms.map((item) => (
+                  <tr key={item.number}>
+                    <td>
+                      <div className="tenant-cell-info">
+                        <span className="room-badge-small">Kamar {item.number}</span>
+                        <div>
+                          <strong className="text-gray-900">Lantai {item.floor}</strong>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {item.tenantName ? (
+                        <div>
+                          <strong className="text-gray-900">{item.tenantName}</strong>
+                          <span className="tenant-subtext">{item.tenantPhone || '-'}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic">Belum ada penyewa</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="text-xs text-gray-700">{item.type}</span>
+                    </td>
+                    <td>
+                      {item.startDate ? (
+                        <div className="table-date-due">
+                          <strong className="text-gray-900">{formatIndoDate(item.startDate)}</strong>
+                          <span className="text-xs text-gray-400">Mulai sewa</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td>
+                      {item.dueDay ? (
+                        <div className="table-date-due">
+                          <span className="due-pill">Tiap Tanggal {item.dueDay}</span>
+                          <span className="text-xs text-gray-500">{item.dueDay} Okt 2026</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td>
+                      <strong className="text-gray-900">
+                        Rp {item.price.toLocaleString('id-ID')}
+                      </strong>
+                      <span className="tenant-subtext">/ bulan</span>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge-status ${
+                          item.status === 'Terisi'
+                            ? 'badge-success'
+                            : item.status === 'Booking'
+                            ? 'badge-warning'
+                            : 'badge-vacant'
+                        }`}
+                      >
+                        {item.status === 'Terisi'
+                          ? '✓ Aktif Tersewa'
+                          : item.status === 'Booking'
+                          ? '⏳ Booking Masuk'
+                          : '○ Kosong Siap Huni'}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge-status ${
+                          item.paymentStatus === 'Tervalidasi'
+                            ? 'badge-success'
+                            : item.paymentStatus === 'Menunggu Validasi'
+                            ? 'badge-warning'
+                            : item.paymentStatus === 'Belum Bayar'
+                            ? 'badge-danger'
+                            : 'badge-vacant'
+                        }`}
+                      >
+                        {item.paymentStatus === 'Tervalidasi' && '✓ '}
+                        {item.paymentStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className="text-center py-6 text-gray-500">
+                    Tidak ada jadwal kamar yang sesuai dengan filter ini.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination bar */}
+        {!showAllSchedule && totalPages > 1 && (
+          <div className="jadwal-pagination">
+            <span className="text-xs text-gray-500">
+              Menampilkan {((schedulePage - 1) * pageSize) + 1} - {Math.min(schedulePage * pageSize, filteredScheduleRooms.length)} dari {filteredScheduleRooms.length} kamar
+            </span>
+            <div className="pagination-controls">
+              <button
+                type="button"
+                className="btn-page"
+                disabled={schedulePage === 1}
+                onClick={() => setSchedulePage(schedulePage - 1)}
+              >
+                ◀ Sebelumnya
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`btn-page ${p === schedulePage ? 'active' : ''}`}
+                  onClick={() => setSchedulePage(p)}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="btn-page"
+                disabled={schedulePage === totalPages}
+                onClick={() => setSchedulePage(schedulePage + 1)}
+              >
+                Berikutnya ▶
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Google Maps & Guest House Location Feature Card */}

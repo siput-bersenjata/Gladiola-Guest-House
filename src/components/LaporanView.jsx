@@ -32,7 +32,7 @@ export const LaporanView = () => {
       rentTotal: rentTotal || 22500000,
       elecTotal: elecTotal || 3200000,
       grandTotal: (rentTotal || 22500000) + (elecTotal || 3200000),
-      occupancy: '90%'
+      occupancy: `${Math.round((rooms.filter((r) => r.status === 'Terisi').length / (rooms.length || 50)) * 100)}%`
     };
   });
 

@@ -9,7 +9,9 @@ import {
   IconCheck,
   IconLogOut,
   IconRadar,
-  IconKey
+  IconKey,
+  IconCloud,
+  IconRefresh
 } from './Icons';
 
 export const Header = () => {
@@ -24,7 +26,11 @@ export const Header = () => {
     setIsLocationEnforcedModalOpen,
     notifications,
     activityLogs,
-    tenants
+    tenants,
+    cloudSyncStatus,
+    isCloudSyncing,
+    syncWithCloud,
+    lastSyncedTime
   } = useApp();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -158,6 +164,20 @@ export const Header = () => {
       </div>
 
       <div className="header-right">
+        {/* Multi-Device Cloud Sync Chip */}
+        <button
+          type="button"
+          className={`header-cloud-chip ${cloudSyncStatus}`}
+          onClick={syncWithCloud}
+          title={`Sinkronisasi Multi-Perangkat (Terakhir: ${lastSyncedTime}). Klik untuk sinkronkan data sekarang.`}
+        >
+          <span className={`cloud-status-dot ${isCloudSyncing ? 'pulsing' : cloudSyncStatus}`}></span>
+          <IconCloud size={14} className={isCloudSyncing ? "text-primary-green spin-animate" : "text-primary-green"} />
+          <span className="cloud-chip-text">
+            {isCloudSyncing ? 'Sync...' : cloudSyncStatus === 'offline' ? 'Offline' : 'Cloud Aktif'}
+          </span>
+        </button>
+
         {/* Location Status Chip (Clickable to view/enforce) */}
         <button
           type="button"

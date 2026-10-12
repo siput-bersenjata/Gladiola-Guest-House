@@ -357,6 +357,58 @@ html, body {
   100% { transform: scale(0.9); opacity: 0.7; }
 }
 
+/* Cloud Sync Live Chip */
+.header-cloud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--forest-800);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.header-cloud-chip:hover {
+  border-color: var(--primary-green, #2d5a3a);
+  transform: translateY(-1px);
+}
+
+.header-cloud-chip.offline {
+  border-color: #fca5a5;
+  background-color: #fff1f2;
+}
+
+.cloud-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #22c55e;
+}
+
+.cloud-status-dot.offline {
+  background-color: #ef4444;
+}
+
+.cloud-status-dot.pulsing {
+  background-color: #f59e0b;
+  animation: pulseRadar 1.2s infinite ease-out;
+}
+
+.spin-animate {
+  animation: spinCloud 1s linear infinite;
+}
+
+@keyframes spinCloud {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Search Box */
 .header-search-box {
   display: flex;
@@ -2293,6 +2345,145 @@ html, body {
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-validate-approve:hover {
+  background: var(--forest-900);
+  transform: translateY(-1px);
+}
+
+.btn-revert-validation {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: var(--text-muted);
+  border: 1px solid var(--border-card);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-revert-validation:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.btn-bulk-validate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: #166534;
+  color: #ffffff;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(22, 101, 52, 0.25);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-bulk-validate:hover {
+  background: #14532d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 101, 52, 0.35);
+}
+
+.btn-generate-bills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: #ffffff;
+  color: var(--forest-800);
+  border: 1.5px solid var(--forest-700);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-generate-bills:hover {
+  background: var(--forest-50);
+  transform: translateY(-1px);
+}
+
+/* Pembayaran Stat Cards */
+.pembayaran-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+  .pembayaran-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .pembayaran-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pembayaran-stat-card {
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pembayaran-stat-card.card-success {
+  border-left: 4px solid #22c55e;
+}
+
+.pembayaran-stat-card.card-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.pembayaran-stat-card.card-primary {
+  border-left: 4px solid var(--forest-700);
+}
+
+.pembayaran-stat-card.card-info {
+  border-left: 4px solid #3b82f6;
+}
+
+.stat-metric-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.stat-metric-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.stat-metric-subtext {
+  font-size: 0.74rem;
+  color: var(--text-subtle);
+  font-weight: 500;
 }
 
 .btn-validate-reject {
@@ -2807,6 +2998,49 @@ html, body {
   padding: 4px 10px;
   border-radius: var(--radius-pill);
   font-weight: 600;
+}
+
+/* Facility Toggle Grid for Room CRUD Form */
+.facilities-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.facility-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-main, #f8faf8);
+  border: 1px solid var(--border-card, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--forest-800, #1f2937);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.facility-checkbox-label:hover {
+  border-color: var(--primary-green, #2d5a3a);
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.facility-checkbox-label.active {
+  background: #f0fdf4;
+  border-color: #22c55e;
+  color: #15803d;
+}
+
+.facility-checkbox-label input[type="checkbox"] {
+  accent-color: #22c55e;
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
 }
 
 /* Tenant Login View */
@@ -4709,6 +4943,279 @@ html, body {
   font-size: 0.84rem;
   font-weight: 600;
   margin-bottom: 4px;
+}
+
+/* ==========================================================================
+   TOKEN LISTRIK & UTILITY INLINE INPUT STYLES
+   ========================================================================== */
+.token-cell-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 230px;
+}
+
+.token-input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.token-input-group:focus-within {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+}
+
+.token-input-field {
+  border: none;
+  outline: none;
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-main);
+  width: 100%;
+  background: transparent;
+}
+
+.token-input-field::placeholder {
+  font-family: inherit;
+  font-weight: normal;
+  font-size: 0.74rem;
+  color: var(--text-subtle);
+}
+
+.btn-save-token-inline {
+  background: #166534;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.btn-save-token-inline:hover {
+  background: #14532d;
+}
+
+.btn-auto-token-gen {
+  background: var(--forest-50);
+  border: 1px solid var(--forest-100);
+  color: var(--forest-800);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-auto-token-gen:hover {
+  background: #fef08a;
+  border-color: #facc15;
+  color: #854d0e;
+}
+
+.token-display-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #15803d;
+  letter-spacing: 0.5px;
+}
+
+.btn-edit-token-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.btn-edit-token-icon:hover {
+  color: var(--forest-800);
+}
+
+.token-display-box {
+  background: #f0fdf4;
+  border: 1.5px dashed #86efac;
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.token-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.token-badge-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #166534;
+}
+
+.btn-copy-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #86efac;
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #15803d;
+  cursor: pointer;
+}
+
+.btn-copy-token:hover {
+  background: #dcfce7;
+}
+
+.token-code-text {
+  font-family: monospace;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #14532d;
+  letter-spacing: 1px;
+}
+
+/* ==========================================================================
+   JADWAL SEWA KAMAR (DASHBOARD SCHEDULE TABLE)
+   ========================================================================== */
+.stat-unit-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.jadwal-sewa-card {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.jadwal-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.jadwal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.jadwal-chip.active-chip {
+  background: var(--green-tint);
+  color: var(--green-accent);
+}
+
+.jadwal-chip.booking-chip {
+  background: var(--blue-tint);
+  color: var(--blue-accent);
+}
+
+.jadwal-chip.vacant-chip {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.jadwal-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-subtle);
+  background: #fafcf9;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-page {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-card);
+  background: #ffffff;
+  color: var(--text-main);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-page:hover:not(:disabled) {
+  background: var(--forest-50);
+  border-color: var(--forest-500);
+}
+
+.btn-page.active {
+  background: var(--forest-800);
+  color: #ffffff;
+  border-color: var(--forest-800);
+  font-weight: 700;
+}
+
+.btn-page:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.table-date-due {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.due-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
 }
 
 

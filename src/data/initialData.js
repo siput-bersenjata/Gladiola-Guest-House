@@ -342,104 +342,97 @@ export const INITIAL_STAFF_RATINGS = [
   }
 ];
 
-export const INITIAL_TENANTS = [
-  {
-    id: "t-1",
-    name: "Rizky Ramadhan",
-    phone: "081233445566",
-    roomNumber: "102",
-    roomType: "Deluxe Taman (AC + KM Dalam)",
-    monthlyRent: 1750000,
-    startDate: "2024-01-15",
-    status: "Aktif",
-    emergencyContact: "081299887766 (Ibu)",
-    notes: "Mahasiswa UB, motor Beat Hitam N 4821 XX"
-  },
-  {
-    id: "t-2",
-    name: "Nabila Putri",
-    phone: "081345678910",
-    roomNumber: "205",
-    roomType: "Executive Balcony",
-    monthlyRent: 2100000,
-    startDate: "2024-03-01",
-    status: "Aktif",
-    emergencyContact: "081311223344 (Ayah)",
-    notes: "Karyawati IT Malang, WFH"
-  },
-  {
-    id: "t-3",
-    name: "Dimas Anggara",
-    phone: "081987654321",
-    roomNumber: "108",
-    roomType: "Standard Sejuk",
-    monthlyRent: 1500000,
-    startDate: "2024-05-10",
-    status: "Aktif",
-    emergencyContact: "081900112233 (Kakak)",
-    notes: "Mahasiswa Polinema"
-  },
-  {
-    id: "t-4",
-    name: "Siti Rahmawati",
-    phone: "085612340001",
-    roomNumber: "201",
-    roomType: "Deluxe Taman (AC + KM Dalam)",
-    monthlyRent: 1750000,
-    startDate: "2024-02-01",
-    status: "Aktif",
-    emergencyContact: "085699998888 (Ibu)",
-    notes: "Mahasiswi UM"
-  },
-  {
-    id: "t-5",
-    name: "Fajar Nugraha",
-    phone: "087700998811",
-    roomNumber: "302",
-    roomType: "Executive Balcony",
-    monthlyRent: 2100000,
-    startDate: "2024-06-01",
-    status: "Aktif",
-    emergencyContact: "087711223344 (Ayah)",
-    notes: "Dokter Muda RSSA"
-  }
+const INITIAL_TENANT_SPECS = [
+  { name: "Andi Pratama", phone: "081211112233", room: "101", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-01-10", notes: "Mahasiswa UB Teknik", emergency: "081299001122 (Ayah)" },
+  { name: "Rizky Ramadhan", phone: "081233445566", room: "102", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-01-15", notes: "Mahasiswa UB, motor Beat Hitam N 4821 XX", emergency: "081299887766 (Ibu)" },
+  { name: "Bagas Saputra", phone: "081244556677", room: "103", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-01", notes: "Karyawan Bank Mandiri", emergency: "081388776655 (Kakak)" },
+  { name: "Bayu Wicaksono", phone: "081255667788", room: "104", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-15", notes: "Mahasiswa UM Informatika", emergency: "081277665544 (Ibu)" },
+  { name: "Deni Setiawan", phone: "081266778899", room: "105", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-03-01", notes: "Desainer Grafis Freelance", emergency: "081366554433 (Ayah)" },
+  { name: "Ilham Hidayat", phone: "081277889900", room: "106", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-03-10", notes: "Mahasiswa Polinema", emergency: "081255443322 (Ibu)" },
+  { name: "Galih Perkasa", phone: "081288990011", room: "107", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-04-01", notes: "Staff Medis RSSA", emergency: "081344332211 (Ayah)" },
+  { name: "Dimas Anggara", phone: "081987654321", room: "108", type: "Standard Sejuk", price: 1500000, start: "2024-05-10", notes: "Mahasiswa Polinema", emergency: "081900112233 (Kakak)" },
+  { name: "Aditya Nugroho", phone: "081299001122", room: "109", type: "Standard Sejuk", price: 1500000, start: "2024-05-15", notes: "Mahasiswa UB Vokasi", emergency: "081233221100 (Ibu)" },
+  { name: "Eko Prasetyo", phone: "081311223344", room: "110", type: "Standard Sejuk", price: 1500000, start: "2024-06-01", notes: "Software Engineer", emergency: "081322110099 (Ayah)" },
+  { name: "Gilang Ramadhan", phone: "081322334455", room: "111", type: "Standard Sejuk", price: 1500000, start: "2024-06-15", notes: "Mahasiswa UM Akuntansi", emergency: "081211009988 (Ibu)" },
+  { name: "Hendra Gunawan", phone: "081333445566", room: "112", type: "Standard Sejuk", price: 1500000, start: "2024-07-01", notes: "Karyawan Swasta", emergency: "081300998877 (Kakak)" },
+  { name: "Irvan Maulana", phone: "081344556677", room: "113", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-07-10", notes: "Mahasiswa UB Hukum", emergency: "081299887755 (Ayah)" },
+  { name: "Joko Susilo", phone: "081355667788", room: "114", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-08-01", notes: "Staff Marketing", emergency: "081388776644 (Ibu)" },
+  { name: "Kevin Sanjaya", phone: "081366778899", room: "115", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-08-15", notes: "Mahasiswa Polinema TI", emergency: "081277665533 (Ayah)" },
+  { name: "Lukman Hakim", phone: "081377889900", room: "116", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-01", notes: "Wirausaha Online", emergency: "081366554422 (Ibu)" },
+  { name: "Muhammad Farhan", phone: "081388990011", room: "117", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-10", notes: "Mahasiswa UB FIA", emergency: "081255443311 (Kakak)" },
+  { name: "Naufal Zaki", phone: "081399001122", room: "118", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-20", notes: "Mahasiswa UM Sastra", emergency: "081344332200 (Ayah)" },
+  // Lantai 2 (201-218)
+  { name: "Siti Rahmawati", phone: "085612340001", room: "201", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-01", notes: "Mahasiswi UM", emergency: "085699998888 (Ibu)" },
+  { name: "Putri Anggraini", phone: "085623450002", room: "202", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-10", notes: "Mahasiswi UB Kedokteran", emergency: "085688887777 (Ayah)" },
+  { name: "Dewi Lestari", phone: "085634560003", room: "203", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-20", notes: "Karyawati Startup", emergency: "085677776666 (Ibu)" },
+  { name: "Anisa Fitriani", phone: "085645670004", room: "204", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-03-01", notes: "Mahasiswi UB FEB", emergency: "085666665555 (Kakak)" },
+  { name: "Nabila Putri", phone: "081345678910", room: "205", type: "Executive Balcony", price: 2100000, start: "2024-03-01", notes: "Karyawati IT Malang, WFH", emergency: "081311223344 (Ayah)" },
+  { name: "Rina Marlina", phone: "085656780005", room: "206", type: "Executive Balcony", price: 2100000, start: "2024-03-15", notes: "Data Analyst", emergency: "085655554444 (Ibu)" },
+  { name: "Maya Safitri", phone: "085667890006", room: "207", type: "Executive Balcony", price: 2100000, start: "2024-04-01", notes: "Mahasiswi S2 UB", emergency: "085644443333 (Ayah)" },
+  { name: "Tia Rahayu", phone: "085678900007", room: "208", type: "Executive Balcony", price: 2100000, start: "2024-04-10", notes: "Staff Keuangan", emergency: "085633332222 (Ibu)" },
+  { name: "Sari Indah", phone: "085689010008", room: "209", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-05-01", notes: "Mahasiswi Polinema Akuntansi", emergency: "085622221111 (Kakak)" },
+  { name: "Vina Panduwinata", phone: "085690120009", room: "210", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-05-15", notes: "Mahasiswi UM Psikologi", emergency: "085611110000 (Ibu)" },
+  { name: "Winda Septiani", phone: "085701230010", room: "211", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-06-01", notes: "Content Creator", emergency: "085799001122 (Ayah)" },
+  { name: "Yulia Citra", phone: "085712340011", room: "212", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-06-15", notes: "Mahasiswi UB Farmasi", emergency: "085788990011 (Ibu)" },
+  { name: "Zahra Amalia", phone: "085723450012", room: "213", type: "Standard Sejuk", price: 1500000, start: "2024-07-01", notes: "Mahasiswi Polinema Rekayasa", emergency: "085777889900 (Kakak)" },
+  { name: "Bella Shofie", phone: "085734560013", room: "214", type: "Standard Sejuk", price: 1500000, start: "2024-07-15", notes: "Staff Apotek", emergency: "085766778899 (Ayah)" },
+  { name: "Citra Kirana", phone: "085745670014", room: "215", type: "Standard Sejuk", price: 1500000, start: "2024-08-01", notes: "Mahasiswi UM Desain", emergency: "085755667788 (Ibu)" },
+  { name: "Dian Sastrowardoyo", phone: "085756780015", room: "216", type: "Standard Sejuk", price: 1500000, start: "2024-08-15", notes: "Guru Les Privat", emergency: "085744556677 (Ayah)" },
+  { name: "Farah Quinn", phone: "085767890016", room: "217", type: "Standard Sejuk", price: 1500000, start: "2024-09-01", notes: "Chef Pastry Cafe", emergency: "085733445566 (Ibu)" },
+  { name: "Gita Gutawa", phone: "085778900017", room: "218", type: "Standard Sejuk", price: 1500000, start: "2024-09-15", notes: "Mahasiswi Musik", emergency: "085722334455 (Kakak)" },
+  // Lantai 3 (301-309 Terisi, 310-312 Booking)
+  { name: "Hani Syarifah", phone: "087711220001", room: "301", type: "Executive Balcony", price: 2100000, start: "2024-05-01", notes: "Peneliti Muda", emergency: "087700112233 (Ibu)" },
+  { name: "Fajar Nugraha", phone: "087700998811", room: "302", type: "Executive Balcony", price: 2100000, start: "2024-06-01", notes: "Dokter Muda RSSA", emergency: "087711223344 (Ayah)" },
+  { name: "Irfan Bachdim", phone: "087722330002", room: "303", type: "Executive Balcony", price: 2100000, start: "2024-06-15", notes: "Atlet & Pelatih Kebugaran", emergency: "087722110099 (Istri)" },
+  { name: "Reza Rahadian", phone: "087733440003", room: "304", type: "Executive Balcony", price: 2100000, start: "2024-07-01", notes: "Creative Director", emergency: "087733221100 (Ibu)" },
+  { name: "Ahmad Fauzi", phone: "087744550004", room: "305", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-07-15", notes: "Mahasiswa S2 Teknik", emergency: "087744332211 (Ayah)" },
+  { name: "Rian Hidayat", phone: "087755660005", room: "306", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-08-01", notes: "Software Developer", emergency: "087755443322 (Ibu)" },
+  { name: "Wahyu Nugraha", phone: "087766770006", room: "307", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-08-15", notes: "Mahasiswa UB Peternakan", emergency: "087766554433 (Kakak)" },
+  { name: "Yoga Pratama", phone: "087777880007", room: "308", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-01", notes: "Fotografer Profesional", emergency: "087777665544 (Ayah)" },
+  { name: "Zulham Zamrun", phone: "087788990008", room: "309", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-10", notes: "Mahasiswa Polinema Sipil", emergency: "087788776655 (Ibu)" },
+  // Booking Tenants (310-312)
+  { name: "Calon Penghuni (Kurniawan)", phone: "087811223301", room: "310", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-11-01", notes: "Booking DP 50%, masuk awal bulan depan", emergency: "087811002299 (Ibu)", status: "Booking" },
+  { name: "Calon Penghuni (Mega Lestari)", phone: "087822334402", room: "311", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-11-01", notes: "Booking konfirmasi wawancara kerja", emergency: "087822113300 (Ayah)", status: "Booking" },
+  { name: "Calon Penghuni (Oki Setiana)", phone: "087833445503", room: "312", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-11-05", notes: "Booking mahasiswa baru semester genap", emergency: "087833224411 (Kakak)", status: "Booking" }
 ];
+
+export const INITIAL_TENANTS = INITIAL_TENANT_SPECS.map((spec, i) => ({
+  id: `t-${i + 1}`,
+  name: spec.name,
+  phone: spec.phone,
+  roomNumber: spec.room,
+  roomType: spec.type,
+  monthlyRent: spec.price,
+  startDate: spec.start,
+  status: spec.status || "Aktif",
+  emergencyContact: spec.emergency,
+  notes: spec.notes
+}));
 
 export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
   const roomNumber = `${Math.floor(i / 18) + 1}${String((i % 18) + 1).padStart(2, "0")}`;
   let status = "Terisi";
   let tenant = null;
-  let type = "Deluxe Taman";
+  let type = "Deluxe Taman (AC + KM Dalam)";
   let price = 1750000;
 
-  if (roomNumber === "102") {
-    tenant = "Rizky Ramadhan";
-    type = "Deluxe Taman (AC + KM Dalam)";
-    price = 1750000;
-  } else if (roomNumber === "205") {
-    tenant = "Nabila Putri";
-    type = "Executive Balcony";
-    price = 2100000;
-  } else if (roomNumber === "108") {
-    tenant = "Dimas Anggara";
-    type = "Standard Sejuk";
-    price = 1500000;
-  } else if (roomNumber === "201") {
-    tenant = "Siti Rahmawati";
-    type = "Deluxe Taman (AC + KM Dalam)";
-    price = 1750000;
-  } else if (roomNumber === "302") {
-    tenant = "Fajar Nugraha";
-    type = "Executive Balcony";
-    price = 2100000;
-  } else if (i === 48 || i === 49) {
+  const matchedTenant = INITIAL_TENANT_SPECS.find((t) => t.room === roomNumber);
+
+  if (i === 48 || i === 49) {
     status = "Kosong";
     tenant = null;
+    type = "Deluxe Taman (AC + KM Dalam)";
+    price = 1750000;
   } else if (i >= 45 && i <= 47) {
     status = "Booking";
-    tenant = "Calon Penghuni";
+    tenant = matchedTenant ? matchedTenant.name : "Calon Penghuni";
+    type = matchedTenant ? matchedTenant.type : "Deluxe Taman (AC + KM Dalam)";
+    price = matchedTenant ? matchedTenant.price : 1750000;
   } else {
-    tenant = `Penghuni Kamar ${roomNumber}`;
+    status = "Terisi";
+    tenant = matchedTenant ? matchedTenant.name : `Penghuni Kamar ${roomNumber}`;
+    type = matchedTenant ? matchedTenant.type : (roomNumber.startsWith("3") || ["205", "206", "207", "208"].includes(roomNumber) ? "Executive Balcony" : ["108", "109", "110", "111", "112", "213", "214", "215", "216", "217", "218"].includes(roomNumber) ? "Standard Sejuk" : "Deluxe Taman (AC + KM Dalam)");
+    price = matchedTenant ? matchedTenant.price : (type.includes("Executive") ? 2100000 : type.includes("Standard") ? 1500000 : 1750000);
   }
 
   return {
@@ -454,7 +447,8 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
   };
 });
 
-export const INITIAL_RENT_PAYMENTS = [
+// Base payments with specific states for Oktober 2026 demo
+const SPECIFIC_PAYMENTS = [
   {
     id: "pay-101",
     tenantId: "t-1",
@@ -528,14 +522,17 @@ export const INITIAL_RENT_PAYMENTS = [
     month: "Oktober 2026",
     amount: 2100000,
     paidAt: null,
-    paymentMethod: null,
+    paymentMethod: "Belum Transfer",
     status: "Belum Bayar",
     validatedBy: null,
     validatedAt: null,
     proofUrl: null,
     ratingGiven: false
-  },
-  // Previous months history for tenant 1 (Rizky Ramadhan)
+  }
+];
+
+// Historical payments for previous months
+const HISTORY_PAYMENTS = [
   {
     id: "pay-91",
     tenantId: "t-1",
@@ -586,7 +583,34 @@ export const INITIAL_RENT_PAYMENTS = [
   }
 ];
 
-export const INITIAL_ELECTRICITY_BILLS = [
+// Dynamically generate October 2026 bills for all other active tenants
+const REMAINING_OCTOBER_PAYMENTS = INITIAL_TENANTS
+  .filter((t) => t.status === "Aktif" && !SPECIFIC_PAYMENTS.some((sp) => sp.roomNumber === t.roomNumber))
+  .map((t) => ({
+    id: `pay-okt26-${t.roomNumber}`,
+    tenantId: t.id,
+    tenantName: t.name,
+    tenantPhone: t.phone,
+    roomNumber: t.roomNumber,
+    month: "Oktober 2026",
+    amount: t.monthlyRent || 1750000,
+    paidAt: null,
+    paymentMethod: "Belum Transfer",
+    status: "Belum Bayar",
+    validatedBy: null,
+    validatedAt: null,
+    proofUrl: null,
+    ratingGiven: false
+  }));
+
+export const INITIAL_RENT_PAYMENTS = [
+  ...SPECIFIC_PAYMENTS,
+  ...REMAINING_OCTOBER_PAYMENTS,
+  ...HISTORY_PAYMENTS
+];
+
+// Base electricity bills with specific states and tokens for Oktober 2026
+const SPECIFIC_ELEC_BILLS = [
   {
     id: "elec-101",
     tenantId: "t-1",
@@ -599,6 +623,7 @@ export const INITIAL_ELECTRICITY_BILLS = [
     kwhUsage: 80,
     ratePerKwh: 1650,
     totalBill: 132000,
+    token: "3819-2041-8849-2194-0012",
     status: "Lunas", // "Lunas" | "Belum Bayar"
     paidAt: "2026-10-02 09:15",
     recordedBy: "Operator Taman"
@@ -615,6 +640,7 @@ export const INITIAL_ELECTRICITY_BILLS = [
     kwhUsage: 105,
     ratePerKwh: 1650,
     totalBill: 173250,
+    token: "5109-3382-7714-9023-4410",
     status: "Lunas",
     paidAt: "2026-10-03 08:30",
     recordedBy: "Operator Taman"
@@ -631,6 +657,7 @@ export const INITIAL_ELECTRICITY_BILLS = [
     kwhUsage: 65,
     ratePerKwh: 1650,
     totalBill: 107250,
+    token: "1940-8821-6632-1104-9852",
     status: "Lunas",
     paidAt: "2026-10-04 14:20",
     recordedBy: "Operator Taman"
@@ -647,11 +674,15 @@ export const INITIAL_ELECTRICITY_BILLS = [
     kwhUsage: 78,
     ratePerKwh: 1650,
     totalBill: 128700,
+    token: "",
     status: "Belum Bayar",
     paidAt: null,
     recordedBy: "Operator Taman"
-  },
-  // Previous months history for tenant 1
+  }
+];
+
+// Historical electricity records
+const HISTORY_ELEC_BILLS = [
   {
     id: "elec-91",
     tenantId: "t-1",
@@ -664,6 +695,7 @@ export const INITIAL_ELECTRICITY_BILLS = [
     kwhUsage: 75,
     ratePerKwh: 1650,
     totalBill: 123750,
+    token: "8821-4401-9923-1120-7734",
     status: "Lunas",
     paidAt: "2026-09-02 10:00",
     recordedBy: "Operator Taman"
@@ -680,6 +712,7 @@ export const INITIAL_ELECTRICITY_BILLS = [
     kwhUsage: 85,
     ratePerKwh: 1650,
     totalBill: 140250,
+    token: "6640-1192-3304-8851-2290",
     status: "Lunas",
     paidAt: "2026-08-01 14:10",
     recordedBy: "Operator Taman"
@@ -696,10 +729,43 @@ export const INITIAL_ELECTRICITY_BILLS = [
     kwhUsage: 75,
     ratePerKwh: 1650,
     totalBill: 123750,
+    token: "4410-9923-7712-0056-8819",
     status: "Lunas",
     paidAt: "2026-07-02 08:45",
     recordedBy: "Operator Taman"
   }
+];
+
+// Dynamically generate October 2026 bills for all other active tenants
+const REMAINING_OCTOBER_ELEC = INITIAL_TENANTS
+  .filter((t) => t.status === "Aktif" && !SPECIFIC_ELEC_BILLS.some((sp) => sp.roomNumber === t.roomNumber))
+  .map((t, idx) => {
+    const baseStart = 1000 + (parseInt(t.roomNumber) || 100) * 3;
+    const baseEnd = baseStart + 70 + (idx % 25);
+    const usage = baseEnd - baseStart;
+    return {
+      id: `elec-okt26-${t.roomNumber}`,
+      tenantId: t.id,
+      tenantName: t.name,
+      tenantPhone: t.phone,
+      roomNumber: t.roomNumber,
+      month: "Oktober 2026",
+      meterStart: baseStart,
+      meterEnd: baseEnd,
+      kwhUsage: usage,
+      ratePerKwh: 1650,
+      totalBill: usage * 1650,
+      token: "", // Kolom token siap diisi oleh petugas
+      status: "Belum Bayar",
+      paidAt: null,
+      recordedBy: "Petugas Gladiola"
+    };
+  });
+
+export const INITIAL_ELECTRICITY_BILLS = [
+  ...SPECIFIC_ELEC_BILLS,
+  ...REMAINING_OCTOBER_ELEC,
+  ...HISTORY_ELEC_BILLS
 ];
 
 export const INITIAL_OPERATORS = [
