@@ -236,8 +236,12 @@ export const AppProvider = ({ children }) => {
   const applyRemoteData = (cloudData) => {
     if (!cloudData || !Array.isArray(cloudData.tenants) || cloudData.tenants.length === 0) return;
     const remoteTime = cloudData.updatedAt || 0;
-    if (remoteTime > lastUploadedTimestampRef.current) {
+    const localTime = loadState('lastLocalEditTime', 0);
+
+    // ONLY apply remote data if remote is strictly NEWER than our local edits!
+    if (remoteTime > localTime) {
       isApplyingRemoteRef.current = true;
+      saveState('lastLocalEditTime', remoteTime);
       setTenants(cloudData.tenants);
       if (Array.isArray(cloudData.rooms)) setRooms(cloudData.rooms);
       if (Array.isArray(cloudData.payments)) setPayments(cloudData.payments);
@@ -255,6 +259,10 @@ export const AppProvider = ({ children }) => {
       }, 300);
       setCloudSyncStatus('synced');
       setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
+    } else if (localTime > remoteTime && remoteTime > 0) {
+      // Local changes are NEWER than the cloud copy!
+      // Immediately push local data up to cloud so cloud catches up!
+      pushToCloud();
     }
   };
 
@@ -305,6 +313,7 @@ export const AppProvider = ({ children }) => {
       setCloudSyncStatus('syncing');
       const now = Date.now();
       lastUploadedTimestampRef.current = now;
+      saveState('lastLocalEditTime', now);
 
       const payload = {
         updatedAt: now,
@@ -322,23 +331,20 @@ export const AppProvider = ({ children }) => {
         activityLogs: overrideData?.activityLogs || activityLogs
       };
 
-      // 1. Push to Firebase Realtime Database (Sub-second broadcast to all devices!)
-      let firebaseSuccess = false;
-      if (firebaseConfig?.databaseURL) {
-        firebaseSuccess = await pushDataToFirebase(firebaseConfig, payload);
-        if (firebaseSuccess) setFirebaseConnected(true);
-      }
+      // Push to both in parallel (neither blocks the other!)
+      const binPromise = fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch((err) => console.warn('Bin push error:', err));
 
-      // 2. Push to fallback cloud bin as redundant safe backup
-      try {
-        await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } catch (binErr) {
-        console.warn('Backup bin push warning:', binErr);
-      }
+      const fbPromise = pushDataToFirebase(firebaseConfig, payload).catch((err) =>
+        console.warn('FB push error:', err)
+      );
+
+      const [binRes, fbRes] = await Promise.allSettled([binPromise, fbPromise]);
+      const fbSuccess = fbRes.status === 'fulfilled' && fbRes.value;
+      if (fbSuccess) setFirebaseConnected(true);
 
       setCloudSyncStatus('synced');
       setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
@@ -850,24 +856,29 @@ export const AppProvider = ({ children }) => {
   const handleValidatePayment = (paymentId, newStatus, customMethod = null) => {
     const nowStr = new Date().toLocaleString('id-ID');
     const isApproval = newStatus === 'Tervalidasi';
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
 
-    setPayments((prev) =>
-      prev.map((p) => {
-        if (p.id === paymentId) {
-          return {
-            ...p,
-            status: newStatus,
-            paymentMethod: isApproval
-              ? (customMethod || (p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA'))
-              : (newStatus === 'Belum Bayar' ? 'Belum Transfer' : p.paymentMethod),
-            paidAt: isApproval ? (p.paidAt || nowStr) : (newStatus === 'Belum Bayar' ? null : p.paidAt),
-            validatedBy: isApproval ? (currentUser?.name || 'Petugas Gladiola') : null,
-            validatedAt: isApproval ? nowStr : null
-          };
-        }
-        return p;
-      })
-    );
+    const newPayments = payments.map((p) => {
+      if (p.id === paymentId) {
+        return {
+          ...p,
+          status: newStatus,
+          paymentMethod: isApproval
+            ? (customMethod || (p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA'))
+            : (newStatus === 'Belum Bayar' ? 'Belum Transfer' : p.paymentMethod),
+          paidAt: isApproval ? (p.paidAt || nowStr) : (newStatus === 'Belum Bayar' ? null : p.paidAt),
+          validatedBy: isApproval ? (currentUser?.name || 'Petugas Gladiola') : null,
+          validatedAt: isApproval ? nowStr : null
+        };
+      }
+      return p;
+    });
+
+    setPayments(newPayments);
+    saveState('payments', newPayments);
+    pushToCloud({ payments: newPayments });
+
     const target = payments.find((p) => p.id === paymentId);
     const label = target ? `Kamar ${target.roomNumber} (${target.tenantName})` : `ID ${paymentId}`;
     logActivity(
@@ -882,36 +893,35 @@ export const AppProvider = ({ children }) => {
     if (!targetMonth || targetMonth === 'all') return;
     const nowStr = new Date().toLocaleString('id-ID');
     let updatedCount = 0;
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
 
-    setPayments((prev) =>
-      prev.map((p) => {
-        const matchMonth =
-          p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
-          p.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
-        if (matchMonth && p.status !== 'Tervalidasi') {
-          updatedCount++;
-          return {
-            ...p,
-            status: 'Tervalidasi',
-            paymentMethod: p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA',
-            paidAt: p.paidAt || nowStr,
-            validatedBy: currentUser?.name || 'Petugas Gladiola',
-            validatedAt: nowStr
-          };
-        }
-        return p;
-      })
+    const newPayments = payments.map((p) => {
+      const matchMonth =
+        p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
+        p.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
+      if (matchMonth && p.status !== 'Tervalidasi') {
+        updatedCount++;
+        return {
+          ...p,
+          status: 'Tervalidasi',
+          paymentMethod: p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA',
+          paidAt: p.paidAt || nowStr,
+          validatedBy: currentUser?.name || 'Petugas Gladiola',
+          validatedAt: nowStr
+        };
+      }
+      return p;
+    });
+
+    setPayments(newPayments);
+    saveState('payments', newPayments);
+    pushToCloud({ payments: newPayments });
+
+    logActivity(
+      'Validasi Massal Tagihan Bulanan',
+      `Validasi massal ${updatedCount} tagihan bulan ${targetMonth} oleh ${currentUser?.name || 'Petugas'}`
     );
-
-    if (updatedCount > 0) {
-      logActivity(
-        `Validasi Massal: ${targetMonth}`,
-        `Petugas ${currentUser?.name || 'Pengelola'} memvalidasi sekaligus ${updatedCount} tagihan sewa ${targetMonth}`
-      );
-      addToast(`Berhasil memvalidasi seluruh (${updatedCount}) tagihan sewa ${targetMonth}!`, 'success');
-    } else {
-      addToast(`Semua tagihan untuk ${targetMonth} sudah berstatus Tervalidasi.`, 'info');
-    }
   };
 
   // Auto-generate current month bills (Oktober 2026) for all active tenants on load if missing
@@ -971,9 +981,15 @@ export const AppProvider = ({ children }) => {
       return;
     }
 
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+
     if (tenantData.id) {
       // Edit
-      setTenants((prev) => prev.map((t) => (t.id === tenantData.id ? { ...t, ...tenantData } : t)));
+      const newTenants = tenants.map((t) => (t.id === tenantData.id ? { ...t, ...tenantData } : t));
+      setTenants(newTenants);
+      saveState('tenants', newTenants);
+      pushToCloud({ tenants: newTenants });
       logActivity('Ubah Data Anak Kos', `Memperbarui data anak kos: ${tenantData.name} (Kamar ${tenantData.roomNumber})`);
       addToast(`Data ${tenantData.name} berhasil diperbarui`, 'success');
     } else {
@@ -983,15 +999,18 @@ export const AppProvider = ({ children }) => {
         id: `t-${Date.now()}`,
         status: 'Aktif'
       };
-      setTenants((prev) => [...prev, newTenant]);
+      const newTenants = [...tenants, newTenant];
+      setTenants(newTenants);
+      saveState('tenants', newTenants);
       // Update room status
-      setRooms((prev) =>
-        prev.map((r) =>
-          r.number === newTenant.roomNumber
-            ? { ...r, status: 'Terisi', currentTenant: newTenant.name }
-            : r
-        )
+      const newRooms = rooms.map((r) =>
+        r.number === newTenant.roomNumber
+          ? { ...r, status: 'Terisi', currentTenant: newTenant.name }
+          : r
       );
+      setRooms(newRooms);
+      saveState('rooms', newRooms);
+      pushToCloud({ tenants: newTenants, rooms: newRooms });
       logActivity('Tambah Anak Kos Baru', `Menambahkan penghuni baru: ${newTenant.name} (Kamar ${newTenant.roomNumber})`);
       addToast(`Anak kos baru ${newTenant.name} berhasil ditambahkan`, 'success');
     }
@@ -1005,15 +1024,20 @@ export const AppProvider = ({ children }) => {
     const tenantToDelete = tenants.find((t) => t.id === tenantId);
     if (!tenantToDelete) return;
 
-    setTenants((prev) => prev.filter((t) => t.id !== tenantId));
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+    const newTenants = tenants.filter((t) => t.id !== tenantId);
+    setTenants(newTenants);
+    saveState('tenants', newTenants);
     // Set room to Kosong
-    setRooms((prev) =>
-      prev.map((r) =>
-        r.number === tenantToDelete.roomNumber
-          ? { ...r, status: 'Kosong', currentTenant: null }
-          : r
-      )
+    const newRooms = rooms.map((r) =>
+      r.number === tenantToDelete.roomNumber
+        ? { ...r, status: 'Kosong', currentTenant: null }
+        : r
     );
+    setRooms(newRooms);
+    saveState('rooms', newRooms);
+    pushToCloud({ tenants: newTenants, rooms: newRooms });
     logActivity('Hapus Anak Kos', `Menghapus anak kos ${tenantToDelete.name} dari kamar ${tenantToDelete.roomNumber}`);
     addToast(`Data penghuni ${tenantToDelete.name} telah dihapus`, 'info');
   };
@@ -1025,23 +1049,26 @@ export const AppProvider = ({ children }) => {
       return;
     }
 
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+
     if (roomData.id) {
       // Edit room
-      setRooms((prev) =>
-        prev.map((r) => (r.id === roomData.id ? { ...r, ...roomData } : r))
-      );
+      const newRooms = rooms.map((r) => (r.id === roomData.id ? { ...r, ...roomData } : r));
+      setRooms(newRooms);
+      saveState('rooms', newRooms);
 
       // Auto-sync electricity bills for this room with the fixed token
+      let newBills = electricityBills;
       if (roomData.electricityToken) {
-        setElectricityBills((prev) =>
-          prev.map((b) =>
-            b.roomNumber === roomData.number
-              ? { ...b, token: roomData.electricityToken }
-              : b
-          )
+        newBills = electricityBills.map((b) =>
+          b.roomNumber === roomData.number ? { ...b, token: roomData.electricityToken } : b
         );
+        setElectricityBills(newBills);
+        saveState('electricity', newBills);
       }
 
+      pushToCloud({ rooms: newRooms, electricityBills: newBills });
       logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Token Listrik: ${roomData.electricityToken || '-'})`);
       addToast(`Data Kamar ${roomData.number} & Token PLN berhasil diperbarui`, 'success');
     } else {
@@ -1050,7 +1077,10 @@ export const AppProvider = ({ children }) => {
         ...roomData,
         id: `rm-${Date.now()}`
       };
-      setRooms((prev) => [...prev, newRoom]);
+      const newRooms = [...rooms, newRoom];
+      setRooms(newRooms);
+      saveState('rooms', newRooms);
+      pushToCloud({ rooms: newRooms });
       logActivity('Tambah Kamar Baru', `Menambahkan Kamar ${newRoom.number} di Lantai ${newRoom.floor}`);
       addToast(`Kamar ${newRoom.number} berhasil ditambahkan`, 'success');
     }
@@ -1064,24 +1094,38 @@ export const AppProvider = ({ children }) => {
     const roomToDelete = rooms.find((r) => r.id === roomId);
     if (!roomToDelete) return;
 
-    setRooms((prev) => prev.filter((r) => r.id !== roomId));
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+    const newRooms = rooms.filter((r) => r.id !== roomId);
+    setRooms(newRooms);
+    saveState('rooms', newRooms);
+    pushToCloud({ rooms: newRooms });
     logActivity('Hapus Kamar', `Menghapus unit Kamar ${roomToDelete.number}`);
     addToast(`Kamar ${roomToDelete.number} telah dihapus dari sistem`, 'info');
   };
 
   // Electricity record save
   const handleSaveElectricityBill = (billData) => {
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+
     if (billData.id) {
-      setElectricityBills((prev) => prev.map((b) => (b.id === billData.id ? { ...b, ...billData } : b)));
+      const newBills = electricityBills.map((b) => (b.id === billData.id ? { ...b, ...billData } : b));
+      setElectricityBills(newBills);
+      saveState('electricity', newBills);
+      pushToCloud({ electricityBills: newBills });
       logActivity('Ubah Tagihan Listrik', `Update tagihan kamar ${billData.roomNumber} (${billData.kwhUsage} kWh)`);
       addToast('Tagihan listrik berhasil diperbarui', 'success');
     } else {
       const newBill = {
         ...billData,
         id: `elec-${Date.now()}`,
-        recordedBy: currentUser.name
+        recordedBy: currentUser?.name || 'Petugas Gladiola'
       };
-      setElectricityBills((prev) => [newBill, ...prev]);
+      const newBills = [newBill, ...electricityBills];
+      setElectricityBills(newBills);
+      saveState('electricity', newBills);
+      pushToCloud({ electricityBills: newBills });
       logActivity('Input Meteran Listrik', `Pencatatan meter listrik kamar ${newBill.roomNumber}: ${newBill.kwhUsage} kWh (Rp ${newBill.totalBill.toLocaleString('id-ID')})`);
       addToast(`Tagihan listrik kamar ${newBill.roomNumber} berhasil disimpan`, 'success');
     }

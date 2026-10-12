@@ -141,30 +141,24 @@ export const subscribeToFirebase = (config = PERMANENT_FIREBASE_CONFIG, onDataRe
   }
 };
 
-// Push Data to Firebase
+// Push Data to Firebase (Safe & Non-blocking)
 export const pushDataToFirebase = async (config = PERMANENT_FIREBASE_CONFIG, data) => {
   const cfg = config || PERMANENT_FIREBASE_CONFIG;
-  const db = initFirebase(cfg);
-  if (db) {
-    try {
-      const gladiolaRef = ref(db, 'gladiola');
-      await set(gladiolaRef, data);
-      return true;
-    } catch (err) {
-      // Fallback to REST below
-    }
-  }
 
-  // REST fallback across URLs
+  // 1. First try REST with 2s timeout (never hangs)
   const urls = [activeUrlUsed, cfg.databaseURL, cfg.fallbackURL].filter(Boolean);
   for (const url of urls) {
     try {
       const cleanUrl = url.replace(/\/+$/, '');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000);
       const res = await fetch(`${cleanUrl}/gladiola.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        signal: controller.signal
       });
+      clearTimeout(timer);
       if (res.ok) {
         activeUrlUsed = cleanUrl;
         return true;
@@ -172,17 +166,35 @@ export const pushDataToFirebase = async (config = PERMANENT_FIREBASE_CONFIG, dat
     } catch {}
   }
 
+  // 2. Try SDK with strict 1.5s timeout (prevents offline hanging)
+  try {
+    const db = initFirebase(cfg);
+    if (db) {
+      const gladiolaRef = ref(db, 'gladiola');
+      await Promise.race([
+        set(gladiolaRef, data),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), 1500))
+      ]);
+      return true;
+    }
+  } catch {}
+
   return false;
 };
 
-// Fetch Once from Firebase
+// Fetch Once from Firebase (Safe & Non-blocking)
 export const fetchOnceFromFirebase = async (config = PERMANENT_FIREBASE_CONFIG) => {
   const cfg = config || PERMANENT_FIREBASE_CONFIG;
   const urls = [activeUrlUsed, cfg.databaseURL, cfg.fallbackURL].filter(Boolean);
   for (const url of urls) {
     try {
       const cleanUrl = url.replace(/\/+$/, '');
-      const res = await fetch(`${cleanUrl}/gladiola.json?t=${Date.now()}`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(`${cleanUrl}/gladiola.json?t=${Date.now()}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timer);
       if (res.ok) {
         const json = await res.json();
         if (json && Array.isArray(json.tenants)) {
