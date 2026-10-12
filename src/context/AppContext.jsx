@@ -166,8 +166,91 @@ export const AppProvider = ({ children }) => {
   // Guard refs to prevent circular sync loops
   const isApplyingRemoteRef = useRef(false);
   const lastUploadedTimestampRef = useRef(0);
+  const latestKnownRemoteVersionRef = useRef(0);
   const isInitialMountRef = useRef(true);
   const debounceTimerRef = useRef(null);
+  const syncChannelRef = useRef(null);
+  const lastFetchTimeRef = useRef(0);
+
+  // Self-heal and reconcile tenant references across all collections
+  const reconcileTenantReferences = (tList, rList, pList, eList) => {
+    if (!Array.isArray(tList) || tList.length === 0) {
+      return { rooms: rList, payments: pList, electricityBills: eList };
+    }
+    const tenantById = new Map();
+    const tenantByRoom = new Map();
+    tList.forEach((t) => {
+      tenantById.set(t.id, t);
+      if (t.roomNumber) tenantByRoom.set(t.roomNumber, t);
+    });
+
+    let roomsChanged = false;
+    const newRooms = (rList || []).map((r) => {
+      const matchTenant = tenantByRoom.get(r.number);
+      if (matchTenant && matchTenant.status === 'Aktif') {
+        if (r.currentTenant !== matchTenant.name || r.status !== 'Terisi') {
+          roomsChanged = true;
+          return { ...r, currentTenant: matchTenant.name, status: 'Terisi' };
+        }
+      }
+      return r;
+    });
+
+    let paymentsChanged = false;
+    const newPayments = (pList || []).map((p) => {
+      const matchTenant =
+        (p.tenantId && tenantById.get(p.tenantId)) ||
+        (p.roomNumber && tenantByRoom.get(p.roomNumber));
+      if (matchTenant) {
+        if (
+          p.tenantName !== matchTenant.name ||
+          p.tenantPhone !== matchTenant.phone ||
+          (p.tenantId && p.tenantId !== matchTenant.id)
+        ) {
+          paymentsChanged = true;
+          return {
+            ...p,
+            tenantId: matchTenant.id,
+            tenantName: matchTenant.name,
+            tenantPhone: matchTenant.phone,
+            roomNumber: matchTenant.roomNumber || p.roomNumber
+          };
+        }
+      }
+      return p;
+    });
+
+    let billsChanged = false;
+    const newBills = (eList || []).map((b) => {
+      const matchTenant =
+        (b.tenantId && tenantById.get(b.tenantId)) ||
+        (b.roomNumber && tenantByRoom.get(b.roomNumber));
+      if (matchTenant) {
+        if (
+          b.tenantName !== matchTenant.name ||
+          b.tenantPhone !== matchTenant.phone ||
+          (b.tenantId && b.tenantId !== matchTenant.id)
+        ) {
+          billsChanged = true;
+          return {
+            ...b,
+            tenantId: matchTenant.id,
+            tenantName: matchTenant.name,
+            tenantPhone: matchTenant.phone,
+            roomNumber: matchTenant.roomNumber || b.roomNumber
+          };
+        }
+      }
+      return b;
+    });
+
+    return {
+      rooms: roomsChanged ? newRooms : rList,
+      payments: paymentsChanged ? newPayments : pList,
+      electricityBills: billsChanged ? newBills : eList,
+      hasAnyChange: roomsChanged || paymentsChanged || billsChanged
+    };
+  };
 
   // App Data States - smart fallback ensures full 48 tenants on fresh/old installs
   const [tenants, setTenants] = useState(() => {
@@ -232,13 +315,101 @@ export const AppProvider = ({ children }) => {
   useEffect(() => saveState('logs', activityLogs), [activityLogs]);
   useEffect(() => saveState('cloudBinId', cloudBinId), [cloudBinId]);
 
+  // Self-heal initial data if rooms/payments are desynchronized with tenants
+  useEffect(() => {
+    const reconciled = reconcileTenantReferences(tenants, rooms, payments, electricityBills);
+    if (reconciled.hasAnyChange) {
+      setRooms(reconciled.rooms);
+      saveState('rooms', reconciled.rooms);
+      setPayments(reconciled.payments);
+      saveState('payments', reconciled.payments);
+      setElectricityBills(reconciled.electricityBills);
+      saveState('electricity', reconciled.electricityBills);
+    }
+  }, []);
+
+  // BroadcastChannel for instant same-device / multi-tab synchronization
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        syncChannelRef.current = new BroadcastChannel('gladiola_realtime_sync');
+        syncChannelRef.current.onmessage = (event) => {
+          if (event.data?.type === 'REMOTE_DATA' && event.data?.payload) {
+            applyRemoteData(event.data.payload);
+          }
+        };
+      } catch (err) {
+        console.warn('BroadcastChannel error:', err);
+      }
+    }
+    return () => {
+      if (syncChannelRef.current) {
+        try {
+          syncChannelRef.current.close();
+        } catch {}
+      }
+    };
+  }, []);
+
+// Native browser deflate compression helpers
+const compressPayload = async (obj) => {
+  try {
+    if (typeof window !== 'undefined' && 'CompressionStream' in window) {
+      const str = JSON.stringify(obj);
+      const stream = new Blob([str]).stream().pipeThrough(new CompressionStream('deflate'));
+      const buffer = await new Response(stream).arrayBuffer();
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+  } catch (e) {
+    console.warn('Compression error:', e);
+  }
+  return null;
+};
+
+const decompressPayload = async (base64Str) => {
+  try {
+    if (typeof window !== 'undefined' && 'DecompressionStream' in window && base64Str) {
+      const binary = atob(base64Str);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+      const text = await new Response(stream).text();
+      return JSON.parse(text);
+    }
+  } catch (e) {
+    console.warn('Decompression error:', e);
+  }
+  return null;
+};
+
   // Apply remote payload cleanly across all local states
-  const applyRemoteData = (cloudData) => {
+  const applyRemoteData = async (rawCloudData) => {
+    if (!rawCloudData) return;
+    let cloudData = rawCloudData;
+    if (rawCloudData.data_z) {
+      const decompressed = await decompressPayload(rawCloudData.data_z);
+      if (decompressed && Array.isArray(decompressed.tenants)) {
+        cloudData = {
+          ...decompressed,
+          version: rawCloudData.version || decompressed.version,
+          updatedAt: rawCloudData.updatedAt || decompressed.updatedAt
+        };
+      }
+    }
     if (!cloudData || !Array.isArray(cloudData.tenants) || cloudData.tenants.length === 0) return;
     const remoteVersion = cloudData.version || 0;
     const remoteTime = cloudData.updatedAt || 0;
     const localVersion = loadState('lastLocalVersion', 0);
     const localTime = loadState('lastLocalEditTime', 0);
+
+    latestKnownRemoteVersionRef.current = Math.max(latestKnownRemoteVersionRef.current, remoteVersion);
 
     const isRemoteNewer = remoteVersion > localVersion || (remoteVersion === localVersion && remoteTime > localTime);
 
@@ -247,39 +418,76 @@ export const AppProvider = ({ children }) => {
       isApplyingRemoteRef.current = true;
       saveState('lastLocalVersion', remoteVersion);
       saveState('lastLocalEditTime', remoteTime);
+
+      const reconciled = reconcileTenantReferences(
+        cloudData.tenants,
+        cloudData.rooms || rooms,
+        cloudData.payments || payments,
+        cloudData.electricityBills || electricityBills
+      );
+
       setTenants(cloudData.tenants);
-      if (Array.isArray(cloudData.rooms)) setRooms(cloudData.rooms);
-      if (Array.isArray(cloudData.payments)) setPayments(cloudData.payments);
-      if (Array.isArray(cloudData.electricityBills)) setElectricityBills(cloudData.electricityBills);
-      if (Array.isArray(cloudData.staffList)) setStaffList(cloudData.staffList);
-      if (Array.isArray(cloudData.staffRatings)) setStaffRatings(cloudData.staffRatings);
-      if (cloudData.bankInfo) setBankInfo(cloudData.bankInfo);
-      if (cloudData.wifiInfo) setWifiInfo(cloudData.wifiInfo);
-      if (Array.isArray(cloudData.operators)) setOperators(cloudData.operators);
-      if (Array.isArray(cloudData.systemAccounts)) setSystemAccounts(cloudData.systemAccounts);
-      if (Array.isArray(cloudData.activityLogs)) setActivityLogs(cloudData.activityLogs);
+      saveState('tenants', cloudData.tenants);
+
+      setRooms(reconciled.rooms);
+      saveState('rooms', reconciled.rooms);
+
+      setPayments(reconciled.payments);
+      saveState('payments', reconciled.payments);
+
+      setElectricityBills(reconciled.electricityBills);
+      saveState('electricity', reconciled.electricityBills);
+
+      if (Array.isArray(cloudData.staffList)) {
+        setStaffList(cloudData.staffList);
+        saveState('staff', cloudData.staffList);
+      }
+      if (Array.isArray(cloudData.staffRatings)) {
+        setStaffRatings(cloudData.staffRatings);
+        saveState('staffRatings', cloudData.staffRatings);
+      }
+      if (cloudData.bankInfo) {
+        setBankInfo(cloudData.bankInfo);
+        saveState('bankInfo', cloudData.bankInfo);
+      }
+      if (cloudData.wifiInfo) {
+        setWifiInfo(cloudData.wifiInfo);
+        saveState('wifiInfo', cloudData.wifiInfo);
+      }
+      if (Array.isArray(cloudData.operators)) {
+        setOperators(cloudData.operators);
+        saveState('operators', cloudData.operators);
+      }
+      if (Array.isArray(cloudData.systemAccounts)) {
+        setSystemAccounts(cloudData.systemAccounts);
+        saveState('systemAccounts', cloudData.systemAccounts);
+      }
+      if (Array.isArray(cloudData.activityLogs)) {
+        setActivityLogs(cloudData.activityLogs);
+        saveState('logs', cloudData.activityLogs);
+      }
+
       lastUploadedTimestampRef.current = remoteTime;
       setTimeout(() => {
         isApplyingRemoteRef.current = false;
-      }, 300);
+      }, 1500);
+
       setCloudSyncStatus('synced');
       setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
-    } else if (localVersion > remoteVersion || (localVersion === remoteVersion && localTime > remoteTime && remoteTime > 0)) {
-      // Local changes are NEWER than the cloud copy!
-      // Immediately push local data up to cloud so cloud catches up!
-      pushToCloud();
     }
   };
 
   // =========================================================================
-  // MULTI-DEVICE CLOUD SYNC ENGINE (GOOGLE FIREBASE + REALTIME FALLBACK)
+  // MULTI-DEVICE CLOUD SYNC ENGINE (GOOGLE FIREBASE + ULTRA-FAST CLOUD BIN)
   // =========================================================================
   const fetchCloudData = async (silent = false) => {
+    if (isApplyingRemoteRef.current) return;
     try {
       if (!silent) setIsCloudSyncing(true);
+      lastFetchTimeRef.current = Date.now();
       let cloudData = null;
 
-      // 1. Try Firebase Realtime Database first if configured
+      // 1. Try Firebase Realtime Database first if configured & online
       if (firebaseConfig?.databaseURL) {
         cloudData = await fetchOnceFromFirebase(firebaseConfig);
         if (cloudData && Array.isArray(cloudData.tenants)) {
@@ -287,10 +495,16 @@ export const AppProvider = ({ children }) => {
         }
       }
 
-      // 2. Fallback to clean cloud bin if Firebase is not yet configured or returned null
+      // 2. High-speed cache-busting fetch from cloud bin
       if (!cloudData || !Array.isArray(cloudData.tenants)) {
         try {
-          const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}?t=${Date.now()}`);
+          const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}?t=${Date.now()}&_r=${Math.random()}`, {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          });
           if (res.ok) {
             cloudData = await res.json();
           }
@@ -299,8 +513,8 @@ export const AppProvider = ({ children }) => {
         }
       }
 
-      if (cloudData && Array.isArray(cloudData.tenants) && cloudData.tenants.length > 0) {
-        applyRemoteData(cloudData);
+      if (cloudData && (Array.isArray(cloudData.tenants) || cloudData.data_z)) {
+        await applyRemoteData(cloudData);
         setCloudSyncStatus('synced');
       }
     } catch (err) {
@@ -317,8 +531,9 @@ export const AppProvider = ({ children }) => {
       setIsCloudSyncing(true);
       setCloudSyncStatus('syncing');
       const now = Date.now();
-      const currentVer = loadState('lastLocalVersion', 0);
+      const currentVer = Math.max(loadState('lastLocalVersion', 0), latestKnownRemoteVersionRef.current);
       const nextVer = currentVer + 1;
+      latestKnownRemoteVersionRef.current = nextVer;
 
       lastUploadedTimestampRef.current = now;
       saveState('lastLocalVersion', nextVer);
@@ -341,11 +556,32 @@ export const AppProvider = ({ children }) => {
         activityLogs: overrideData?.activityLogs || activityLogs
       };
 
-      // Push to both in parallel (neither blocks the other!)
+      // Broadcast immediately to tabs on this machine (0ms latency)
+      if (syncChannelRef.current) {
+        try {
+          syncChannelRef.current.postMessage({ type: 'REMOTE_DATA', payload });
+        } catch {}
+      }
+
+      // Compress for high-speed cloud upload (< 12KB)
+      const compressedStr = await compressPayload(payload);
+      const cloudPayload = compressedStr
+        ? {
+            version: nextVer,
+            updatedAt: now,
+            data_z: compressedStr,
+            source: 'client_compressed'
+          }
+        : payload;
+
+      // Push to both in parallel
       const binPromise = fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify(cloudPayload)
       }).catch((err) => console.warn('Bin push error:', err));
 
       const fbPromise = pushDataToFirebase(firebaseConfig, payload).catch((err) =>
@@ -387,7 +623,6 @@ export const AppProvider = ({ children }) => {
       if (test.success) {
         setFirebaseConnected(true);
         addToast('Firebase Realtime Database tersambung! Menyinkronkan data...', 'success');
-        // Push current local data to initialize Firebase
         await pushToCloud();
       } else {
         addToast(`Peringatan Firebase: ${test.message}`, 'warning');
@@ -417,54 +652,35 @@ export const AppProvider = ({ children }) => {
     };
   }, [firebaseConfig]);
 
-  // Push automatically on local state changes (debounced by 800ms)
-  useEffect(() => {
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-      fetchCloudData(true);
-      return;
-    }
-    if (isApplyingRemoteRef.current) return;
-
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      pushToCloud();
-    }, 800);
-
-    return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    };
-  }, [
-    tenants,
-    rooms,
-    payments,
-    electricityBills,
-    staffList,
-    staffRatings,
-    bankInfo,
-    wifiInfo,
-    operators,
-    systemAccounts,
-    activityLogs
-  ]);
-
-  // Periodic polling sync (every 6s) & on tab focus
+  // Periodic polling sync (every 2s) & instant sync on tab focus or interaction
   useEffect(() => {
     const handleFocus = () => fetchCloudData(true);
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') fetchCloudData(true);
     };
+    const handleInteraction = () => {
+      if (Date.now() - lastFetchTimeRef.current > 2000) {
+        fetchCloudData(true);
+      }
+    };
 
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pointerdown', handleInteraction, { passive: true });
+
+    // Initial fetch on mount
+    fetchCloudData(true);
 
     const pollInterval = setInterval(() => {
-      fetchCloudData(true);
-    }, 2500);
+      if (document.visibilityState === 'visible') {
+        fetchCloudData(true);
+      }
+    }, 2000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pointerdown', handleInteraction);
       clearInterval(pollInterval);
     };
   }, [cloudBinId, firebaseConfig]);
@@ -986,7 +1202,7 @@ export const AppProvider = ({ children }) => {
 
   // Add / Edit Tenant
   const handleSaveTenant = (tenantData) => {
-    if (currentUser.role === 'owner') {
+    if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan menambah atau mengubah data anak kos!', 'error');
       return;
     }
@@ -994,24 +1210,160 @@ export const AppProvider = ({ children }) => {
     const now = Date.now();
     saveState('lastLocalEditTime', now);
 
+    const newName = (tenantData.name || '').trim();
+    const newPhone = (tenantData.phone || '').trim();
+    const newRoom = (tenantData.roomNumber || '').trim();
+    const newRent = Number(tenantData.monthlyRent) || 1750000;
+
     if (tenantData.id) {
       // Edit
-      const newTenants = tenants.map((t) => (t.id === tenantData.id ? { ...t, ...tenantData } : t));
+      const oldTenant = tenants.find((t) => t.id === tenantData.id);
+      const oldName = oldTenant ? oldTenant.name : '';
+      const oldPhone = oldTenant ? oldTenant.phone : '';
+      const oldRoom = oldTenant ? oldTenant.roomNumber : '';
+
+      // 1. Update tenants list
+      const newTenants = tenants.map((t) =>
+        t.id === tenantData.id
+          ? {
+              ...t,
+              ...tenantData,
+              name: newName,
+              phone: newPhone,
+              roomNumber: newRoom,
+              monthlyRent: newRent
+            }
+          : t
+      );
       setTenants(newTenants);
       saveState('tenants', newTenants);
-      pushToCloud({ tenants: newTenants });
-      logActivity('Ubah Data Anak Kos', `Memperbarui data anak kos: ${tenantData.name} (Kamar ${tenantData.roomNumber})`);
-      addToast(`Data ${tenantData.name} berhasil diperbarui`, 'success');
+
+      // 2. Cascade update to rooms
+      const newRooms = rooms.map((r) => {
+        // If room changed, vacate old room
+        if (oldRoom && oldRoom !== newRoom && r.number === oldRoom) {
+          return { ...r, status: 'Kosong', currentTenant: null };
+        }
+        // Occupy or update new room
+        if (r.number === newRoom) {
+          return { ...r, status: 'Terisi', currentTenant: newName };
+        }
+        // If this room currently lists old tenant name, update it
+        if (oldName && r.currentTenant === oldName) {
+          return { ...r, currentTenant: newName };
+        }
+        return r;
+      });
+      setRooms(newRooms);
+      saveState('rooms', newRooms);
+
+      // 3. Cascade update to payments
+      const newPayments = payments.map((p) => {
+        const isMatch =
+          p.tenantId === tenantData.id ||
+          (oldName && p.tenantName === oldName) ||
+          (oldRoom && p.roomNumber === oldRoom && (oldName && p.tenantName === oldName)) ||
+          (oldRoom && p.roomNumber === oldRoom && oldPhone && p.tenantPhone === oldPhone);
+        if (isMatch) {
+          return {
+            ...p,
+            tenantId: tenantData.id,
+            tenantName: newName,
+            tenantPhone: newPhone || p.tenantPhone,
+            roomNumber: newRoom || p.roomNumber,
+            amount: newRent || p.amount
+          };
+        }
+        return p;
+      });
+      setPayments(newPayments);
+      saveState('payments', newPayments);
+
+      // 4. Cascade update to electricity bills
+      const newBills = electricityBills.map((b) => {
+        const isMatch =
+          b.tenantId === tenantData.id ||
+          (oldName && b.tenantName === oldName) ||
+          (oldRoom && b.roomNumber === oldRoom && (oldName && b.tenantName === oldName)) ||
+          (oldRoom && b.roomNumber === oldRoom && oldPhone && b.tenantPhone === oldPhone);
+        if (isMatch) {
+          return {
+            ...b,
+            tenantId: tenantData.id,
+            tenantName: newName,
+            tenantPhone: newPhone || b.tenantPhone,
+            roomNumber: newRoom || b.roomNumber
+          };
+        }
+        return b;
+      });
+      setElectricityBills(newBills);
+      saveState('electricity', newBills);
+
+      // 5. Cascade update to staff ratings
+      const newRatings = staffRatings.map((sr) => {
+        const isMatch =
+          sr.tenantId === tenantData.id ||
+          (oldName && sr.tenantName === oldName) ||
+          (oldPhone && sr.tenantPhone === oldPhone);
+        if (isMatch) {
+          return {
+            ...sr,
+            tenantId: tenantData.id,
+            tenantName: newName,
+            tenantPhone: newPhone || sr.tenantPhone
+          };
+        }
+        return sr;
+      });
+      setStaffRatings(newRatings);
+      saveState('staffRatings', newRatings);
+
+      // 6. Update currentUser if logged in as this anak kos
+      if (
+        currentUser &&
+        currentUser.role === 'anak_kos' &&
+        (currentUser.id === tenantData.id ||
+          currentUser.phone === oldPhone ||
+          currentUser.phone === newPhone)
+      ) {
+        setCurrentUser((prev) => ({
+          ...prev,
+          name: newName,
+          phone: newPhone,
+          roomNumber: newRoom
+        }));
+      }
+
+      // 7. Push all updated collections to cloud
+      pushToCloud({
+        tenants: newTenants,
+        rooms: newRooms,
+        payments: newPayments,
+        electricityBills: newBills,
+        staffRatings: newRatings
+      });
+
+      logActivity(
+        'Ubah Data Anak Kos',
+        `Memperbarui data anak kos: ${newName} (Kamar ${newRoom}) - Seluruh riwayat dan halaman disinkronkan.`
+      );
+      addToast(`Data ${newName} berhasil diperbarui di semua halaman!`, 'success');
     } else {
-      // Add
+      // Add new tenant
       const newTenant = {
         ...tenantData,
         id: `t-${Date.now()}`,
+        name: newName,
+        phone: newPhone,
+        roomNumber: newRoom,
+        monthlyRent: newRent,
         status: 'Aktif'
       };
       const newTenants = [...tenants, newTenant];
       setTenants(newTenants);
       saveState('tenants', newTenants);
+
       // Update room status
       const newRooms = rooms.map((r) =>
         r.number === newTenant.roomNumber
@@ -1020,33 +1372,73 @@ export const AppProvider = ({ children }) => {
       );
       setRooms(newRooms);
       saveState('rooms', newRooms);
-      pushToCloud({ tenants: newTenants, rooms: newRooms });
-      logActivity('Tambah Anak Kos Baru', `Menambahkan penghuni baru: ${newTenant.name} (Kamar ${newTenant.roomNumber})`);
+
+      // Auto-create initial payment record for current month if missing
+      const monthClean = 'okt26';
+      const targetMonth = 'Oktober 2026';
+      let newPayments = payments;
+      const hasPayment = payments.some(
+        (p) =>
+          (p.tenantId === newTenant.id || p.roomNumber === newTenant.roomNumber) &&
+          p.month.toLowerCase().includes('oktober 2026')
+      );
+      if (!hasPayment) {
+        const newPay = {
+          id: `pay-${monthClean}-${newTenant.roomNumber}`,
+          tenantId: newTenant.id,
+          tenantName: newTenant.name,
+          tenantPhone: newTenant.phone,
+          roomNumber: newTenant.roomNumber,
+          month: targetMonth,
+          amount: newTenant.monthlyRent || 1750000,
+          paidAt: null,
+          paymentMethod: 'Belum Transfer',
+          status: 'Belum Bayar',
+          validatedBy: null,
+          validatedAt: null,
+          proofUrl: null,
+          ratingGiven: false
+        };
+        newPayments = [newPay, ...payments];
+        setPayments(newPayments);
+        saveState('payments', newPayments);
+      }
+
+      pushToCloud({ tenants: newTenants, rooms: newRooms, payments: newPayments });
+      logActivity(
+        'Tambah Anak Kos Baru',
+        `Menambahkan penghuni baru: ${newTenant.name} (Kamar ${newTenant.roomNumber})`
+      );
       addToast(`Anak kos baru ${newTenant.name} berhasil ditambahkan`, 'success');
     }
   };
 
   const handleDeleteTenant = (tenantId) => {
-    if (currentUser.role === 'owner') {
+    if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan mengubah/menghapus data anak kos!', 'error');
       return;
     }
     const tenantToDelete = tenants.find((t) => t.id === tenantId);
     if (!tenantToDelete) return;
 
+    const delName = tenantToDelete.name;
+    const delRoom = tenantToDelete.roomNumber;
     const now = Date.now();
     saveState('lastLocalEditTime', now);
+
     const newTenants = tenants.filter((t) => t.id !== tenantId);
     setTenants(newTenants);
     saveState('tenants', newTenants);
+
     // Set room to Kosong
     const newRooms = rooms.map((r) =>
-      r.number === tenantToDelete.roomNumber
+      r.number === delRoom || (delName && r.currentTenant === delName)
         ? { ...r, status: 'Kosong', currentTenant: null }
         : r
     );
     setRooms(newRooms);
     saveState('rooms', newRooms);
+
     pushToCloud({ tenants: newTenants, rooms: newRooms });
     logActivity('Hapus Anak Kos', `Menghapus anak kos ${tenantToDelete.name} dari kamar ${tenantToDelete.roomNumber}`);
     addToast(`Data penghuni ${tenantToDelete.name} telah dihapus`, 'info');
@@ -1054,7 +1446,7 @@ export const AppProvider = ({ children }) => {
 
   // Room CRUD
   const handleSaveRoom = (roomData) => {
-    if (currentUser.role === 'owner') {
+    if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan menambah atau mengubah data kamar!', 'error');
       return;
     }
@@ -1064,6 +1456,7 @@ export const AppProvider = ({ children }) => {
 
     if (roomData.id) {
       // Edit room
+      const oldRoom = rooms.find((r) => r.id === roomData.id);
       const newRooms = rooms.map((r) => (r.id === roomData.id ? { ...r, ...roomData } : r));
       setRooms(newRooms);
       saveState('rooms', newRooms);
@@ -1078,7 +1471,23 @@ export const AppProvider = ({ children }) => {
         saveState('electricity', newBills);
       }
 
-      pushToCloud({ rooms: newRooms, electricityBills: newBills });
+      // If room tenant was edited or cleared, sync tenants
+      let newTenants = tenants;
+      if (roomData.status === 'Kosong') {
+        newTenants = tenants.map((t) =>
+          t.roomNumber === roomData.number ? { ...t, status: 'Nonaktif' } : t
+        );
+        setTenants(newTenants);
+        saveState('tenants', newTenants);
+      } else if (roomData.currentTenant && oldRoom?.currentTenant !== roomData.currentTenant) {
+        newTenants = tenants.map((t) =>
+          t.roomNumber === roomData.number ? { ...t, name: roomData.currentTenant.trim() } : t
+        );
+        setTenants(newTenants);
+        saveState('tenants', newTenants);
+      }
+
+      pushToCloud({ rooms: newRooms, electricityBills: newBills, tenants: newTenants });
       logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Token Listrik: ${roomData.electricityToken || '-'})`);
       addToast(`Data Kamar ${roomData.number} & Token PLN berhasil diperbarui`, 'success');
     } else {
@@ -1266,8 +1675,12 @@ export const AppProvider = ({ children }) => {
 
   // Staff CRUD
   const handleSaveStaff = (staffData) => {
+    let newStaffList;
     if (staffData.id) {
-      setStaffList((prev) => prev.map((s) => (s.id === staffData.id ? { ...s, ...staffData } : s)));
+      newStaffList = staffList.map((s) => (s.id === staffData.id ? { ...s, ...staffData } : s));
+      setStaffList(newStaffList);
+      saveState('staff', newStaffList);
+      pushToCloud({ staffList: newStaffList });
       logActivity('Ubah Data Petugas', `Memperbarui profil petugas: ${staffData.name}`);
       addToast(`Profil ${staffData.name} berhasil diperbarui`, 'success');
     } else {
@@ -1278,7 +1691,10 @@ export const AppProvider = ({ children }) => {
         totalReviews: 0,
         status: 'Aktif'
       };
-      setStaffList((prev) => [...prev, newStaff]);
+      newStaffList = [...staffList, newStaff];
+      setStaffList(newStaffList);
+      saveState('staff', newStaffList);
+      pushToCloud({ staffList: newStaffList });
       logActivity('Tambah Petugas Baru', `Menambahkan petugas baru: ${newStaff.name} (${newStaff.role})`);
       addToast(`Petugas ${newStaff.name} berhasil ditambahkan`, 'success');
     }
@@ -1286,7 +1702,10 @@ export const AppProvider = ({ children }) => {
 
   const handleDeleteStaff = (staffId) => {
     const staff = staffList.find((s) => s.id === staffId);
-    setStaffList((prev) => prev.filter((s) => s.id !== staffId));
+    const newStaffList = staffList.filter((s) => s.id !== staffId);
+    setStaffList(newStaffList);
+    saveState('staff', newStaffList);
+    pushToCloud({ staffList: newStaffList });
     logActivity('Hapus Petugas', `Menghapus petugas: ${staff ? staff.name : staffId}`);
     addToast('Data petugas berhasil dihapus', 'info');
   };
@@ -1297,8 +1716,12 @@ export const AppProvider = ({ children }) => {
       addToast('Hanya Super Admin yang dapat mengelola akun Operator!', 'error');
       return;
     }
+    let newOps;
     if (opData.id) {
-      setOperators((prev) => prev.map((o) => (o.id === opData.id ? { ...o, ...opData } : o)));
+      newOps = operators.map((o) => (o.id === opData.id ? { ...o, ...opData } : o));
+      setOperators(newOps);
+      saveState('operators', newOps);
+      pushToCloud({ operators: newOps });
       logActivity('Ubah Akun Operator', `Memperbarui akun operator: ${opData.username}`);
       addToast(`Akun operator ${opData.username} diperbarui`, 'success');
     } else {
@@ -1309,7 +1732,10 @@ export const AppProvider = ({ children }) => {
         status: 'Aktif',
         createdAt: new Date().toISOString().split('T')[0]
       };
-      setOperators((prev) => [...prev, newOp]);
+      newOps = [...operators, newOp];
+      setOperators(newOps);
+      saveState('operators', newOps);
+      pushToCloud({ operators: newOps });
       logActivity('Tambah Akun Operator Baru', `Membuat akun operator: ${newOp.username} (${newOp.fullName})`);
       addToast(`Akun operator ${newOp.username} berhasil dibuat`, 'success');
     }
@@ -1321,7 +1747,10 @@ export const AppProvider = ({ children }) => {
       return;
     }
     const target = operators.find((o) => o.id === opId);
-    setOperators((prev) => prev.filter((o) => o.id !== opId));
+    const newOps = operators.filter((o) => o.id !== opId);
+    setOperators(newOps);
+    saveState('operators', newOps);
+    pushToCloud({ operators: newOps });
     logActivity('Hapus Akun Operator', `Menghapus akun operator: ${target ? target.username : opId}`);
     addToast('Akun operator berhasil dihapus', 'info');
   };
@@ -1339,12 +1768,10 @@ export const AppProvider = ({ children }) => {
 
     // Role-specific constraints for Operator:
     if (isOperator) {
-      // Adding new account: only operator role allowed
       if (!accData.id && accData.role !== 'operator') {
         addToast('Pengelola hanya dapat menambahkan akun Pengelola / Operator!', 'error');
         return;
       }
-      // Editing existing account: only operator accounts can be edited
       if (accData.id) {
         const target = systemAccounts.find((a) => a.id === accData.id);
         if (target && target.role !== 'operator') {
@@ -1354,11 +1781,13 @@ export const AppProvider = ({ children }) => {
       }
     }
 
+    let newAccounts;
     if (accData.id) {
-      // Edit
-      setSystemAccounts((prev) =>
-        prev.map((a) => (a.id === accData.id ? { ...a, ...accData } : a))
-      );
+      newAccounts = systemAccounts.map((a) => (a.id === accData.id ? { ...a, ...accData } : a));
+      setSystemAccounts(newAccounts);
+      saveState('systemAccounts', newAccounts);
+      pushToCloud({ systemAccounts: newAccounts });
+
       if (currentUser && currentUser.username === accData.username) {
         setCurrentUser((prev) => ({
           ...prev,
@@ -1371,14 +1800,17 @@ export const AppProvider = ({ children }) => {
       logActivity('Ubah Akun Sistem', `Memperbarui akun: ${accData.username} (${accData.role}) oleh ${currentUser.name}`);
       addToast(`Akun @${accData.username} berhasil diperbarui`, 'success');
     } else {
-      // Add
       const newAcc = {
         ...accData,
         id: `acc-${Date.now()}`,
         status: accData.status || 'Aktif',
         createdAt: new Date().toISOString().split('T')[0]
       };
-      setSystemAccounts((prev) => [...prev, newAcc]);
+      newAccounts = [...systemAccounts, newAcc];
+      setSystemAccounts(newAccounts);
+      saveState('systemAccounts', newAccounts);
+      pushToCloud({ systemAccounts: newAccounts });
+
       logActivity('Tambah Akun Sistem Baru', `Membuat akun baru: ${newAcc.username} (${newAcc.role}) oleh ${currentUser.name}`);
       addToast(`Akun @${newAcc.username} (${newAcc.name}) berhasil dibuat`, 'success');
     }
@@ -1388,7 +1820,6 @@ export const AppProvider = ({ children }) => {
     const isSuper = currentUser && currentUser.role === 'super_admin';
     const isOwner = currentUser && currentUser.role === 'owner';
 
-    // Operator is NOT allowed to delete accounts!
     if (!isSuper && !isOwner) {
       addToast('Pengelola tidak memiliki hak akses untuk menghapus akun sistem!', 'error');
       return;
@@ -1402,15 +1833,30 @@ export const AppProvider = ({ children }) => {
       return;
     }
 
-    // Owner can only delete operator accounts, cannot delete super_admin or other owners
     if (isOwner && target.role !== 'operator') {
       addToast('Owner hanya berwenang menghapus akun Pengelola (Operator)!', 'error');
       return;
     }
 
-    setSystemAccounts((prev) => prev.filter((a) => a.id !== accId));
+    const newAccounts = systemAccounts.filter((a) => a.id !== accId);
+    setSystemAccounts(newAccounts);
+    saveState('systemAccounts', newAccounts);
+    pushToCloud({ systemAccounts: newAccounts });
+
     logActivity('Hapus Akun Sistem', `Menghapus akun @${target.username} (${target.role}) oleh ${currentUser.name}`);
     addToast(`Akun @${target.username} (${target.name}) berhasil dihapus`, 'info');
+  };
+
+  const handleSaveBankInfo = (newBank) => {
+    setBankInfo(newBank);
+    saveState('bankInfo', newBank);
+    pushToCloud({ bankInfo: newBank });
+  };
+
+  const handleSaveWifiInfo = (newWifi) => {
+    setWifiInfo(newWifi);
+    saveState('wifiInfo', newWifi);
+    pushToCloud({ wifiInfo: newWifi });
   };
 
   const refreshActiveSessions = () => {
@@ -1444,9 +1890,11 @@ export const AppProvider = ({ children }) => {
         staffList,
         staffRatings,
         bankInfo,
-        setBankInfo,
+        setBankInfo: handleSaveBankInfo,
+        handleSaveBankInfo,
         wifiInfo,
-        setWifiInfo,
+        setWifiInfo: handleSaveWifiInfo,
+        handleSaveWifiInfo,
         operators,
         activityLogs,
         notifications,

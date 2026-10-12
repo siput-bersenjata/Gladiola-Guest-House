@@ -75,26 +75,37 @@ export const initFirebase = (config = PERMANENT_FIREBASE_CONFIG, targetUrl = nul
   }
 };
 
+let isFirebaseOnline = null;
+let lastHealthCheckTime = 0;
+
 // Test connection to Firebase Realtime Database
 export const testFirebaseConnection = async (config = PERMANENT_FIREBASE_CONFIG) => {
   const cfg = config || PERMANENT_FIREBASE_CONFIG;
   const urlsToTry = [
+    activeUrlUsed,
     cfg.databaseURL,
     cfg.fallbackURL || 'https://gladiola-1d671-default-rtdb.firebaseio.com'
   ].filter(Boolean);
+
+  lastHealthCheckTime = Date.now();
 
   for (const url of urlsToTry) {
     try {
       const cleanUrl = url.replace(/\/+$/, '');
       const testUrl = `${cleanUrl}/_health.json?t=${Date.now()}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1200);
       const res = await fetch(testUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ping: 'pong', timestamp: Date.now() })
+        body: JSON.stringify({ ping: 'pong', timestamp: Date.now() }),
+        signal: controller.signal
       });
+      clearTimeout(timer);
 
       if (res.ok) {
         activeUrlUsed = cleanUrl;
+        isFirebaseOnline = true;
         return {
           success: true,
           message: 'Koneksi ke Firebase Realtime Database gladiola-1d671 BERHASIL!',
@@ -104,15 +115,32 @@ export const testFirebaseConnection = async (config = PERMANENT_FIREBASE_CONFIG)
     } catch {}
   }
 
+  isFirebaseOnline = false;
   return {
     success: false,
-    message: 'Database gladiola-1d671 terkunci permanen. Sinkronisasi multi-device aktif via Cloud Realtime.'
+    message: 'Database gladiola-1d671 belum dibuat di Firebase Console. Sinkronisasi multi-device dialihkan ke Cloud Storage Realtime.'
   };
+};
+
+// Check if Firebase is available without blocking
+const checkFirebaseAvailableQuick = async (cfg) => {
+  if (isFirebaseOnline === true) return true;
+  if (isFirebaseOnline === false && Date.now() - lastHealthCheckTime < 60000) {
+    return false; // Skip immediately, avoiding delay
+  }
+  // Trigger background check if past 60s
+  if (Date.now() - lastHealthCheckTime >= 60000) {
+    testFirebaseConnection(cfg).catch(() => {});
+  }
+  return isFirebaseOnline === true;
 };
 
 // Realtime Listener
 export const subscribeToFirebase = (config = PERMANENT_FIREBASE_CONFIG, onDataReceived) => {
   const cfg = config || PERMANENT_FIREBASE_CONFIG;
+  // If known offline, don't attempt SDK connection
+  if (isFirebaseOnline === false) return () => {};
+
   const db = initFirebase(cfg);
   if (!db) return () => {};
 
@@ -124,12 +152,13 @@ export const subscribeToFirebase = (config = PERMANENT_FIREBASE_CONFIG, onDataRe
         if (snapshot.exists()) {
           const val = snapshot.val();
           if (val && typeof onDataReceived === 'function') {
+            isFirebaseOnline = true;
             onDataReceived(val);
           }
         }
       },
       (error) => {
-        // Silent recovery
+        isFirebaseOnline = false;
       }
     );
 
@@ -145,13 +174,19 @@ export const subscribeToFirebase = (config = PERMANENT_FIREBASE_CONFIG, onDataRe
 export const pushDataToFirebase = async (config = PERMANENT_FIREBASE_CONFIG, data) => {
   const cfg = config || PERMANENT_FIREBASE_CONFIG;
 
-  // 1. First try REST with 2s timeout (never hangs)
+  // If Firebase is known to be offline/unprovisioned, exit immediately without blocking
+  const isOnline = await checkFirebaseAvailableQuick(cfg);
+  if (!isOnline && isFirebaseOnline === false) {
+    return false;
+  }
+
+  // 1. First try REST with 1.2s timeout (never hangs)
   const urls = [activeUrlUsed, cfg.databaseURL, cfg.fallbackURL].filter(Boolean);
   for (const url of urls) {
     try {
       const cleanUrl = url.replace(/\/+$/, '');
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
+      const timer = setTimeout(() => controller.abort(), 1200);
       const res = await fetch(`${cleanUrl}/gladiola.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -161,36 +196,47 @@ export const pushDataToFirebase = async (config = PERMANENT_FIREBASE_CONFIG, dat
       clearTimeout(timer);
       if (res.ok) {
         activeUrlUsed = cleanUrl;
+        isFirebaseOnline = true;
         return true;
       }
     } catch {}
   }
 
-  // 2. Try SDK with strict 1.5s timeout (prevents offline hanging)
+  // 2. Try SDK with strict 1s timeout
   try {
     const db = initFirebase(cfg);
     if (db) {
       const gladiolaRef = ref(db, 'gladiola');
       await Promise.race([
         set(gladiolaRef, data),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), 1500))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), 1000))
       ]);
+      isFirebaseOnline = true;
       return true;
     }
   } catch {}
 
+  isFirebaseOnline = false;
+  lastHealthCheckTime = Date.now();
   return false;
 };
 
 // Fetch Once from Firebase (Safe & Non-blocking)
 export const fetchOnceFromFirebase = async (config = PERMANENT_FIREBASE_CONFIG) => {
   const cfg = config || PERMANENT_FIREBASE_CONFIG;
+
+  // If Firebase is known to be offline/unprovisioned, exit immediately without blocking
+  const isOnline = await checkFirebaseAvailableQuick(cfg);
+  if (!isOnline && isFirebaseOnline === false) {
+    return null;
+  }
+
   const urls = [activeUrlUsed, cfg.databaseURL, cfg.fallbackURL].filter(Boolean);
   for (const url of urls) {
     try {
       const cleanUrl = url.replace(/\/+$/, '');
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
+      const timer = setTimeout(() => controller.abort(), 1200);
       const res = await fetch(`${cleanUrl}/gladiola.json?t=${Date.now()}`, {
         signal: controller.signal
       });
@@ -199,10 +245,13 @@ export const fetchOnceFromFirebase = async (config = PERMANENT_FIREBASE_CONFIG) 
         const json = await res.json();
         if (json && Array.isArray(json.tenants)) {
           activeUrlUsed = cleanUrl;
+          isFirebaseOnline = true;
           return json;
         }
       }
     } catch {}
   }
+  isFirebaseOnline = false;
+  lastHealthCheckTime = Date.now();
   return null;
 };
