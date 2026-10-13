@@ -301,9 +301,14 @@ export const AppProvider = ({ children }) => {
   const [wifiInfo, setWifiInfo] = useState(() => loadState('wifiInfo', INITIAL_WIFI_INFO));
   const [operators, setOperators] = useState(() => loadState('operators', INITIAL_OPERATORS));
   const [activityLogs, setActivityLogs] = useState(() => loadState('logs', INITIAL_ACTIVITY_LOGS));
-  const [activeSessions, setActiveSessions] = useState(() =>
-    loadState('activeSessions', INITIAL_ACTIVE_SESSIONS)
-  );
+  const [activeSessions, setActiveSessions] = useState(() => {
+    const saved = loadState('activeSessions', INITIAL_ACTIVE_SESSIONS);
+    if (Array.isArray(saved)) {
+      // Strictly purge legacy dummy sessions (sess-admin, sess-op, sess-rizky, etc.)
+      return saved.filter((s) => s && s.id && s.id.startsWith('sess-live-'));
+    }
+    return [];
+  });
   const [sessionHistory, setSessionHistory] = useState(() =>
     loadState('sessionHistory', INITIAL_SESSION_HISTORY)
   );
@@ -494,6 +499,11 @@ const decompressPayload = async (base64Str) => {
       if (Array.isArray(cloudData.sessionHistory)) {
         setSessionHistory(cloudData.sessionHistory);
         saveState('sessionHistory', cloudData.sessionHistory);
+      }
+      if (Array.isArray(cloudData.activeSessions)) {
+        const liveOnly = cloudData.activeSessions.filter((s) => s && s.id && s.id.startsWith('sess-live-'));
+        setActiveSessions(liveOnly);
+        saveState('activeSessions', liveOnly);
       }
 
       lastUploadedTimestampRef.current = remoteTime;
@@ -720,12 +730,16 @@ const decompressPayload = async (base64Str) => {
     const distanceMeters = Math.round(currentDistKm * 1000);
 
     setActiveSessions((prevSessions) => {
-      const existingIdx = prevSessions.findIndex(
+      // Clean out any legacy dummy sessions
+      const liveOnlyPrev = (prevSessions || []).filter(
+        (s) => s && s.id && s.id.startsWith('sess-live-')
+      );
+      const existingIdx = liveOnlyPrev.findIndex(
         (s) => s.username === currentUser.username || (currentUser.phone && s.phone === currentUser.phone)
       );
 
       const userSession = {
-        id: existingIdx >= 0 ? prevSessions[existingIdx].id : `sess-live-${Date.now()}`,
+        id: existingIdx >= 0 ? liveOnlyPrev[existingIdx].id : `sess-live-${Date.now()}`,
         userId: currentUser.id || currentUser.tenantId || `usr-${currentUser.role}`,
         username: currentUser.username || currentUser.phone,
         name: currentUser.name,
@@ -766,7 +780,7 @@ const decompressPayload = async (base64Str) => {
         device: telemetry
       };
 
-      const others = prevSessions
+      const others = liveOnlyPrev
         .filter((_, idx) => idx !== existingIdx)
         .map((s) => ({ ...s, isCurrent: false }));
 
