@@ -4646,64 +4646,150 @@ html, body {
   line-height: 1.35;
 }
 
+/* ==========================================================================
+   FORM ACTION BARS & BUTTONS (SYMMETRICAL & THEMED)
+   ========================================================================== */
+.form-actions-bar,
 .form-page-actions-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 14px;
   padding-top: 24px;
+  margin-top: 20px;
   border-top: 1px solid var(--border-subtle);
-  margin-top: 12px;
+  width: 100%;
 }
 
-@media (max-width: 480px) {
-  .form-page-actions-bar {
-    flex-direction: column-reverse;
-    width: 100%;
-  }
-  .form-page-actions-bar button {
-    width: 100%;
-    justify-content: center;
-  }
+.form-actions-bar .actions-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
+.form-actions-bar .actions-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+/* Symmetrical Action Buttons */
 .btn-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: #ffffff;
   color: var(--text-main);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-md);
-  padding: 12px 24px;
+  padding: 11px 24px;
+  font-family: inherit;
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
 }
 
 .btn-secondary-action:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--forest-50);
+  border-color: var(--forest-300);
+  color: var(--forest-900);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+.btn-secondary-action:active {
+  transform: translateY(0);
 }
 
 .btn-primary-action {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   background: var(--forest-800);
   color: #ffffff;
-  border: none;
+  border: 1px solid var(--forest-800);
   border-radius: var(--radius-md);
-  padding: 12px 28px;
+  padding: 11px 28px;
+  font-family: inherit;
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(22, 57, 40, 0.2);
-  transition: all 0.2s ease;
+  box-shadow: 0 3px 10px rgba(22, 57, 40, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
 }
 
 .btn-primary-action:hover {
   background: var(--forest-900);
+  border-color: var(--forest-900);
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(22, 57, 40, 0.28);
+}
+
+.btn-primary-action:active {
+  transform: translateY(0);
+}
+
+/* Symmetrical Danger / Delete Button */
+.btn-danger-action,
+.btn-danger-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  padding: 11px 22px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(185, 28, 28, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.btn-danger-action:hover,
+.btn-danger-outline:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+}
+
+.btn-danger-action:active,
+.btn-danger-outline:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+  .form-actions-bar,
+  .form-page-actions-bar {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .form-actions-bar .actions-left,
+  .form-actions-bar .actions-right {
+    width: 100%;
+    flex-direction: column;
+    margin-left: 0;
+    gap: 10px;
+  }
+  .form-actions-bar button,
+  .form-page-actions-bar button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* ==========================================================================

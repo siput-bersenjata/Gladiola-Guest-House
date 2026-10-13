@@ -446,7 +446,7 @@ export const KamarView = () => {
                 {editingRoom && !isOwnerReadOnly && (
                   <button
                     type="button"
-                    className="btn-danger-outline"
+                    className="btn-danger-action"
                     onClick={() => handleDelete(editingRoom.id)}
                   >
                     <IconTrash size={16} />
@@ -458,14 +458,14 @@ export const KamarView = () => {
               <div className="actions-right">
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn-secondary-action"
                   onClick={() => setViewMode('list')}
                 >
                   Batal
                 </button>
 
                 {!isOwnerReadOnly && (
-                  <button type="submit" className="btn-primary">
+                  <button type="submit" className="btn-primary-action">
                     <IconCheck size={18} />
                     <span>{editingRoom ? 'Simpan Perubahan Kamar' : 'Tambahkan Kamar Baru'}</span>
                   </button>
