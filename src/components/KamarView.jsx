@@ -45,6 +45,7 @@ export const KamarView = () => {
 
   const [filterFloor, setFilterFloor] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all'); // 'all' | 'Bulanan' | 'Harian'
   const [searchTerm, setSearchTerm] = useState('');
 
   // 'list' or 'form' (Dedicated full-page CRUD view)
@@ -56,6 +57,8 @@ export const KamarView = () => {
     number: '',
     floor: 1,
     type: 'Deluxe Taman (AC + KM Dalam)',
+    category: 'Bulanan', // 'Bulanan' | 'Harian'
+    dailyPrice: 250000,
     price: 1750000,
     status: 'Kosong',
     currentTenant: '',
@@ -84,6 +87,8 @@ export const KamarView = () => {
       number: '',
       floor: 1,
       type: 'Deluxe Taman (AC + KM Dalam)',
+      category: 'Bulanan',
+      dailyPrice: 250000,
       price: 1750000,
       status: 'Kosong',
       currentTenant: '',
@@ -108,6 +113,8 @@ export const KamarView = () => {
       number: room.number,
       floor: room.floor || 1,
       type: room.type || 'Deluxe Taman (AC + KM Dalam)',
+      category: room.category || 'Bulanan',
+      dailyPrice: room.dailyPrice || (room.type?.includes('Executive') ? 275000 : 250000),
       price: room.price || 1750000,
       status: room.status || 'Kosong',
       currentTenant: room.currentTenant || '',
@@ -134,6 +141,8 @@ export const KamarView = () => {
       number: formData.number.trim(),
       floor: Number(formData.floor),
       type: formData.type,
+      category: formData.category || 'Bulanan',
+      dailyPrice: Number(formData.dailyPrice) || 250000,
       price: Number(formData.price),
       status: formData.status,
       currentTenant: formData.status === 'Kosong' ? null : (formData.currentTenant?.trim() || null),
@@ -157,16 +166,19 @@ export const KamarView = () => {
   const filteredRooms = rooms.filter((r) => {
     const matchFloor = filterFloor === 'all' || r.floor === parseInt(filterFloor);
     const matchStatus = filterStatus === 'all' || r.status === filterStatus;
+    const matchCategory = filterCategory === 'all' || (r.category || 'Bulanan') === filterCategory;
     const matchSearch =
       r.number.includes(searchTerm) ||
       (r.currentTenant && r.currentTenant.toLowerCase().includes(searchTerm.toLowerCase())) ||
       r.type.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchFloor && matchStatus && matchSearch;
+    return matchFloor && matchStatus && matchCategory && matchSearch;
   });
 
   const occupiedCount = rooms.filter((r) => r.status === 'Terisi').length;
   const bookingCount = rooms.filter((r) => r.status === 'Booking').length;
   const vacantCount = rooms.filter((r) => r.status === 'Kosong').length;
+  const harianCount = rooms.filter((r) => r.category === 'Harian').length;
+  const bulananCount = rooms.filter((r) => r.category !== 'Harian').length;
 
   // =========================================================================
   // DEDICATED FULL-PAGE CRUD FORM VIEW (PINDAH HALAMAN)
@@ -243,6 +255,25 @@ export const KamarView = () => {
                   <span className="field-hint">Lokasi lantai gedung Gladiola Guest House</span>
                 </div>
 
+                {/* Kategori Kamar: Kos Bulanan vs Sewa Harian */}
+                <div className="form-group">
+                  <label className="form-label">Kategori Peruntukan Kamar *</label>
+                  <select
+                    className="form-select"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    disabled={isOwnerReadOnly}
+                  >
+                    <option value="Bulanan">🏡 Kos Bulanan (Penyewa Kos Tetap)</option>
+                    <option value="Harian">⚡ Sewa Harian (Disewakan Per Hari / Guest House)</option>
+                  </select>
+                  <span className="field-hint">
+                    {formData.category === 'Harian'
+                      ? 'Kamar ini disewakan harian & otomatis tersedia di sistem booking tanggal'
+                      : 'Kamar ini diperuntukkan untuk anak kos bulanan reguler'}
+                  </span>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">Tipe Kamar *</label>
                   <select
@@ -251,10 +282,18 @@ export const KamarView = () => {
                     onChange={(e) => {
                       const newType = e.target.value;
                       let defaultPrice = formData.price;
-                      if (newType.includes('Executive')) defaultPrice = 2100000;
-                      else if (newType.includes('Standard')) defaultPrice = 1500000;
-                      else defaultPrice = 1750000;
-                      setFormData({ ...formData, type: newType, price: defaultPrice });
+                      let defaultDailyPrice = formData.dailyPrice;
+                      if (newType.includes('Executive')) {
+                        defaultPrice = 2100000;
+                        defaultDailyPrice = 275000;
+                      } else if (newType.includes('Standard')) {
+                        defaultPrice = 1500000;
+                        defaultDailyPrice = 200000;
+                      } else {
+                        defaultPrice = 1750000;
+                        defaultDailyPrice = 250000;
+                      }
+                      setFormData({ ...formData, type: newType, price: defaultPrice, dailyPrice: defaultDailyPrice });
                     }}
                     disabled={isOwnerReadOnly}
                   >
@@ -265,8 +304,31 @@ export const KamarView = () => {
                   <span className="field-hint">Kategori tipe unit kamar</span>
                 </div>
 
+                {/* Input Tarif Sewa Harian jika Kategori Harian */}
+                {formData.category === 'Harian' && (
+                  <div className="form-group">
+                    <label className="form-label">Tarif Sewa Harian per Malam (Rp) *</label>
+                    <div className="input-with-prefix">
+                      <span className="phone-prefix">Rp</span>
+                      <input
+                        type="number"
+                        className="form-input-phone"
+                        value={formData.dailyPrice}
+                        onChange={(e) => setFormData({ ...formData, dailyPrice: parseInt(e.target.value) || 0 })}
+                        step="25000"
+                        min="50000"
+                        required
+                        disabled={isOwnerReadOnly}
+                      />
+                    </div>
+                    <span className="field-hint">Tarif sewa per malam saat tamu memesan kamar harian ini</span>
+                  </div>
+                )}
+
                 <div className="form-group">
-                  <label className="form-label">Tarif Sewa Bulanan (Rp) *</label>
+                  <label className="form-label">
+                    {formData.category === 'Harian' ? 'Tarif Estimasi Bulanan (Rp)' : 'Tarif Sewa Bulanan (Rp) *'}
+                  </label>
                   <div className="input-with-prefix">
                     <span className="phone-prefix">Rp</span>
                     <input
@@ -280,7 +342,11 @@ export const KamarView = () => {
                       disabled={isOwnerReadOnly}
                     />
                   </div>
-                  <span className="field-hint">Harga sewa dasar bulanan kamar</span>
+                  <span className="field-hint">
+                    {formData.category === 'Harian'
+                      ? 'Tarif bulanan referensi jika disewa jangka panjang'
+                      : 'Harga sewa dasar bulanan kamar untuk anak kos'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -501,6 +567,12 @@ export const KamarView = () => {
           <span className="dot sand"></span>
           <span>Kosong: {vacantCount} Unit</span>
         </div>
+        <div className="kamar-stat-pill" style={{ background: '#f5f3ff', color: '#6d28d9', borderColor: '#ddd6fe' }}>
+          <span>⚡ Sewa Harian: <strong>{harianCount} Unit</strong></span>
+        </div>
+        <div className="kamar-stat-pill" style={{ background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' }}>
+          <span>🏡 Kos Bulanan: <strong>{bulananCount} Unit</strong></span>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -515,6 +587,18 @@ export const KamarView = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          {/* Filter Kategori Peruntukan Kamar */}
+          <select
+            className="filter-select"
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            title="Filter Kategori Peruntukan Kamar"
+          >
+            <option value="all">Semua Kategori (Bulanan & Harian)</option>
+            <option value="Harian">⚡ Sewa Harian ({harianCount} Kamar)</option>
+            <option value="Bulanan">🏡 Kos Bulanan ({bulananCount} Kamar)</option>
+          </select>
 
           <select
             className="filter-select"
@@ -555,52 +639,82 @@ export const KamarView = () => {
 
       {/* Grid of Room Cards (Click to navigate to CRUD full-page view) */}
       <div className="room-cards-grid">
-        {filteredRooms.map((room) => (
-          <div
-            key={room.id}
-            className={`room-grid-card ${room.status.toLowerCase()}`}
-            onClick={() => openEditForm(room)}
-            title={`Klik untuk kelola & ubah data Kamar ${room.number}`}
-          >
-            <div className="room-card-top-row">
-              <span className="room-num-title">Kamar {room.number}</span>
-              <span
-                className={`badge-status ${
-                  room.status === 'Terisi'
-                    ? 'badge-success'
-                    : room.status === 'Booking'
-                    ? 'badge-info'
-                    : 'badge-vacant'
-                }`}
-              >
-                {room.status}
-              </span>
-            </div>
+        {filteredRooms.map((room) => {
+          const isHarian = room.category === 'Harian';
+          return (
+            <div
+              key={room.id}
+              className={`room-grid-card ${room.status.toLowerCase()}`}
+              onClick={() => openEditForm(room)}
+              title={`Klik untuk kelola & ubah data Kamar ${room.number} (${isHarian ? 'Sewa Harian' : 'Kos Bulanan'})`}
+            >
+              <div className="room-card-top-row">
+                <span className="room-num-title">Kamar {room.number}</span>
+                <span
+                  className={`badge-status ${
+                    room.status === 'Terisi'
+                      ? 'badge-success'
+                      : room.status === 'Booking'
+                      ? 'badge-info'
+                      : 'badge-vacant'
+                  }`}
+                >
+                  {room.status}
+                </span>
+              </div>
 
-            <p className="room-card-type">{room.type}</p>
+              {/* Kategori Badge Chip */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0 6px 0', flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: isHarian ? '#f5f3ff' : '#f0fdf4',
+                    color: isHarian ? '#7c3aed' : '#16a34a',
+                    border: `1px solid ${isHarian ? '#ddd6fe' : '#bbf7d0'}`,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {isHarian ? '⚡ Sewa Harian' : '🏡 Kos Bulanan'}
+                </span>
+                {isHarian && (
+                  <span style={{ fontSize: '0.70rem', fontWeight: 700, color: '#4338ca' }}>
+                    Rp {(room.dailyPrice || 250000).toLocaleString('id-ID')}/malam
+                  </span>
+                )}
+              </div>
 
-            <div className="room-card-occupant-row">
-              <IconUsers size={14} className="text-gray-400" />
-              <span className="room-tenant-name">
-                {room.currentTenant || 'Tersedia untuk disewa'}
-              </span>
-            </div>
+              <p className="room-card-type">{room.type}</p>
 
-            <div className="room-card-token-row">
-              <IconLightning size={12} className="text-forest-gold" />
-              <span className="room-card-token-text">
-                Token: <strong>{room.electricityToken ? `${room.electricityToken.slice(0, 9)}...` : 'Belum Ada'}</strong>
-              </span>
-            </div>
+              <div className="room-card-occupant-row">
+                <IconUsers size={14} className="text-gray-400" />
+                <span className="room-tenant-name">
+                  {room.currentTenant || 'Tersedia untuk disewa'}
+                </span>
+              </div>
 
-            <div className="room-card-bottom-row">
-              <span className="room-floor-tag">Lt. {room.floor}</span>
-              <span className="room-price-tag">
-                Rp {(room.price / 1000000).toFixed(1)}jt/bln
-              </span>
+              <div className="room-card-token-row">
+                <IconLightning size={12} className="text-forest-gold" />
+                <span className="room-card-token-text">
+                  Token: <strong>{room.electricityToken ? `${room.electricityToken.slice(0, 9)}...` : 'Belum Ada'}</strong>
+                </span>
+              </div>
+
+              <div className="room-card-bottom-row">
+                <span className="room-floor-tag">Lt. {room.floor}</span>
+                <span className="room-price-tag">
+                  {isHarian
+                    ? `Rp ${(room.dailyPrice || 250000).toLocaleString('id-ID')}/malam`
+                    : `Rp ${(room.price / 1000000).toFixed(1)}jt/bln`}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

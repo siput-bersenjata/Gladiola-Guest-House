@@ -1,32 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { deduplicateElectricityBills } from '../data/initialData';
 import {
   IconLightning,
-  IconPlus,
   IconCheck,
-  IconClock,
   IconSearch,
-  IconArrowLeft,
-  IconRoom,
   IconCopy,
   IconEdit
 } from './Icons';
-import { SearchableRoomSelect } from './SearchableRoomSelect';
 
 export const UtilitasView = () => {
   const {
     electricityBills,
     rooms,
     tenants,
-    handleSaveElectricityBill,
     generateMonthlyElectricityBills,
     handleUpdateElectricityToken,
     handleQuickUpdateElectricity,
+    handleBulkValidateElectricityMonth,
     currentUser,
     addToast
   } = useApp();
 
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'form'
   const [filterMonth, setFilterMonth] = useState('Oktober 2026');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,21 +32,16 @@ export const UtilitasView = () => {
   const [isCustomMonthModalOpen, setIsCustomMonthModalOpen] = useState(false);
   const [customMonthInput, setCustomMonthInput] = useState('');
 
-  // Form state for manual calculation
-  const [formData, setFormData] = useState({
-    roomNumber: '102',
-    tenantName: 'Rizky Ramadhan',
-    tenantPhone: '081233445566',
-    month: 'Oktober 2026',
-    meterStart: 1240,
-    meterEnd: 1320,
-    ratePerKwh: 1650,
-    token: '',
-    status: 'Belum Bayar'
+  // Table Sorting State (ASC / DESC on column headers)
+  const [sortConfig, setSortConfig] = useState({
+    key: 'roomNumber',
+    direction: 'asc'
   });
 
-  const kwhUsage = Math.max(0, formData.meterEnd - formData.meterStart);
-  const totalBill = kwhUsage * formData.ratePerKwh;
+  const canValidate =
+    currentUser.role === 'operator' ||
+    currentUser.role === 'super_admin' ||
+    currentUser.role === 'owner';
 
   // Preset billing months
   const presetMonths = [
@@ -66,25 +56,65 @@ export const UtilitasView = () => {
     'Juli 2026'
   ];
 
-  // Distinct list of available months
+  // Clean deduplicated bills list (strictly enforces 1 bill per room per month)
+  // Menampilkan HANYA kamar yang ada penghuni kos nya (jika kamar kos kosong, jangan tampilkan data tagihannya)
+  const cleanBillsList = useMemo(() => {
+    const deduped = deduplicateElectricityBills(electricityBills || []);
+    return deduped.filter((b) => {
+      if (!b || !b.roomNumber) return false;
+      const roomNum = String(b.roomNumber).trim().toLowerCase();
+
+      // 1. Cek unit kamar di daftar master rooms
+      const roomObj = (rooms || []).find(
+        (r) => String(r.number).trim().toLowerCase() === roomNum
+      );
+
+      // Jika kamar berstatus Kosong atau belum ada nama penghuni, sembunyikan tagihannya
+      if (roomObj) {
+        if (roomObj.status === 'Kosong' || !roomObj.currentTenant || !roomObj.currentTenant.trim()) {
+          return false;
+        }
+      }
+
+      // 2. Cek tenant di daftar master tenants
+      const tenantObj = (tenants || []).find(
+        (t) =>
+          (b.tenantId && t.id === b.tenantId) ||
+          (t.roomNumber && String(t.roomNumber).trim().toLowerCase() === roomNum)
+      );
+
+      // Jika tenant berstatus nonaktif dan kamar tidak berstatus terisi
+      if (tenantObj && tenantObj.status === 'Nonaktif' && (!roomObj || roomObj.status !== 'Terisi')) {
+        return false;
+      }
+
+      // Pastikan ada nama penghuni (baik dari data master room, master tenant, atau tagihan)
+      const hasTenant =
+        (roomObj && roomObj.currentTenant && roomObj.currentTenant.trim()) ||
+        (tenantObj && tenantObj.status === 'Aktif' && tenantObj.name && tenantObj.name.trim()) ||
+        (b.tenantName && b.tenantName.trim());
+
+      if (!hasTenant) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [electricityBills, rooms, tenants]);
+
+  // Distinct list of available months across active clean bills and presets
   const availableMonths = useMemo(() => {
     const set = new Set(presetMonths);
-    electricityBills.forEach((b) => {
+    (cleanBillsList || []).forEach((b) => {
       if (b.month) set.add(b.month.trim());
     });
     return Array.from(set);
-  }, [electricityBills]);
+  }, [cleanBillsList]);
 
-  // When filterMonth changes and is not 'all', automatically generate bills for all active tenants!
+  // When filterMonth changes and is not 'all', quietly ensure all active rooms have bills ready (seperti Pembayaran Kos)
   useEffect(() => {
     if (filterMonth && filterMonth !== 'all' && filterMonth !== '__custom__') {
-      const added = generateMonthlyElectricityBills(filterMonth);
-      if (added > 0) {
-        addToast(
-          `${added} tagihan listrik baru bulan ${filterMonth} berhasil diterbitkan untuk semua penghuni aktif! Kolom token siap diisi.`,
-          'success'
-        );
-      }
+      generateMonthlyElectricityBills(filterMonth);
     }
   }, [filterMonth]);
 
@@ -92,50 +122,6 @@ export const UtilitasView = () => {
   const generateRandomPlnToken = () => {
     const part = () => Math.floor(1000 + Math.random() * 9000);
     return `${part()}-${part()}-${part()}-${part()}-${part()}`;
-  };
-
-  const handleRoomChange = (roomNum) => {
-    const tenant = tenants.find((t) => t.roomNumber === roomNum);
-    const roomObj = rooms.find((r) => r.number === roomNum);
-    const prevBill = electricityBills.find((b) => b.roomNumber === roomNum && b.meterEnd);
-    const startVal = prevBill ? prevBill.meterEnd : 1240;
-
-    setFormData({
-      ...formData,
-      roomNumber: roomNum,
-      tenantName: tenant ? tenant.name : `Penghuni Kamar ${roomNum}`,
-      tenantPhone: tenant ? tenant.phone : '-',
-      meterStart: startVal,
-      meterEnd: startVal + 75,
-      token: roomObj?.electricityToken || formData.token || ''
-    });
-  };
-
-  const openInputForm = () => {
-    const initialRoom = rooms.find((r) => r.number === formData.roomNumber);
-    if (initialRoom?.electricityToken && !formData.token) {
-      setFormData((prev) => ({ ...prev, token: initialRoom.electricityToken }));
-    }
-    setViewMode('form');
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    handleSaveElectricityBill({
-      roomNumber: formData.roomNumber,
-      tenantName: formData.tenantName,
-      tenantPhone: formData.tenantPhone,
-      month: formData.month,
-      meterStart: parseInt(formData.meterStart) || 0,
-      meterEnd: parseInt(formData.meterEnd) || 0,
-      kwhUsage,
-      ratePerKwh: parseInt(formData.ratePerKwh) || 1650,
-      totalBill,
-      token: formData.token ? formData.token.trim() : '',
-      status: formData.status,
-      paidAt: formData.status === 'Lunas' ? new Date().toLocaleString('id-ID') : null
-    });
-    setViewMode('list');
   };
 
   // Month selector change
@@ -157,13 +143,19 @@ export const UtilitasView = () => {
     }
     const cleanMonth = customMonthInput.trim();
     setFilterMonth(cleanMonth);
-    const added = generateMonthlyElectricityBills(cleanMonth);
-    addToast(
-      `Bulan ${cleanMonth} dipilih! ${added > 0 ? `${added} tagihan diterbitkan.` : 'Tagihan siap diisi kolom tokennya.'}`,
-      'success'
-    );
+    generateMonthlyElectricityBills(cleanMonth);
     setCustomMonthInput('');
     setIsCustomMonthModalOpen(false);
+  };
+
+  // Toggle sorting by column
+  const handleSort = (key) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
   };
 
   // Save single token inline
@@ -184,33 +176,6 @@ export const UtilitasView = () => {
     setTokenInputMap((prev) => ({ ...prev, [billId]: generated }));
   };
 
-  // Bulk fill tokens from rooms master for all empty rooms in the selected month
-  const handleBulkFillDemoTokens = () => {
-    if (filterMonth === 'all') {
-      addToast('Pilih bulan spesifik di dropdown sebelum sinkron token massal.', 'info');
-      return;
-    }
-    const targetBills = electricityBills.filter(
-      (b) =>
-        (b.month.toLowerCase().trim() === filterMonth.toLowerCase().trim() ||
-          b.month.toLowerCase().includes(filterMonth.toLowerCase().trim())) &&
-        !b.token
-    );
-
-    if (targetBills.length === 0) {
-      addToast(`Semua tagihan untuk bulan ${filterMonth} sudah memiliki token listrik!`, 'info');
-      return;
-    }
-
-    targetBills.forEach((b) => {
-      const roomObj = rooms.find((r) => r.number === b.roomNumber);
-      const token = roomObj?.electricityToken || generateRandomPlnToken();
-      handleUpdateElectricityToken(b.id, token, 'Lunas');
-    });
-
-    addToast(`Berhasil mengisikan token listrik PLN dari nomor tetap kamar untuk (${targetBills.length}) kamar!`, 'success');
-  };
-
   // Save quick meter end edit
   const handleSaveMeterEnd = (bill) => {
     const endVal = parseInt(meterEndInput);
@@ -223,292 +188,194 @@ export const UtilitasView = () => {
     setMeterEndInput('');
   };
 
-  // Toggle bill status
-  const handleToggleStatus = (bill) => {
-    const newStatus = bill.status === 'Lunas' ? 'Belum Bayar' : 'Lunas';
+  // Validasi tagihan listrik per baris (persis seperti Pembayaran Kos)
+  const handleValidateBill = (bill) => {
+    const roomObj = (rooms || []).find((r) => String(r.number).trim() === String(bill.roomNumber).trim());
+    const tokenVal = bill.token || roomObj?.electricityToken || generateRandomPlnToken();
     handleQuickUpdateElectricity(bill.id, {
-      status: newStatus,
-      paidAt: newStatus === 'Lunas' ? new Date().toLocaleString('id-ID') : null
+      status: 'Lunas',
+      token: tokenVal,
+      paidAt: new Date().toLocaleString('id-ID'),
+      recordedBy: currentUser?.name || 'Operator Taman'
     });
+    addToast(`Tagihan listrik Kamar ${bill.roomNumber} berhasil divalidasi Lunas!`, 'success');
+  };
+
+  // Batalkan validasi per baris (kembali ke Belum Bayar)
+  const handleRevertValidation = (bill) => {
+    if (window.confirm(`Batalkan status lunas untuk tagihan listrik Kamar ${bill.roomNumber}?`)) {
+      handleQuickUpdateElectricity(bill.id, {
+        status: 'Belum Bayar',
+        paidAt: null
+      });
+      addToast(`Status tagihan listrik Kamar ${bill.roomNumber} dikembalikan ke Belum Bayar.`, 'info');
+    }
   };
 
   // Filtered bills
   const filteredBills = useMemo(() => {
-    return electricityBills
-      .filter((b) => {
-        const matchMonth =
-          filterMonth === 'all' ||
-          b.month.toLowerCase().trim() === filterMonth.toLowerCase().trim() ||
-          b.month.toLowerCase().includes(filterMonth.toLowerCase().trim());
+    return cleanBillsList.filter((b) => {
+      const matchMonth =
+        filterMonth === 'all' ||
+        b.month.toLowerCase().trim() === filterMonth.toLowerCase().trim() ||
+        b.month.toLowerCase().includes(filterMonth.toLowerCase().trim());
 
-        const matchStatus = filterStatus === 'all' || b.status === filterStatus;
+      const matchStatus = filterStatus === 'all' || b.status === filterStatus;
 
-        const q = searchQuery.toLowerCase().trim();
-        const matchSearch =
-          !q ||
-          (b.roomNumber && b.roomNumber.toLowerCase().includes(q)) ||
-          (b.tenantName && b.tenantName.toLowerCase().includes(q)) ||
-          (b.token && b.token.toLowerCase().includes(q)) ||
-          (b.tenantPhone && b.tenantPhone.toLowerCase().includes(q));
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        (b.roomNumber && b.roomNumber.toLowerCase().includes(q)) ||
+        (b.tenantName && b.tenantName.toLowerCase().includes(q)) ||
+        (b.token && b.token.toLowerCase().includes(q)) ||
+        (b.tenantPhone && b.tenantPhone.toLowerCase().includes(q)) ||
+        (b.id && b.id.toLowerCase().includes(q));
 
-        return matchMonth && matchStatus && matchSearch;
-      })
-      .sort((a, b) => {
-        const numA = parseInt(a.roomNumber) || 999;
-        const numB = parseInt(b.roomNumber) || 999;
-        return numA - numB;
-      });
-  }, [electricityBills, filterMonth, filterStatus, searchQuery]);
+      return matchMonth && matchStatus && matchSearch;
+    });
+  }, [cleanBillsList, filterMonth, filterStatus, searchQuery]);
+
+  // Sort bills dynamically
+  const sortedBills = useMemo(() => {
+    const list = [...filteredBills];
+    const { key, direction } = sortConfig;
+    const modifier = direction === 'asc' ? 1 : -1;
+
+    list.sort((a, b) => {
+      if (key === 'roomNumber') {
+        const numA = parseInt(a.roomNumber) || 0;
+        const numB = parseInt(b.roomNumber) || 0;
+        if (numA !== numB) return (numA - numB) * modifier;
+        return (a.roomNumber || '').localeCompare(b.roomNumber || '') * modifier;
+      }
+      if (key === 'month') {
+        const monthComp = (a.month || '').localeCompare(b.month || '');
+        if (monthComp !== 0) return monthComp * modifier;
+        return (a.id || '').localeCompare(b.id || '') * modifier;
+      }
+      if (key === 'tenantName') {
+        return (a.tenantName || '').localeCompare(b.tenantName || '') * modifier;
+      }
+      if (key === 'meterStart') {
+        return ((a.meterStart || 0) - (b.meterStart || 0)) * modifier;
+      }
+      if (key === 'meterEnd') {
+        return ((a.meterEnd || 0) - (b.meterEnd || 0)) * modifier;
+      }
+      if (key === 'kwhUsage') {
+        return ((a.kwhUsage || 0) - (b.kwhUsage || 0)) * modifier;
+      }
+      if (key === 'totalBill') {
+        return ((a.totalBill || 0) - (b.totalBill || 0)) * modifier;
+      }
+      if (key === 'status') {
+        const score = { Lunas: 1, 'Belum Bayar': 2 };
+        const scoreA = score[a.status] || 99;
+        const scoreB = score[b.status] || 99;
+        return (scoreA - scoreB) * modifier;
+      }
+      if (key === 'token') {
+        const hasA = a.token ? 1 : 0;
+        const hasB = b.token ? 1 : 0;
+        return (hasA - hasB) * modifier;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [filteredBills, sortConfig]);
 
   // Metrics for active month
   const metrics = useMemo(() => {
     const targetBills =
       filterMonth === 'all'
-        ? electricityBills
-        : electricityBills.filter(
+        ? cleanBillsList
+        : cleanBillsList.filter(
             (b) =>
               b.month.toLowerCase().trim() === filterMonth.toLowerCase().trim() ||
               b.month.toLowerCase().includes(filterMonth.toLowerCase().trim())
           );
 
+    const totalCount = targetBills.length;
     const totalKwh = targetBills.reduce((acc, curr) => acc + (curr.kwhUsage || 0), 0);
     const totalRupiah = targetBills.reduce((acc, curr) => acc + (curr.totalBill || 0), 0);
-    const totalCount = targetBills.length;
+
+    const lunasBills = targetBills.filter((b) => b.status === 'Lunas');
+    const lunasCount = lunasBills.length;
+    const lunasRupiah = lunasBills.reduce((acc, curr) => acc + (curr.totalBill || 0), 0);
+
+    const unpaidBills = targetBills.filter((b) => b.status === 'Belum Bayar');
+    const unpaidCount = unpaidBills.length;
+    const unpaidRupiah = unpaidBills.reduce((acc, curr) => acc + (curr.totalBill || 0), 0);
+
     const filledTokenCount = targetBills.filter((b) => b.token && b.token.trim().length > 0).length;
     const emptyTokenCount = totalCount - filledTokenCount;
-    const lunasCount = targetBills.filter((b) => b.status === 'Lunas').length;
+    const percentage = totalCount > 0 ? Math.round((lunasCount / totalCount) * 100) : 0;
 
     return {
+      totalCount,
       totalKwh,
       totalRupiah,
-      totalCount,
+      lunasCount,
+      lunasRupiah,
+      unpaidCount,
+      unpaidRupiah,
       filledTokenCount,
       emptyTokenCount,
-      lunasCount
+      percentage
     };
-  }, [electricityBills, filterMonth]);
+  }, [cleanBillsList, filterMonth]);
 
-  // =========================================================================
-  // DEDICATED FULL-PAGE FORM VIEW (NO CUT-OFF POPUP MODAL)
-  // =========================================================================
-  if (viewMode === 'form') {
-    return (
-      <div className="form-page-container">
-        {/* Top Navigation & Breadcrumb */}
-        <div className="form-page-topbar">
-          <button
-            type="button"
-            className="btn-back-nav"
-            onClick={() => setViewMode('list')}
-          >
-            <IconArrowLeft size={18} />
-            <span>Kembali ke Data Utilitas & Listrik</span>
-          </button>
+  // Bulk validate confirmation (persis seperti Pembayaran Kos)
+  const handleBulkValidateConfirm = () => {
+    if (filterMonth === 'all') {
+      addToast('Pilih bulan spesifik di dropdown sebelum validasi massal.', 'info');
+      return;
+    }
+    if (metrics.unpaidCount === 0) {
+      addToast(`Semua tagihan listrik untuk bulan ${filterMonth} sudah Lunas.`, 'info');
+      return;
+    }
 
-          <div className="form-page-title-group">
-            <h2 className="form-page-heading">Input Pencatatan Meteran Listrik Bulanan</h2>
-            <p className="form-page-subheading">
-              Catat stand meter awal & akhir kWh per kamar penghuni untuk menghitung total tagihan dan masukkan token listrik.
-            </p>
-          </div>
-        </div>
+    if (
+      window.confirm(
+        `Validasi dan lunaskan seluruh ${metrics.unpaidCount} tagihan listrik bulan ${filterMonth}?`
+      )
+    ) {
+      handleBulkValidateElectricityMonth(filterMonth);
+    }
+  };
 
-        {/* Dedicated Full Form Card */}
-        <div className="form-page-card">
-          <form onSubmit={handleSubmit} className="form-page-content">
-            {/* Section 1: Pemilihan Kamar & Periode */}
-            <div className="form-section-block">
-              <div className="form-section-header">
-                <IconRoom size={20} className="text-primary-green" />
-                <div>
-                  <h3 className="form-section-title">Kamar & Penghuni</h3>
-                  <p className="form-section-subtitle">
-                    Pilih nomor kamar target pencatatan meteran listrik
-                  </p>
-                </div>
-              </div>
-
-              <div className="form-responsive-grid">
-                <div className="form-group">
-                  <label className="form-label">Pilih Kamar * (Pencarian Cepat)</label>
-                  <SearchableRoomSelect
-                    rooms={rooms}
-                    value={formData.roomNumber}
-                    onChange={(roomNum) => handleRoomChange(roomNum)}
-                    placeholder="Pilih atau cari nomor kamar..."
-                  />
-                  <span className="field-hint">
-                    Penghuni terhubung otomatis: <strong>{formData.tenantName}</strong> ({formData.tenantPhone})
-                  </span>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Periode Bulan Penagihan *</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.month}
-                    onChange={(e) => setFormData({ ...formData, month: e.target.value })}
-                    placeholder="Contoh: Oktober 2026"
-                    required
-                  />
-                  <span className="field-hint">Bulan buku pencatatan meteran</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Angka Meteran, Token & Tarif */}
-            <div className="form-section-block">
-              <div className="form-section-header">
-                <IconLightning size={20} className="text-primary-green" />
-                <div>
-                  <h3 className="form-section-title">Stand Meteran Listrik, Token & Tarif</h3>
-                  <p className="form-section-subtitle">
-                    Kalkulasi otomatis pemakaian kWh, pengisian kode token PLN prabayar dan total tagihan
-                  </p>
-                </div>
-              </div>
-
-              <div className="form-responsive-grid">
-                <div className="form-group">
-                  <label className="form-label">Angka Meter Awal (kWh) *</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={formData.meterStart}
-                    onChange={(e) => setFormData({ ...formData, meterStart: e.target.value })}
-                    required
-                  />
-                  <span className="field-hint">Stand meter bulan sebelumnya</span>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Angka Meter Akhir (kWh) *</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={formData.meterEnd}
-                    onChange={(e) => setFormData({ ...formData, meterEnd: e.target.value })}
-                    required
-                  />
-                  <span className="field-hint">Stand meter saat pencatatan hari ini</span>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Nomor Token Listrik PLN (Opsional)</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Contoh: 3819-2041-8849-2194-0012"
-                      value={formData.token}
-                      onChange={(e) => setFormData({ ...formData, token: e.target.value })}
-                    />
-                    <button
-                      type="button"
-                      className="btn-auto-token-gen"
-                      onClick={() => setFormData({ ...formData, token: generateRandomPlnToken() })}
-                      title="Generate contoh 20 digit token PLN"
-                    >
-                      ⚡ Auto
-                    </button>
-                  </div>
-                  <span className="field-hint">Penghuni kos dapat melihat dan menyalin token ini di portal mereka</span>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Tarif Listrik per kWh (Rp) *</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={formData.ratePerKwh}
-                    onChange={(e) => setFormData({ ...formData, ratePerKwh: e.target.value })}
-                    required
-                  />
-                  <span className="field-hint">Tarif standar Gladiola: Rp 1.650 / kWh</span>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Status Pembayaran</label>
-                  <select
-                    className="form-select"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  >
-                    <option value="Belum Bayar">Belum Bayar (Menunggu Pelunasan)</option>
-                    <option value="Lunas">Lunas (Sudah Dibayarkan / Token Terisi)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Live Calculation Preview Box */}
-              <div className="calculation-preview-box mt-4">
-                <div className="calc-row">
-                  <span>Pemakaian Bersih Listrik:</span>
-                  <strong className="text-base text-gray-900">{kwhUsage} kWh</strong>
-                </div>
-                <div className="calc-row">
-                  <span>Total Tagihan Listrik:</span>
-                  <strong className="text-xl text-primary-green">
-                    Rp {totalBill.toLocaleString('id-ID')}
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Actions Bar */}
-            <div className="form-page-actions-bar">
-              <button
-                type="button"
-                className="btn-secondary-action"
-                onClick={() => setViewMode('list')}
-              >
-                Batal & Kembali
-              </button>
-              <button type="submit" className="btn-primary-action">
-                <IconCheck size={18} />
-                <span>Simpan Tagihan Listrik</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // =========================================================================
-  // LIST VIEW
-  // =========================================================================
   return (
     <div className="utilitas-container">
-      {/* Metric Cards */}
+      {/* Metric Cards (Sesuai Gaya Kartu Pembayaran Kos) */}
       <div className="pembayaran-stats-grid">
         <div className="pembayaran-stat-card card-primary">
-          <span className="stat-metric-label">Total Pemakaian ({filterMonth === 'all' ? 'Semua' : filterMonth})</span>
-          <span className="stat-metric-value">{metrics.totalKwh.toLocaleString('id-ID')} kWh</span>
-          <span className="stat-metric-subtext">Dari {metrics.totalCount} kamar terdata</span>
-        </div>
-
-        <div className="pembayaran-stat-card card-warning">
-          <span className="stat-metric-label">Total Tagihan Listrik</span>
-          <span className="stat-metric-value">Rp {metrics.totalRupiah.toLocaleString('id-ID')}</span>
-          <span className="stat-metric-subtext">{metrics.lunasCount} kamar Lunas</span>
+          <span className="stat-metric-label">Total Tagihan Listrik ({filterMonth === 'all' ? 'Semua' : filterMonth})</span>
+          <span className="stat-metric-value">{metrics.totalCount} Kamar</span>
+          <span className="stat-metric-subtext">Rp {metrics.totalRupiah.toLocaleString('id-ID')} ({metrics.totalKwh.toLocaleString('id-ID')} kWh)</span>
         </div>
 
         <div className="pembayaran-stat-card card-success">
-          <span className="stat-metric-label">Status Token Listrik PLN</span>
-          <span className="stat-metric-value">{metrics.filledTokenCount} Terisi</span>
-          <span className="stat-metric-subtext">{metrics.emptyTokenCount} kamar menunggu input token</span>
+          <span className="stat-metric-label">Tervalidasi (Lunas)</span>
+          <span className="stat-metric-value">{metrics.lunasCount} Lunas ({metrics.percentage}%)</span>
+          <span className="stat-metric-subtext">Rp {metrics.lunasRupiah.toLocaleString('id-ID')}</span>
         </div>
 
         <div className="pembayaran-stat-card card-info">
-          <span className="stat-metric-label">Tarif Flat per kWh</span>
-          <span className="stat-metric-value">Rp 1.650</span>
-          <span className="stat-metric-subtext">Tarif kos eksklusif Gladiola</span>
+          <span className="stat-metric-label">Belum Bayar</span>
+          <span className="stat-metric-value">{metrics.unpaidCount} Kamar</span>
+          <span className="stat-metric-subtext">Rp {metrics.unpaidRupiah.toLocaleString('id-ID')}</span>
+        </div>
+
+        <div className="pembayaran-stat-card card-warning">
+          <span className="stat-metric-label">Status Token Listrik PLN</span>
+          <span className="stat-metric-value">{metrics.filledTokenCount} Terisi</span>
+          <span className="stat-metric-subtext">{metrics.emptyTokenCount} kamar menunggu token • Rp 1.650/kWh</span>
         </div>
       </div>
 
-      {/* Toolbar & Filter */}
+      {/* Filter Toolbar & Actions */}
       <div className="section-toolbar">
         <div className="toolbar-search-group">
           {/* Search Box */}
@@ -516,7 +383,7 @@ export const UtilitasView = () => {
             <IconSearch size={16} className="text-gray-400" />
             <input
               type="text"
-              placeholder="Cari kamar / nama / token..."
+              placeholder="Cari kamar / nama / nomor HP / token..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -527,7 +394,7 @@ export const UtilitasView = () => {
             className="filter-select"
             value={filterMonth}
             onChange={handleMonthChange}
-            title="Pilih Bulan Utilitas"
+            title="Pilih Bulan Utilitas & Listrik"
           >
             {availableMonths.map((m) => (
               <option key={m} value={m}>
@@ -535,7 +402,7 @@ export const UtilitasView = () => {
               </option>
             ))}
             <option value="all">Semua Bulan (Riwayat Lengkap)</option>
-            <option value="__custom__">+ Tambah / Pilih Bulan Baru...</option>
+            <option value="__custom__">+ Tambah / Buka Bulan Baru...</option>
           </select>
 
           {/* Status Filter */}
@@ -550,94 +417,185 @@ export const UtilitasView = () => {
           </select>
         </div>
 
-        {/* Action Buttons */}
-        <div className="toolbar-search-group">
-          {filterMonth !== 'all' && (
-            <button
-              type="button"
-              className="btn-generate-bills"
-              onClick={() => {
-                const added = generateMonthlyElectricityBills(filterMonth);
-                if (added > 0) {
-                  addToast(`Berhasil menerbitkan ${added} baris tagihan listrik bulan ${filterMonth}!`, 'success');
-                } else {
-                  addToast(`Semua kamar aktif sudah terdaftar di tagihan listrik ${filterMonth}.`, 'info');
-                }
-              }}
-              title="Terbitkan tagihan listrik bulan ini untuk semua penghuni"
-            >
-              <IconLightning size={16} />
-              <span>Terbitkan Utilitas {filterMonth}</span>
-            </button>
-          )}
-
-          {filterMonth !== 'all' && metrics.emptyTokenCount > 0 && (
-            <button
-              type="button"
-              className="btn-bulk-validate"
-              onClick={handleBulkFillDemoTokens}
-              title="Otomatis isi contoh 20 digit token PLN untuk semua kamar yang kosong"
-            >
-              <IconLightning size={16} />
-              <span>Isi Token Semua Kamar ({metrics.emptyTokenCount})</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={openInputForm}
-            title="Input stand meteran listrik baru"
-          >
-            <IconPlus size={16} />
-            <span>+ Input Stand Meter</span>
-          </button>
-        </div>
+        {/* Action Buttons: Tombol Terbitkan, Isi Token, & Input Stand Meter DIHAPUS sesuai permintaan; Diganti Validasi Semua seperti Pembayaran Kos */}
+        {canValidate && (
+          <div className="toolbar-search-group">
+            {filterMonth !== 'all' && metrics.unpaidCount > 0 && (
+              <button
+                type="button"
+                className="btn-bulk-validate"
+                onClick={handleBulkValidateConfirm}
+                title="Validasi seluruh tagihan listrik yang belum lunas dalam 1 klik"
+              >
+                <IconCheck size={16} />
+                <span>Validasi Semua ({metrics.unpaidCount})</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Table */}
+      {/* Table with Clickable Sortable Headers (ASC / DESC) */}
       <div className="dashboard-card no-padding">
         <div className="table-responsive-wrapper">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Bulan</th>
-                <th>Kamar & Penghuni</th>
-                <th style={{ minWidth: '240px' }}>⚡ Kolom Token Listrik (PLN)</th>
-                <th>Meter Awal</th>
-                <th>Meter Akhir</th>
-                <th>Pemakaian</th>
+                {/* 1. Bulan & ID */}
+                <th
+                  onClick={() => handleSort('month')}
+                  className={`sortable-th ${sortConfig.key === 'month' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Bulan & ID (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Bulan & ID</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'month' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 2. Penghuni & Kamar */}
+                <th
+                  onClick={() => handleSort('roomNumber')}
+                  className={`sortable-th ${sortConfig.key === 'roomNumber' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Kamar (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Penghuni & Kamar</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'roomNumber' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 3. Token Listrik (PLN) */}
+                <th
+                  onClick={() => handleSort('token')}
+                  className={`sortable-th ${sortConfig.key === 'token' ? 'active-sort' : ''}`}
+                  style={{ minWidth: '240px' }}
+                  title="Klik untuk sortir Token Listrik (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>⚡ Token Listrik (PLN)</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'token' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 4. Meter Awal */}
+                <th
+                  onClick={() => handleSort('meterStart')}
+                  className={`sortable-th ${sortConfig.key === 'meterStart' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Meter Awal (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Meter Awal</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'meterStart' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 5. Meter Akhir */}
+                <th
+                  onClick={() => handleSort('meterEnd')}
+                  className={`sortable-th ${sortConfig.key === 'meterEnd' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Meter Akhir (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Meter Akhir</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'meterEnd' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 6. Pemakaian */}
+                <th
+                  onClick={() => handleSort('kwhUsage')}
+                  className={`sortable-th ${sortConfig.key === 'kwhUsage' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Pemakaian kWh (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Pemakaian</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'kwhUsage' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 7. Tarif/kWh */}
                 <th>Tarif/kWh</th>
-                <th>Total Tagihan</th>
-                <th>Status</th>
+
+                {/* 8. Total Tagihan */}
+                <th
+                  onClick={() => handleSort('totalBill')}
+                  className={`sortable-th ${sortConfig.key === 'totalBill' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Total Tagihan (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Total Tagihan</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'totalBill' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 9. Status */}
+                <th
+                  onClick={() => handleSort('status')}
+                  className={`sortable-th ${sortConfig.key === 'status' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Status (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Status</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 10. Dicatat Oleh */}
                 <th>Dicatat Oleh</th>
+
+                {/* 11. Tindakan Operator */}
+                {canValidate && <th>Tindakan Operator</th>}
               </tr>
             </thead>
             <tbody>
-              {filteredBills.length > 0 ? (
-                filteredBills.map((b) => {
+              {sortedBills.length > 0 ? (
+                sortedBills.map((b) => {
                   const isEditingToken = editingTokenIds[b.id] || !b.token;
                   const currentTokenVal =
                     tokenInputMap[b.id] !== undefined ? tokenInputMap[b.id] : (b.token || '');
 
+                  const roomObj = (rooms || []).find((r) => String(r.number).trim() === String(b.roomNumber).trim());
+                  const displayName = b.tenantName || roomObj?.currentTenant || 'Penghuni';
+
                   return (
                     <tr key={b.id}>
+                      {/* Bulan & ID */}
                       <td>
-                        <strong className="text-gray-900">{b.month}</strong>
-                        <span className="tenant-subtext">{b.id}</span>
+                        <div>
+                          <strong className="text-gray-900">{b.month}</strong>
+                          <span className="tenant-subtext">{b.id}</span>
+                        </div>
                       </td>
 
+                      {/* Penghuni & Kamar */}
                       <td>
                         <div className="tenant-cell-info">
                           <span className="room-badge-small">Kmr {b.roomNumber}</span>
                           <div>
-                            <strong className="text-gray-900">{b.tenantName}</strong>
-                            <span className="tenant-subtext">{b.tenantPhone}</span>
+                            <strong className="text-gray-900">{displayName}</strong>
+                            <span className="tenant-subtext">{b.tenantPhone || '-'}</span>
                           </div>
                         </div>
                       </td>
 
-                      {/* HERO COLUMN: KOLOM TOKEN LISTRIK */}
+                      {/* Kolom Token Listrik */}
                       <td>
                         {isEditingToken ? (
                           <div className="token-cell-wrapper">
@@ -645,7 +603,7 @@ export const UtilitasView = () => {
                               <input
                                 type="text"
                                 className="token-input-field"
-                                placeholder={rooms.find((r) => r.number === b.roomNumber)?.electricityToken ? `Tetap: ${rooms.find((r) => r.number === b.roomNumber).electricityToken.slice(0, 14)}...` : "Ketik 20 digit token..."}
+                                placeholder={roomObj?.electricityToken ? `Tetap: ${roomObj.electricityToken.slice(0, 14)}...` : 'Ketik 20 digit token...'}
                                 value={currentTokenVal}
                                 onChange={(e) =>
                                   setTokenInputMap({ ...tokenInputMap, [b.id]: e.target.value })
@@ -706,8 +664,10 @@ export const UtilitasView = () => {
                         )}
                       </td>
 
+                      {/* Meter Awal */}
                       <td>{b.meterStart} kWh</td>
 
+                      {/* Meter Akhir (dengan Inline Edit) */}
                       <td>
                         {editingMeterId === b.id ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -745,37 +705,73 @@ export const UtilitasView = () => {
                         )}
                       </td>
 
+                      {/* Pemakaian */}
                       <td>
                         <span className="badge-pill-outline">{b.kwhUsage} kWh</span>
                       </td>
 
+                      {/* Tarif */}
                       <td>Rp {b.ratePerKwh.toLocaleString('id-ID')}</td>
 
+                      {/* Total Tagihan */}
                       <td className="font-bold text-gray-900">
                         Rp {b.totalBill.toLocaleString('id-ID')}
                       </td>
 
+                      {/* Status */}
                       <td>
                         <span
                           className={`badge-status ${
-                            b.status === 'Lunas' ? 'badge-success' : 'badge-warning'
+                            b.status === 'Lunas' ? 'badge-success' : 'badge-danger'
                           }`}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => handleToggleStatus(b)}
-                          title="Klik untuk ganti status (Lunas / Belum Bayar)"
                         >
-                          {b.status === 'Lunas' ? '✓ Lunas' : b.status}
+                          {b.status === 'Lunas' && '✓ '}
+                          {b.status}
                         </span>
                       </td>
 
-                      <td className="text-xs text-gray-500">{b.recordedBy}</td>
+                      {/* Dicatat Oleh */}
+                      <td className="text-xs text-gray-500">
+                        <div>
+                          <strong>{b.recordedBy || 'Petugas'}</strong>
+                          {b.paidAt && <div className="text-gray-400 font-mono">{b.paidAt}</div>}
+                        </div>
+                      </td>
+
+                      {/* Tindakan Operator (Persis Seperti Pembayaran Kos) */}
+                      {canValidate && (
+                        <td>
+                          <div className="action-buttons-row">
+                            {b.status !== 'Lunas' ? (
+                              <button
+                                type="button"
+                                className="btn-validate-approve"
+                                onClick={() => handleValidateBill(b)}
+                                title="Validasi: Menandai tagihan listrik lunas & pastikan token terisi"
+                              >
+                                <IconCheck size={14} />
+                                <span>Validasi</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn-revert-validation"
+                                onClick={() => handleRevertValidation(b)}
+                                title="Batalkan pelunasan tagihan listrik (kembalikan ke Belum Bayar)"
+                              >
+                                <span>↺ Batal</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="10" className="text-center py-8 text-gray-500">
-                    Belum ada data pencatatan meteran listrik pada filter ini.
+                  <td colSpan={canValidate ? 11 : 10} className="text-center py-8 text-gray-500">
+                    Tidak ada data tagihan utilitas & listrik untuk kamar berpenghuni pada filter ini.
                   </td>
                 </tr>
               )}
@@ -790,9 +786,9 @@ export const UtilitasView = () => {
           <div className="modal-content-card" onClick={(e) => e.stopPropagation()}>
             <div className="form-section-header">
               <div>
-                <h3 className="modal-title">Terbitkan Tagihan Utilitas Bulan Baru</h3>
+                <h3 className="modal-title">Buka Tagihan Utilitas & Listrik Bulan Baru</h3>
                 <p className="modal-subtitle">
-                  Masukkan bulan dan tahun penagihan listrik untuk seluruh penghuni kos aktif.
+                  Masukkan nama bulan dan tahun penagihan listrik untuk kamar-kamar yang berpenghuni.
                 </p>
               </div>
             </div>
@@ -810,7 +806,7 @@ export const UtilitasView = () => {
                   required
                 />
                 <span className="field-hint">
-                  Sistem akan otomatis membuat tagihan listrik untuk seluruh {tenants.filter((t) => t.status === 'Aktif').length} kamar penghuni aktif, sehingga petugas tinggal memasukkan kolom tokennya.
+                  Sistem akan otomatis menyiapkan tagihan listrik per bulan hanya untuk kamar yang memiliki penghuni kos aktif.
                 </span>
               </div>
 
@@ -824,7 +820,7 @@ export const UtilitasView = () => {
                 </button>
                 <button type="submit" className="btn-primary-action">
                   <IconLightning size={16} />
-                  <span>Terbitkan Tagihan Bulan Ini</span>
+                  <span>Buka Tagihan Bulan Ini</span>
                 </button>
               </div>
             </form>

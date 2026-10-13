@@ -536,12 +536,20 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
   const electricityToken = `${tokenP1}-${tokenP2}-${tokenP3}-${tokenP4}-${tokenP5}`;
   const meterId = `PLN-14${String(28000000 + (i + 1) * 137).slice(-8)}`;
 
+  // Kategori Kamar: 'Bulanan' (Kos Bulanan) vs 'Harian' (Disewakan Harian / Guest House)
+  // Kamar 301 - 306 disiapkan khusus sebagai unit Sewa Harian eksklusif Gladiola
+  const isDaily = ["301", "302", "303", "304", "305", "306"].includes(roomNumber);
+  const category = isDaily ? "Harian" : "Bulanan";
+  const dailyPrice = type.includes("Executive") ? 275000 : type.includes("Standard") ? 200000 : 250000;
+
   return {
     id: `rm-${i + 1}`,
     number: roomNumber,
     floor: Math.floor(i / 18) + 1,
     type,
     price,
+    dailyPrice,
+    category, // "Bulanan" | "Harian"
     status, // "Terisi" | "Booking" | "Kosong"
     currentTenant: tenant,
     electricityToken,
@@ -549,6 +557,103 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
     facilities: ["AC Split", "Spring Bed Queen", "Kamar Mandi Dalam", "Water Heater", "Lemari Jati", "Meja Belajar", "Smart Lock"]
   };
 });
+
+// INITIAL_DAILY_BOOKINGS: Jadwal reservasi khusus unit kamar yang disewakan per hari
+// Memuat data tanggal sewa per hari dan status pembayaran ("DP Lunas" atau "Lunas Penuh")
+export const INITIAL_DAILY_BOOKINGS = [
+  {
+    id: "book-daily-101",
+    bookingCode: "GLD-HR-001",
+    roomNumber: "301",
+    floor: 3,
+    roomType: "Executive Balcony",
+    guestName: "Hendro Wijaya",
+    guestPhone: "081234567890",
+    guestCity: "Surabaya",
+    guestIdNumber: "3578012345670001",
+    checkIn: "2026-10-12",
+    checkOut: "2026-10-15",
+    nights: 3,
+    dailyPrice: 275000,
+    totalAmount: 825000,
+    paidAmount: 825000,
+    remainingAmount: 0,
+    paymentStatus: "Lunas Penuh", // "DP Lunas" | "Lunas Penuh"
+    paymentMethod: "Transfer Bank BCA",
+    stayStatus: "Sedang Menginap", // "Sedang Menginap" | "Terkonfirmasi" | "Selesai"
+    createdAt: "2026-10-10 14:20",
+    notes: "Late check-in jam 20:00, minta extra bantal dan gantungan baju"
+  },
+  {
+    id: "book-daily-102",
+    bookingCode: "GLD-HR-002",
+    roomNumber: "302",
+    floor: 3,
+    roomType: "Executive Balcony",
+    guestName: "Dr. Nadia Pratiwi",
+    guestPhone: "081398765432",
+    guestCity: "Jakarta Selatan",
+    guestIdNumber: "3174098765430002",
+    checkIn: "2026-10-14",
+    checkOut: "2026-10-16",
+    nights: 2,
+    dailyPrice: 275000,
+    totalAmount: 550000,
+    paidAmount: 275000,
+    remainingAmount: 275000,
+    paymentStatus: "DP Lunas", // "DP Lunas" | "Lunas Penuh"
+    paymentMethod: "Transfer Bank BCA",
+    stayStatus: "Terkonfirmasi",
+    createdAt: "2026-10-11 09:30",
+    notes: "Pelunasan sisa Rp 275.000 saat tiba di resepsionis kos"
+  },
+  {
+    id: "book-daily-103",
+    bookingCode: "GLD-HR-003",
+    roomNumber: "303",
+    floor: 3,
+    roomType: "Executive Balcony",
+    guestName: "Bima Arya Prasetya",
+    guestPhone: "081277889900",
+    guestCity: "Bandung",
+    guestIdNumber: "3273011223340003",
+    checkIn: "2026-10-16",
+    checkOut: "2026-10-19",
+    nights: 3,
+    dailyPrice: 275000,
+    totalAmount: 825000,
+    paidAmount: 825000,
+    remainingAmount: 0,
+    paymentStatus: "Lunas Penuh", // "DP Lunas" | "Lunas Penuh"
+    paymentMethod: "QRIS Dinamis",
+    stayStatus: "Terkonfirmasi",
+    createdAt: "2026-10-12 16:15",
+    notes: "Tamu dinas pekerjaan instansi, butuh kuitansi resmi bertanda tangan"
+  },
+  {
+    id: "book-daily-104",
+    bookingCode: "GLD-HR-004",
+    roomNumber: "304",
+    floor: 3,
+    roomType: "Executive Balcony",
+    guestName: "Siti Rahmawati",
+    guestPhone: "085611223344",
+    guestCity: "Semarang",
+    guestIdNumber: "3374023456780004",
+    checkIn: "2026-10-20",
+    checkOut: "2026-10-22",
+    nights: 2,
+    dailyPrice: 275000,
+    totalAmount: 550000,
+    paidAmount: 275000,
+    remainingAmount: 275000,
+    paymentStatus: "DP Lunas", // "DP Lunas" | "Lunas Penuh"
+    paymentMethod: "Transfer Bank BCA",
+    stayStatus: "Terkonfirmasi",
+    createdAt: "2026-10-13 10:00",
+    notes: "Booking via telepon pengelola, konfirmasi check-in jam 14:00"
+  }
+];
 
 // Base payments with specific states for Oktober 2026 demo
 const SPECIFIC_PAYMENTS = [
@@ -762,6 +867,41 @@ export const deduplicatePayments = (paymentsList) => {
   return Array.from(map.values());
 };
 
+export const deduplicateElectricityBills = (billsList) => {
+  if (!Array.isArray(billsList)) return [];
+  const map = new Map();
+
+  billsList.forEach((b) => {
+    if (!b || !b.month || !b.roomNumber) return;
+    const cleanMonth = b.month.toLowerCase().trim();
+    const cleanRoom = String(b.roomNumber).trim();
+    const key = `${cleanMonth}_${cleanRoom}`;
+
+    if (!map.has(key)) {
+      map.set(key, b);
+    } else {
+      const existing = map.get(key);
+      const statusScore = (s) => (s === 'Lunas' ? 2 : 1);
+      const existingScore = statusScore(existing.status);
+      const newScore = statusScore(b.status);
+
+      if (newScore > existingScore) {
+        map.set(key, b);
+      } else if (newScore === existingScore) {
+        if (b.token && !existing.token) {
+          map.set(key, b);
+        } else if (b.paidAt && !existing.paidAt) {
+          map.set(key, b);
+        } else if ((b.kwhUsage || 0) > (existing.kwhUsage || 0)) {
+          map.set(key, b);
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values());
+};
+
 export const INITIAL_RENT_PAYMENTS = deduplicatePayments([
   ...SPECIFIC_PAYMENTS,
   ...REMAINING_OCTOBER_PAYMENTS,
@@ -921,11 +1061,11 @@ const REMAINING_OCTOBER_ELEC = INITIAL_TENANTS
     };
   });
 
-export const INITIAL_ELECTRICITY_BILLS = [
+export const INITIAL_ELECTRICITY_BILLS = deduplicateElectricityBills([
   ...SPECIFIC_ELEC_BILLS,
   ...REMAINING_OCTOBER_ELEC,
   ...HISTORY_ELEC_BILLS
-];
+]);
 
 export const INITIAL_OPERATORS = [
   {

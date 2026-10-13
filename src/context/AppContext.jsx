@@ -11,10 +11,12 @@ import {
   INITIAL_ROOMS,
   INITIAL_RENT_PAYMENTS,
   INITIAL_ELECTRICITY_BILLS,
+  INITIAL_DAILY_BOOKINGS,
   INITIAL_OPERATORS,
   INITIAL_ACTIVITY_LOGS,
   INITIAL_SESSION_HISTORY,
   deduplicatePayments,
+  deduplicateElectricityBills,
   getNextMonthName
 } from '../data/initialData';
 import {
@@ -260,10 +262,15 @@ export const AppProvider = ({ children }) => {
       return b;
     });
 
+    const dedupedBills = deduplicateElectricityBills(newBills);
+    if (dedupedBills.length !== (eList || []).length) {
+      billsChanged = true;
+    }
+
     return {
       rooms: roomsChanged ? newRooms : rList,
       payments: paymentsChanged ? newPayments : pList,
-      electricityBills: billsChanged ? newBills : eList,
+      electricityBills: billsChanged ? dedupedBills : eList,
       hasAnyChange: roomsChanged || paymentsChanged || billsChanged
     };
   };
@@ -280,14 +287,23 @@ export const AppProvider = ({ children }) => {
     const saved = loadState('rooms', INITIAL_ROOMS);
     if (!saved || !Array.isArray(saved) || saved.length === 0) return INITIAL_ROOMS;
     return saved.map((r, idx) => {
-      if (r.electricityToken) return r;
       const initialMatch = INITIAL_ROOMS.find((ir) => ir.number === r.number) || INITIAL_ROOMS[idx];
+      const isDailyDefault = ["301", "302", "303", "304", "305", "306"].includes(r.number);
       return {
         ...r,
-        electricityToken: initialMatch?.electricityToken || `3819-2041-${String(8800 + (idx + 1) * 3).padStart(4, "0")}-9014-${String(5520 + (idx + 1)).padStart(4, "0")}`,
+        category: r.category || (isDailyDefault ? 'Harian' : 'Bulanan'),
+        dailyPrice: r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000),
+        electricityToken: r.electricityToken || initialMatch?.electricityToken || `3819-2041-${String(8800 + (idx + 1) * 3).padStart(4, "0")}-9014-${String(5520 + (idx + 1)).padStart(4, "0")}`,
         meterId: r.meterId || initialMatch?.meterId || `PLN-14${String(28000000 + (idx + 1) * 137).slice(-8)}`
       };
     });
+  });
+  const [dailyBookings, setDailyBookings] = useState(() => {
+    const saved = loadState('dailyBookings', null);
+    if (!saved || !Array.isArray(saved) || saved.length === 0) {
+      return INITIAL_DAILY_BOOKINGS;
+    }
+    return saved;
   });
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
@@ -299,9 +315,9 @@ export const AppProvider = ({ children }) => {
   const [electricityBills, setElectricityBills] = useState(() => {
     const saved = loadState('electricity', null);
     if (!saved || !Array.isArray(saved) || saved.length < 10) {
-      return INITIAL_ELECTRICITY_BILLS;
+      return deduplicateElectricityBills(INITIAL_ELECTRICITY_BILLS);
     }
-    return saved;
+    return deduplicateElectricityBills(saved);
   });
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));
@@ -508,6 +524,10 @@ const decompressPayload = async (base64Str) => {
         setSessionHistory(cloudData.sessionHistory);
         saveState('sessionHistory', cloudData.sessionHistory);
       }
+      if (Array.isArray(cloudData.dailyBookings)) {
+        setDailyBookings(cloudData.dailyBookings);
+        saveState('dailyBookings', cloudData.dailyBookings);
+      }
       if (Array.isArray(cloudData.activeSessions)) {
         const liveOnly = cloudData.activeSessions.filter((s) => s && s.id && s.id.startsWith('sess-live-'));
         setActiveSessions(liveOnly);
@@ -592,7 +612,8 @@ const decompressPayload = async (base64Str) => {
         operators: overrideData?.operators || operators,
         systemAccounts: overrideData?.systemAccounts || systemAccounts,
         activityLogs: overrideData?.activityLogs || activityLogs,
-        sessionHistory: overrideData?.sessionHistory || sessionHistory
+        sessionHistory: overrideData?.sessionHistory || sessionHistory,
+        dailyBookings: overrideData?.dailyBookings || dailyBookings
       };
 
       // Broadcast immediately to tabs on this machine (0ms latency via BroadcastChannel)
@@ -1119,7 +1140,7 @@ const decompressPayload = async (base64Str) => {
   };
 
   // Generate Monthly Bills for all active tenants when a month changes or is selected
-  // Strictly enforces: 1 room = 1 bill per month
+  // Strictly enforces: 1 room = 1 bill per month (skip jika kamar kosong / belum ada penghuni)
   const generateMonthlyBills = (targetMonth) => {
     if (!targetMonth || targetMonth === 'all') return 0;
 
@@ -1130,6 +1151,14 @@ const decompressPayload = async (base64Str) => {
       const dedupedPrev = deduplicatePayments(prev);
       const newBills = [];
       activeTenants.forEach((tenant) => {
+        // Cek kamar: jika berstatus 'Kosong' atau tidak ada penghuni aktif, jangan terbitkan tagihan sewa
+        const matchRoom = rooms.find(
+          (r) => String(r.number).trim().toLowerCase() === String(tenant.roomNumber).trim().toLowerCase()
+        );
+        if (matchRoom && (matchRoom.status === 'Kosong' || !matchRoom.currentTenant || !matchRoom.currentTenant.trim())) {
+          return;
+        }
+
         const hasBill = dedupedPrev.some((p) => {
           const matchMonth =
             p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
@@ -1289,7 +1318,13 @@ const decompressPayload = async (base64Str) => {
       const matchMonth =
         p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
         p.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
-      if (matchMonth && p.status !== 'Tervalidasi') {
+
+      const matchRoom = rooms.find(
+        (r) => String(r.number).trim().toLowerCase() === String(p.roomNumber).trim().toLowerCase()
+      );
+      const isRoomEmpty = matchRoom && (matchRoom.status === 'Kosong' || !matchRoom.currentTenant || !matchRoom.currentTenant.trim());
+
+      if (matchMonth && p.status !== 'Tervalidasi' && !isRoomEmpty) {
         updatedCount++;
         return {
           ...p,
@@ -1603,7 +1638,20 @@ const decompressPayload = async (base64Str) => {
     setRooms(newRooms);
     saveState('rooms', newRooms);
 
-    pushToCloud({ tenants: newTenants, rooms: newRooms });
+    // Hapus tagihan sewa & listrik yang masih Belum Bayar untuk kamar yang ditinggalkan
+    const newPayments = payments.filter(
+      (p) => !(String(p.roomNumber).trim() === String(delRoom).trim() && p.status === 'Belum Bayar')
+    );
+    setPayments(newPayments);
+    saveState('payments', newPayments);
+
+    const newElecBills = electricityBills.filter(
+      (b) => !(String(b.roomNumber).trim() === String(delRoom).trim() && b.status === 'Belum Bayar')
+    );
+    setElectricityBills(newElecBills);
+    saveState('electricity', newElecBills);
+
+    pushToCloud({ tenants: newTenants, rooms: newRooms, payments: newPayments, electricityBills: newElecBills });
     logActivity('Hapus Anak Kos', `Menghapus anak kos ${tenantToDelete.name} dari kamar ${tenantToDelete.roomNumber}`);
     addToast(`Data penghuni ${tenantToDelete.name} telah dihapus`, 'info');
   };
@@ -1637,12 +1685,26 @@ const decompressPayload = async (base64Str) => {
 
       // If room tenant was edited or cleared, sync tenants
       let newTenants = tenants;
+      let newPayments = payments;
       if (roomData.status === 'Kosong') {
         newTenants = tenants.map((t) =>
           t.roomNumber === roomData.number ? { ...t, status: 'Nonaktif' } : t
         );
         setTenants(newTenants);
         saveState('tenants', newTenants);
+
+        // Hapus tagihan sewa & listrik yang masih Belum Bayar untuk kamar yang sekarang kosong
+        newPayments = payments.filter(
+          (p) => !(String(p.roomNumber).trim() === String(roomData.number).trim() && p.status === 'Belum Bayar')
+        );
+        setPayments(newPayments);
+        saveState('payments', newPayments);
+
+        newBills = electricityBills.filter(
+          (b) => !(String(b.roomNumber).trim() === String(roomData.number).trim() && b.status === 'Belum Bayar')
+        );
+        setElectricityBills(newBills);
+        saveState('electricity', newBills);
       } else if (roomData.currentTenant && oldRoom?.currentTenant !== roomData.currentTenant) {
         newTenants = tenants.map((t) =>
           t.roomNumber === roomData.number ? { ...t, name: roomData.currentTenant.trim() } : t
@@ -1651,7 +1713,7 @@ const decompressPayload = async (base64Str) => {
         saveState('tenants', newTenants);
       }
 
-      pushToCloud({ rooms: newRooms, electricityBills: newBills, tenants: newTenants });
+      pushToCloud({ rooms: newRooms, electricityBills: newBills, tenants: newTenants, payments: newPayments });
       logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Token Listrik: ${roomData.electricityToken || '-'})`);
       addToast(`Data Kamar ${roomData.number} & Token PLN berhasil diperbarui`, 'success');
     } else {
@@ -1664,9 +1726,98 @@ const decompressPayload = async (base64Str) => {
       setRooms(newRooms);
       saveState('rooms', newRooms);
       pushToCloud({ rooms: newRooms });
-      logActivity('Tambah Kamar Baru', `Menambahkan Kamar ${newRoom.number} di Lantai ${newRoom.floor}`);
+      logActivity('Tambah Kamar Baru', `Menambahkan Kamar ${newRoom.number} di Lantai ${newRoom.floor} (Kategori: ${newRoom.category || 'Bulanan'})`);
       addToast(`Kamar ${newRoom.number} berhasil ditambahkan`, 'success');
     }
+  };
+
+  // =========================================================================
+  // SISTEM MANAJEMEN BOOKING SEWA HARIAN & PEMERIKSAAN KETERSEDIAAN
+  // =========================================================================
+  const handleSaveDailyBooking = (bookingData) => {
+    if (currentUser?.role === 'owner') {
+      addToast('Owner tidak memiliki izin membuat reservasi kamar!', 'error');
+      return null;
+    }
+
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+
+    const bookingId = bookingData.id || `book-daily-${now}`;
+    const bookingCode = bookingData.bookingCode || `GLD-HR-${String(Math.floor(100 + Math.random() * 900))}`;
+
+    const formattedBooking = {
+      ...bookingData,
+      id: bookingId,
+      bookingCode,
+      createdAt: bookingData.createdAt || new Date().toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    };
+
+    let updatedBookings;
+    const exists = dailyBookings.some((b) => b.id === bookingId);
+    if (exists) {
+      updatedBookings = dailyBookings.map((b) => (b.id === bookingId ? formattedBooking : b));
+    } else {
+      updatedBookings = [formattedBooking, ...dailyBookings];
+    }
+
+    setDailyBookings(updatedBookings);
+    saveState('dailyBookings', updatedBookings);
+    pushToCloud({ dailyBookings: updatedBookings });
+
+    logActivity(
+      'Booking Kamar Harian',
+      `Menerbitkan reservasi Kamar ${formattedBooking.roomNumber} a/n ${formattedBooking.guestName} (${formattedBooking.checkIn} s/d ${formattedBooking.checkOut}) - Pembayaran: ${formattedBooking.paymentStatus}`
+    );
+
+    addToast(
+      `Booking Kamar ${formattedBooking.roomNumber} (${formattedBooking.guestName}) berhasil disimpan! [${formattedBooking.paymentStatus}]`,
+      'success'
+    );
+
+    return formattedBooking;
+  };
+
+  const handleUpdateDailyBookingPayment = (bookingId, paymentUpdates) => {
+    const updatedBookings = dailyBookings.map((b) => {
+      if (b.id === bookingId) {
+        return {
+          ...b,
+          ...paymentUpdates
+        };
+      }
+      return b;
+    });
+
+    setDailyBookings(updatedBookings);
+    saveState('dailyBookings', updatedBookings);
+    pushToCloud({ dailyBookings: updatedBookings });
+
+    logActivity('Update Pembayaran Booking', `Memperbarui status pembayaran booking ${bookingId}`);
+    addToast('Status pembayaran reservasi harian berhasil diperbarui!', 'success');
+  };
+
+  const handleDeleteDailyBooking = (bookingId) => {
+    if (currentUser?.role === 'owner') {
+      addToast('Owner tidak memiliki izin membatalkan reservasi!', 'error');
+      return;
+    }
+
+    const target = dailyBookings.find((b) => b.id === bookingId);
+    const updatedBookings = dailyBookings.filter((b) => b.id !== bookingId);
+
+    setDailyBookings(updatedBookings);
+    saveState('dailyBookings', updatedBookings);
+    pushToCloud({ dailyBookings: updatedBookings });
+
+    logActivity('Batalkan Booking Harian', `Menghapus reservasi Kamar ${target?.roomNumber || ''} a/n ${target?.guestName || ''}`);
+    addToast('Reservasi sewa harian berhasil dihapus', 'info');
   };
 
   const handleDeleteRoom = (roomId) => {
@@ -1715,6 +1866,7 @@ const decompressPayload = async (base64Str) => {
   };
 
   // Generate Monthly Electricity Bills for all active tenants when a month changes or is selected
+  // Strictly enforces: 1 room = 1 bill per month (skip jika kamar kosong / belum ada penghuni)
   const generateMonthlyElectricityBills = (targetMonth) => {
     if (!targetMonth || targetMonth === 'all') return 0;
 
@@ -1722,25 +1874,33 @@ const decompressPayload = async (base64Str) => {
     let addedCount = 0;
 
     setElectricityBills((prev) => {
+      const dedupedPrev = deduplicateElectricityBills(prev);
       const newBills = [];
       activeTenants.forEach((tenant) => {
-        const hasBill = prev.some((b) => {
+        // Cek kamar: jika berstatus 'Kosong' atau tidak ada penghuni aktif, jangan terbitkan tagihan listrik
+        const matchRoom = rooms.find(
+          (r) => String(r.number).trim().toLowerCase() === String(tenant.roomNumber).trim().toLowerCase()
+        );
+        if (matchRoom && (matchRoom.status === 'Kosong' || !matchRoom.currentTenant || !matchRoom.currentTenant.trim())) {
+          return;
+        }
+
+        const hasBill = dedupedPrev.some((b) => {
           const matchMonth =
             b.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
             b.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
-          const matchTenant = b.tenantId === tenant.id || b.roomNumber === tenant.roomNumber;
-          return matchMonth && matchTenant;
+          const matchRoomNum = String(b.roomNumber).trim() === String(tenant.roomNumber).trim();
+          return matchMonth && matchRoomNum;
         });
 
         if (!hasBill) {
           // Look for latest previous month's meterEnd for this room
-          const prevBill = prev.find((b) => b.roomNumber === tenant.roomNumber && b.meterEnd);
+          const prevBill = dedupedPrev.find((b) => b.roomNumber === tenant.roomNumber && b.meterEnd);
           const baseStart = prevBill ? prevBill.meterEnd : 1000 + (parseInt(tenant.roomNumber) || 100) * 3;
           const monthClean = targetMonth.replace(/\s+/g, '').toLowerCase();
 
           // Get fixed room token from rooms master
-          const roomObj = rooms.find((r) => r.number === tenant.roomNumber);
-          const defaultFixedToken = roomObj?.electricityToken || '';
+          const defaultFixedToken = matchRoom?.electricityToken || '';
 
           newBills.push({
             id: `elec-${monthClean}-${tenant.roomNumber}`,
@@ -1764,16 +1924,63 @@ const decompressPayload = async (base64Str) => {
 
       if (newBills.length > 0) {
         addedCount = newBills.length;
+        const result = deduplicateElectricityBills([...dedupedPrev, ...newBills]);
+        saveState('electricity', result);
+        pushToCloud({ electricityBills: result });
         logActivity(
           `Penerbitan Utilitas Listrik: ${targetMonth}`,
           `Otomatis menerbitkan ${newBills.length} data tagihan listrik ${targetMonth} untuk seluruh penghuni aktif.`
         );
-        return [...prev, ...newBills];
+        return result;
       }
-      return prev;
+      return dedupedPrev;
     });
 
     return addedCount;
+  };
+
+  // Bulk validate all electricity bills for a specific month (memudahkan petugas dalam 1 klik)
+  const handleBulkValidateElectricityMonth = (targetMonth) => {
+    if (!targetMonth || targetMonth === 'all') return;
+    const nowStr = formatValidationDateTime();
+    let updatedCount = 0;
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+
+    const updatedBills = electricityBills.map((b) => {
+      const matchMonth =
+        b.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
+        b.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
+
+      const matchRoom = rooms.find(
+        (r) => String(r.number).trim().toLowerCase() === String(b.roomNumber).trim().toLowerCase()
+      );
+      const isRoomEmpty = matchRoom && (matchRoom.status === 'Kosong' || !matchRoom.currentTenant || !matchRoom.currentTenant.trim());
+
+      if (matchMonth && b.status !== 'Lunas' && !isRoomEmpty) {
+        updatedCount++;
+        const defaultToken = matchRoom?.electricityToken || b.token || '';
+        return {
+          ...b,
+          status: 'Lunas',
+          token: b.token || defaultToken,
+          paidAt: b.paidAt || nowStr,
+          recordedBy: currentUser?.name || 'Operator Taman'
+        };
+      }
+      return b;
+    });
+
+    const newBills = deduplicateElectricityBills(updatedBills);
+    setElectricityBills(newBills);
+    saveState('electricity', newBills);
+    pushToCloud({ electricityBills: newBills });
+
+    logActivity(
+      'Validasi Massal Tagihan Listrik',
+      `Validasi lunas ${updatedCount} tagihan listrik bulan ${targetMonth} oleh ${currentUser?.name || 'Petugas'}`
+    );
+    addToast(`Berhasil memvalidasi lunas seluruh (${updatedCount}) tagihan listrik bulan ${targetMonth}!`, 'success');
   };
 
   // Quick Update Electricity Token
@@ -2079,10 +2286,15 @@ const decompressPayload = async (base64Str) => {
         handleDeleteTenant,
         handleSaveRoom,
         handleDeleteRoom,
+        dailyBookings,
+        handleSaveDailyBooking,
+        handleUpdateDailyBookingPayment,
+        handleDeleteDailyBooking,
         handleSaveElectricityBill,
         generateMonthlyElectricityBills,
         handleUpdateElectricityToken,
         handleQuickUpdateElectricity,
+        handleBulkValidateElectricityMonth,
         handleSaveStaff,
         handleDeleteStaff,
         handleSaveOperator,

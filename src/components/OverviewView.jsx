@@ -22,6 +22,9 @@ export const OverviewView = () => {
     rooms,
     payments,
     electricityBills,
+    dailyBookings,
+    handleUpdateDailyBookingPayment,
+    setActiveTab,
     userLocation,
     addToast
   } = useApp();
@@ -29,10 +32,10 @@ export const OverviewView = () => {
   const [activeChartPoint, setActiveChartPoint] = useState(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
 
-  // Schedule table states
+  // Schedule table states (KHUSUS jadwal kamar yang disewakan per hari)
   const [scheduleSearch, setScheduleSearch] = useState('');
-  const [scheduleFloor, setScheduleFloor] = useState('all');
-  const [scheduleStatus, setScheduleStatus] = useState('all');
+  const [schedulePaymentFilter, setSchedulePaymentFilter] = useState('all'); // 'all' | 'DP Lunas' | 'Lunas Penuh'
+  const [scheduleStayFilter, setScheduleStayFilter] = useState('all'); // 'all' | 'Sedang Menginap' | 'Terkonfirmasi' | 'Selesai'
   const [schedulePage, setSchedulePage] = useState(1);
   const [showAllSchedule, setShowAllSchedule] = useState(false);
   const pageSize = 10;
@@ -85,58 +88,34 @@ export const OverviewView = () => {
     return parts.length === 3 ? parseInt(parts[2], 10) : null;
   };
 
-  // Schedule rooms data
-  const scheduleRooms = useMemo(() => {
-    return rooms.map((r) => {
-      const matchedTenant = tenants.find((t) => t.roomNumber === r.number);
-      const matchedPayment = payments.find(
-        (p) => (p.roomNumber === r.number || (matchedTenant && p.tenantId === matchedTenant.id)) &&
-               p.month.includes('Oktober')
-      );
-
-      const startDate = matchedTenant ? matchedTenant.startDate : (r.status === 'Booking' ? '2024-11-01' : null);
-      const dueDay = getDueDay(startDate);
-
-      return {
-        number: r.number,
-        floor: r.floor,
-        type: r.type,
-        price: r.price,
-        status: r.status, // "Terisi" | "Booking" | "Kosong"
-        tenantName: matchedTenant ? matchedTenant.name : (r.currentTenant || null),
-        tenantPhone: matchedTenant ? matchedTenant.phone : null,
-        startDate: startDate,
-        dueDay: dueDay,
-        paymentStatus: matchedPayment ? matchedPayment.status : (r.status === 'Terisi' ? 'Belum Bayar' : '-')
-      };
-    });
-  }, [rooms, tenants, payments]);
-
-  // Filtered schedule rooms
-  const filteredScheduleRooms = useMemo(() => {
-    return scheduleRooms.filter((item) => {
-      const matchFloor = scheduleFloor === 'all' || String(item.floor) === scheduleFloor;
-      const matchStatus = scheduleStatus === 'all' || item.status === scheduleStatus;
-
+  // Filtered daily bookings (KHUSUS kamar yang disewakan per hari sesuai instruksi user)
+  const filteredDailyBookings = useMemo(() => {
+    return (dailyBookings || []).filter((b) => {
+      const matchPayment = schedulePaymentFilter === 'all' || b.paymentStatus === schedulePaymentFilter;
+      const matchStay = scheduleStayFilter === 'all' || b.stayStatus === scheduleStayFilter;
       const q = scheduleSearch.toLowerCase().trim();
       const matchSearch =
         !q ||
-        item.number.toLowerCase().includes(q) ||
-        (item.tenantName && item.tenantName.toLowerCase().includes(q)) ||
-        (item.tenantPhone && item.tenantPhone.toLowerCase().includes(q)) ||
-        item.type.toLowerCase().includes(q);
-
-      return matchFloor && matchStatus && matchSearch;
+        b.roomNumber?.toLowerCase().includes(q) ||
+        b.guestName?.toLowerCase().includes(q) ||
+        b.guestPhone?.toLowerCase().includes(q) ||
+        b.bookingCode?.toLowerCase().includes(q) ||
+        b.roomType?.toLowerCase().includes(q);
+      return matchPayment && matchStay && matchSearch;
     });
-  }, [scheduleRooms, scheduleFloor, scheduleStatus, scheduleSearch]);
+  }, [dailyBookings, schedulePaymentFilter, scheduleStayFilter, scheduleSearch]);
 
-  // Paged schedule rooms
-  const totalPages = Math.ceil(filteredScheduleRooms.length / pageSize) || 1;
-  const pagedScheduleRooms = useMemo(() => {
-    if (showAllSchedule) return filteredScheduleRooms;
+  // Paged daily bookings
+  const totalPages = Math.ceil(filteredDailyBookings.length / pageSize) || 1;
+  const pagedDailyBookings = useMemo(() => {
+    if (showAllSchedule) return filteredDailyBookings;
     const start = (schedulePage - 1) * pageSize;
-    return filteredScheduleRooms.slice(start, start + pageSize);
-  }, [filteredScheduleRooms, schedulePage, showAllSchedule]);
+    return filteredDailyBookings.slice(start, start + pageSize);
+  }, [filteredDailyBookings, schedulePage, showAllSchedule]);
+
+  const activeDailyStay = (dailyBookings || []).filter((b) => b.stayStatus === 'Sedang Menginap').length;
+  const upcomingDailyBookings = (dailyBookings || []).filter((b) => b.stayStatus === 'Terkonfirmasi').length;
+  const totalDailyRooms = rooms.filter((r) => r.category === 'Harian').length;
 
   // Line chart coordinates for "Pembayaran Kos" (Okt 2024)
   const lineChartPoints = [
@@ -473,7 +452,7 @@ export const OverviewView = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* TABEL JADWAL KAMAR YANG DISEWAKAN (DITARUH DI ATAS PETA)                  */}
+      {/* TABEL JADWAL KAMAR YANG DISEWAKAN PER HARI (SEWA HARIAN GUEST HOUSE)       */}
       {/* ========================================================================= */}
       <div className="dashboard-card jadwal-sewa-card">
         <div className="chart-card-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
@@ -483,31 +462,41 @@ export const OverviewView = () => {
               <h3 className="card-headline">Jadwal Kamar yang Disewakan</h3>
             </div>
             <p className="card-subheadline">
-              Papan informasi jadwal penyewaan, tanggal masuk, jatuh tempo bulanan & status sewa per kamar
+              Papan informasi jadwal kamar yang disewakan per harinya, tanggal check-in & check-out, serta status pembayaran DP Lunas atau Lunas Penuh
             </p>
           </div>
 
           <div className="jadwal-chips-row">
             <span className="jadwal-chip active-chip">
-              ● {totalOccupied} Kamar Aktif Tersewa
+              ● {activeDailyStay} Sedang Menginap
             </span>
             <span className="jadwal-chip booking-chip">
-              ● {totalBooking} Booking Masuk
+              ● {upcomingDailyBookings} Booking Terjadwal
             </span>
             <span className="jadwal-chip vacant-chip">
-              ● {totalVacant} Kamar Kosong
+              ● {totalDailyRooms} Unit Kamar Harian
             </span>
+            <button
+              type="button"
+              className="btn-primary-sm"
+              onClick={() => setActiveTab('pembayaran')}
+              title="Buka halaman pembayaran untuk membuat booking kamar harian baru"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}
+            >
+              <IconPlus size={14} />
+              <span>+ Booking Kamar Baru</span>
+            </button>
           </div>
         </div>
 
-        {/* Toolbar Filter Jadwal */}
+        {/* Toolbar Filter Jadwal Harian */}
         <div className="section-toolbar" style={{ margin: '14px 0 18px 0', padding: '0 4px' }}>
           <div className="toolbar-search-group">
             <div className="search-box-pill">
               <IconSearch size={16} className="text-gray-400" />
               <input
                 type="text"
-                placeholder="Cari kamar / nama / nomor HP..."
+                placeholder="Cari kamar / nama tamu / kode booking..."
                 value={scheduleSearch}
                 onChange={(e) => {
                   setScheduleSearch(e.target.value);
@@ -516,32 +505,34 @@ export const OverviewView = () => {
               />
             </div>
 
+            {/* Filter Status Pembayaran: DP Lunas vs Lunas Penuh */}
             <select
               className="filter-select"
-              value={scheduleFloor}
+              value={schedulePaymentFilter}
               onChange={(e) => {
-                setScheduleFloor(e.target.value);
+                setSchedulePaymentFilter(e.target.value);
                 setSchedulePage(1);
               }}
+              title="Filter Status Pembayaran Sewa Harian"
             >
-              <option value="all">Semua Lantai (1 - 3)</option>
-              <option value="1">Lantai 1 (Kmr 101 - 118)</option>
-              <option value="2">Lantai 2 (Kmr 201 - 218)</option>
-              <option value="3">Lantai 3 (Kmr 301 - 312)</option>
+              <option value="all">Semua Status Bayar</option>
+              <option value="DP Lunas">✓ DP Lunas</option>
+              <option value="Lunas Penuh">✓ Lunas Penuh</option>
             </select>
 
+            {/* Filter Status Menginap */}
             <select
               className="filter-select"
-              value={scheduleStatus}
+              value={scheduleStayFilter}
               onChange={(e) => {
-                setScheduleStatus(e.target.value);
+                setScheduleStayFilter(e.target.value);
                 setSchedulePage(1);
               }}
             >
-              <option value="all">Semua Status Sewa</option>
-              <option value="Terisi">Aktif Tersewa</option>
-              <option value="Booking">Booking Masuk</option>
-              <option value="Kosong">Kamar Kosong</option>
+              <option value="all">Semua Status Menginap</option>
+              <option value="Sedang Menginap">Sedang Menginap</option>
+              <option value="Terkonfirmasi">Booking Terkonfirmasi</option>
+              <option value="Selesai">Selesai / Check-Out</option>
             </select>
           </div>
 
@@ -554,117 +545,182 @@ export const OverviewView = () => {
               <span>
                 {showAllSchedule
                   ? 'Batasi 10 per Halaman'
-                  : `Tampilkan Semua (${filteredScheduleRooms.length} Kamar)`}
+                  : `Tampilkan Semua (${filteredDailyBookings.length} Jadwal)`}
               </span>
             </button>
           </div>
         </div>
 
-        {/* Table Content */}
+        {/* Table Content: HANYA Jadwal Kamar yang Disewakan Per Hari */}
         <div className="table-responsive-wrapper">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Kamar & Lantai</th>
-                <th>Penyewa & Kontak</th>
+                <th>Tamu / Pemesan & Kontak</th>
                 <th>Tipe Kamar</th>
-                <th>Tanggal Masuk (Check-In)</th>
-                <th>Jatuh Tempo Bulanan</th>
-                <th>Tarif Sewa</th>
+                <th>Jadwal Sewa (Check-In & Check-Out)</th>
+                <th>Tarif & Total Biaya</th>
                 <th>Status Sewa</th>
-                <th>Tagihan Bulan Ini</th>
+                <th>Status Pembayaran</th>
+                <th>Metode Bayar</th>
+                <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {pagedScheduleRooms.length > 0 ? (
-                pagedScheduleRooms.map((item) => (
-                  <tr key={item.number}>
+              {pagedDailyBookings.length > 0 ? (
+                pagedDailyBookings.map((item) => (
+                  <tr key={item.id}>
+                    {/* Kamar & Lantai */}
                     <td>
                       <div className="tenant-cell-info">
-                        <span className="room-badge-small">Kamar {item.number}</span>
+                        <span className="room-badge-small">Kamar {item.roomNumber}</span>
                         <div>
-                          <strong className="text-gray-900">Lantai {item.floor}</strong>
+                          <strong className="text-gray-900">Lantai {item.floor || 3}</strong>
+                          <span className="tenant-subtext">{item.bookingCode}</span>
                         </div>
                       </div>
                     </td>
+
+                    {/* Tamu & Kontak */}
                     <td>
-                      {item.tenantName ? (
-                        <div>
-                          <strong className="text-gray-900">{item.tenantName}</strong>
-                          <span className="tenant-subtext">{item.tenantPhone || '-'}</span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 italic">Belum ada penyewa</span>
-                      )}
+                      <div>
+                        <strong className="text-gray-900">{item.guestName}</strong>
+                        <span className="tenant-subtext">
+                          {item.guestPhone || '-'} {item.guestCity ? `• ${item.guestCity}` : ''}
+                        </span>
+                      </div>
                     </td>
+
+                    {/* Tipe Kamar */}
                     <td>
-                      <span className="text-xs text-gray-700">{item.type}</span>
+                      <span className="text-xs text-gray-700">{item.roomType}</span>
                     </td>
+
+                    {/* Jadwal Check-In s/d Check-Out */}
                     <td>
-                      {item.startDate ? (
-                        <div className="table-date-due">
-                          <strong className="text-gray-900">{formatIndoDate(item.startDate)}</strong>
-                          <span className="text-xs text-gray-400">Mulai sewa</span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      <div className="table-date-due">
+                        <strong className="text-gray-900">
+                          {formatIndoDate(item.checkIn)} - {formatIndoDate(item.checkOut)}
+                        </strong>
+                        <span className="due-pill" style={{ marginTop: '3px' }}>
+                          📅 {item.nights} Malam Menginap
+                        </span>
+                      </div>
                     </td>
-                    <td>
-                      {item.dueDay ? (
-                        <div className="table-date-due">
-                          <span className="due-pill">Tiap Tanggal {item.dueDay}</span>
-                          <span className="text-xs text-gray-500">{item.dueDay} Okt 2026</span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
+
+                    {/* Tarif & Total Biaya */}
                     <td>
                       <strong className="text-gray-900">
-                        Rp {item.price.toLocaleString('id-ID')}
+                        Rp {item.totalAmount.toLocaleString('id-ID')}
                       </strong>
-                      <span className="tenant-subtext">/ bulan</span>
+                      <span className="tenant-subtext">
+                        @{item.dailyPrice?.toLocaleString('id-ID')}/malam
+                      </span>
                     </td>
+
+                    {/* Status Menginap */}
                     <td>
                       <span
                         className={`badge-status ${
-                          item.status === 'Terisi'
+                          item.stayStatus === 'Sedang Menginap'
                             ? 'badge-success'
-                            : item.status === 'Booking'
-                            ? 'badge-warning'
+                            : item.stayStatus === 'Terkonfirmasi'
+                            ? 'badge-info'
                             : 'badge-vacant'
                         }`}
                       >
-                        {item.status === 'Terisi'
-                          ? '✓ Aktif Tersewa'
-                          : item.status === 'Booking'
-                          ? '⏳ Booking Masuk'
-                          : '○ Kosong Siap Huni'}
+                        {item.stayStatus === 'Sedang Menginap' && '✓ '}
+                        {item.stayStatus === 'Terkonfirmasi' && '⏳ '}
+                        {item.stayStatus}
                       </span>
                     </td>
+
+                    {/* STATUS PEMBAYARAN: DP LUNAS ATAU LUNAS PENUH */}
                     <td>
-                      <span
-                        className={`badge-status ${
-                          item.paymentStatus === 'Tervalidasi'
-                            ? 'badge-success'
-                            : item.paymentStatus === 'Menunggu Validasi'
-                            ? 'badge-warning'
-                            : item.paymentStatus === 'Belum Bayar'
-                            ? 'badge-danger'
-                            : 'badge-vacant'
-                        }`}
-                      >
-                        {item.paymentStatus === 'Tervalidasi' && '✓ '}
-                        {item.paymentStatus}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <span
+                          className={`badge-status ${
+                            item.paymentStatus === 'Lunas Penuh'
+                              ? 'badge-success'
+                              : 'badge-warning'
+                          }`}
+                          style={{ width: 'fit-content' }}
+                        >
+                          ✓ {item.paymentStatus}
+                        </span>
+                        {item.paymentStatus === 'DP Lunas' ? (
+                          <span style={{ fontSize: '0.70rem', color: '#b45309', fontWeight: 600 }}>
+                            DP: Rp {(item.paidAmount || 0).toLocaleString('id-ID')} • Sisa: Rp {(item.remainingAmount || 0).toLocaleString('id-ID')}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.70rem', color: '#15803d', fontWeight: 600 }}>
+                            Lunas 100% di Muka
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Metode Pembayaran */}
+                    <td>
+                      <div className="text-xs text-gray-700">
+                        <strong>{item.paymentMethod || 'Transfer BCA'}</strong>
+                        <div className="text-gray-400 font-mono" style={{ fontSize: '0.68rem' }}>
+                          {item.createdAt}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Aksi Cepat */}
+                    <td>
+                      <div className="action-buttons-row">
+                        {item.guestPhone && (
+                          <a
+                            href={`https://wa.me/${item.guestPhone.replace(/^0/, '62').replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-icon-action"
+                            title={`Chat WhatsApp Tamu (${item.guestName})`}
+                          >
+                            💬
+                          </a>
+                        )}
+                        {item.paymentStatus === 'DP Lunas' && (
+                          <button
+                            type="button"
+                            className="btn-validate-approve"
+                            style={{ padding: '4px 8px', fontSize: '0.70rem' }}
+                            title="Tandai sisa tagihan telah lunas (Ubah ke Lunas Penuh)"
+                            onClick={() => {
+                              if (window.confirm(`Konfirmasi pelunasan sisa Rp ${(item.remainingAmount || 0).toLocaleString('id-ID')} untuk Kamar ${item.roomNumber} a/n ${item.guestName}?`)) {
+                                handleUpdateDailyBookingPayment(item.id, {
+                                  paymentStatus: 'Lunas Penuh',
+                                  paidAmount: item.totalAmount,
+                                  remainingAmount: 0
+                                });
+                              }
+                            }}
+                          >
+                            <span>Lunasi Sisa</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" className="text-center py-6 text-gray-500">
-                    Tidak ada jadwal kamar yang sesuai dengan filter ini.
+                  <td colSpan="9" className="text-center py-8 text-gray-500">
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <span>Belum ada jadwal kamar yang disewakan per harinya pada filter ini.</span>
+                      <button
+                        type="button"
+                        className="btn-primary-sm"
+                        onClick={() => setActiveTab('pembayaran')}
+                      >
+                        + Buat Booking Kamar Harian Sekarang
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -676,7 +732,7 @@ export const OverviewView = () => {
         {!showAllSchedule && totalPages > 1 && (
           <div className="jadwal-pagination">
             <span className="text-xs text-gray-500">
-              Menampilkan {((schedulePage - 1) * pageSize) + 1} - {Math.min(schedulePage * pageSize, filteredScheduleRooms.length)} dari {filteredScheduleRooms.length} kamar
+              Menampilkan {((schedulePage - 1) * pageSize) + 1} - {Math.min(schedulePage * pageSize, filteredDailyBookings.length)} dari {filteredDailyBookings.length} jadwal sewa
             </span>
             <div className="pagination-controls">
               <button

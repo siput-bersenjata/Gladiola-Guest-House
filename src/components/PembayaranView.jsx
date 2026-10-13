@@ -12,13 +12,22 @@ import {
   IconLightning,
   IconPlus,
   IconX,
-  IconCalendar
+  IconCalendar,
+  IconRoom,
+  IconArrowLeft,
+  IconUsers
 } from './Icons';
 
 export const PembayaranView = () => {
   const {
+    rooms,
     tenants,
     payments,
+    dailyBookings,
+    handleSaveDailyBooking,
+    handleUpdateDailyBookingPayment,
+    handleDeleteDailyBooking,
+    setActiveTab,
     handleValidatePayment,
     handleValidateMultiMonthPayment,
     generateMonthlyBills,
@@ -28,7 +37,26 @@ export const PembayaranView = () => {
     addToast
   } = useApp();
 
+  // Mode Tampilan: 'list' (Daftar Tagihan & Pembayaran) | 'booking_form' (Pindah Halaman Reservasi Kamar)
+  const [viewMode, setViewMode] = useState('list');
+  const [activeTabCategory, setActiveTabCategory] = useState('bulanan'); // 'bulanan' | 'harian'
+
+  // Booking Form State (Formulir Reservasi Kamar Harian)
+  const [bookingForm, setBookingForm] = useState({
+    checkIn: '2026-10-14',
+    checkOut: '2026-10-16',
+    roomNumber: '301',
+    guestName: '',
+    guestPhone: '',
+    guestCity: '',
+    guestIdNumber: '',
+    notes: '',
+    paymentType: 'DP Lunas', // 'DP Lunas' | 'Lunas Penuh' (Sesuai Permintaan)
+    paymentMethod: 'Transfer Bank BCA'
+  });
+
   const [filterStatus, setFilterStatus] = useState('all');
+  const [dailyPaymentFilter, setDailyPaymentFilter] = useState('all'); // 'all' | 'DP Lunas' | 'Lunas Penuh'
   const [filterMonth, setFilterMonth] = useState('Oktober 2026');
   const [searchQuery, setSearchQuery] = useState('');
   const [previewProof, setPreviewProof] = useState(null);
@@ -67,19 +95,60 @@ export const PembayaranView = () => {
     'Juli 2026'
   ];
 
-  // Distinct list of all available months across payments and presets
+  // Clean deduplicated payments list (strictly enforces 1 bill per room per month)
+  // Menampilkan HANYA kamar yang ada penghuni kos nya (jika kamar kos kosong, jangan tampilkan data tagihannya)
+  const cleanPaymentsList = useMemo(() => {
+    const deduped = deduplicatePayments(payments || []);
+    return deduped.filter((p) => {
+      if (!p || !p.roomNumber) return false;
+      const roomNum = String(p.roomNumber).trim().toLowerCase();
+
+      // 1. Cek unit kamar di daftar master rooms
+      const roomObj = (rooms || []).find(
+        (r) => String(r.number).trim().toLowerCase() === roomNum
+      );
+
+      // Jika kamar berstatus Kosong atau belum ada nama penghuni, sembunyikan tagihannya
+      if (roomObj) {
+        if (roomObj.status === 'Kosong' || !roomObj.currentTenant || !roomObj.currentTenant.trim()) {
+          return false;
+        }
+      }
+
+      // 2. Cek tenant di daftar master tenants
+      const tenantObj = (tenants || []).find(
+        (t) =>
+          (p.tenantId && t.id === p.tenantId) ||
+          (t.roomNumber && String(t.roomNumber).trim().toLowerCase() === roomNum)
+      );
+
+      // Jika tenant berstatus nonaktif dan kamar tidak berstatus terisi
+      if (tenantObj && tenantObj.status === 'Nonaktif' && (!roomObj || roomObj.status !== 'Terisi')) {
+        return false;
+      }
+
+      // Pastikan ada nama penghuni (baik dari data master room, master tenant, atau tagihan)
+      const hasTenant =
+        (roomObj && roomObj.currentTenant && roomObj.currentTenant.trim()) ||
+        (tenantObj && tenantObj.status === 'Aktif' && tenantObj.name && tenantObj.name.trim()) ||
+        (p.tenantName && p.tenantName.trim());
+
+      if (!hasTenant) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [payments, rooms, tenants]);
+
+  // Distinct list of all available months across clean payments and presets
   const availableMonths = useMemo(() => {
     const set = new Set(presetMonths);
-    (payments || []).forEach((p) => {
+    (cleanPaymentsList || []).forEach((p) => {
       if (p.month) set.add(p.month.trim());
     });
     return Array.from(set);
-  }, [payments]);
-
-  // Clean deduplicated payments list (strictly enforces 1 bill per room per month)
-  const cleanPaymentsList = useMemo(() => {
-    return deduplicatePayments(payments || []);
-  }, [payments]);
+  }, [cleanPaymentsList]);
 
   // When filterMonth changes and is not 'all', quietly ensure all active rooms have bills ready
   useEffect(() => {
@@ -242,6 +311,32 @@ export const PembayaranView = () => {
     };
   }, [cleanPaymentsList, filterMonth]);
 
+  // Financial metrics khusus sewa harian
+  const dailyMetrics = useMemo(() => {
+    const list = dailyBookings || [];
+    const totalCount = list.length;
+    const totalIncome = list.reduce((acc, b) => acc + (b.totalAmount || 0), 0);
+    const totalPaid = list.reduce((acc, b) => acc + (b.paidAmount || 0), 0);
+    const dpCount = list.filter((b) => b.paymentStatus === 'DP Lunas').length;
+    const lunasCount = list.filter((b) => b.paymentStatus === 'Lunas Penuh').length;
+    const remainingTotal = list.reduce((acc, b) => acc + (b.remainingAmount || 0), 0);
+    return { totalCount, totalIncome, totalPaid, dpCount, lunasCount, remainingTotal };
+  }, [dailyBookings]);
+
+  // Data sewa harian terfilter untuk tabel pembayaran harian
+  const filteredDailyBookings = useMemo(() => {
+    return (dailyBookings || []).filter((b) => {
+      const matchStatus = dailyPaymentFilter === 'all' || b.paymentStatus === dailyPaymentFilter;
+      const matchSearch =
+        !searchQuery ||
+        b.roomNumber?.includes(searchQuery) ||
+        b.guestName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        b.guestPhone?.includes(searchQuery) ||
+        b.bookingCode?.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchStatus && matchSearch;
+    });
+  }, [dailyBookings, dailyPaymentFilter, searchQuery]);
+
   // Bulk validate confirmation
   const handleBulkValidateConfirm = () => {
     if (filterMonth === 'all') {
@@ -284,19 +379,551 @@ export const PembayaranView = () => {
     return list;
   }, [multiMonthModal.payment, multiMonthModal.monthsCount, filterMonth]);
 
-  // Confirm Multi-Month Payment Validation
-  const handleConfirmMultiMonth = (e) => {
-    e.preventDefault();
-    if (!multiMonthModal.payment) return;
-    handleValidateMultiMonthPayment(
-      multiMonthModal.payment.id,
-      multiMonthModal.monthsCount,
-      multiMonthModal.payment.month,
-      multiMonthModal.method
-    );
-    setMultiMonthModal({ isOpen: false, payment: null, monthsCount: 3, method: 'Transfer Bank BCA' });
+  // =========================================================================
+  // LOGIKA RESERVASI KAMAR HARIAN & CEK KETERSEDIAAN JADWAL
+  // =========================================================================
+  const formatIndoDate = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const day = parseInt(parts[2], 10);
+        const monthIndex = parseInt(parts[1], 10) - 1;
+        const year = parts[0];
+        return `${day} ${months[monthIndex]} ${year}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
   };
 
+  const calculateNights = (startStr, endStr) => {
+    if (!startStr || !endStr) return 1;
+    try {
+      const d1 = new Date(startStr);
+      const d2 = new Date(endStr);
+      const diffTime = d2.getTime() - d1.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 1;
+    } catch {
+      return 1;
+    }
+  };
+
+  // Kamar yang dialokasikan khusus untuk Sewa Harian
+  const dailyRooms = useMemo(() => {
+    const directDaily = rooms.filter((r) => r.category === 'Harian');
+    if (directDaily.length > 0) return directDaily;
+    return rooms.filter((r) => ['301', '302', '303', '304', '305', '306'].includes(r.number));
+  }, [rooms]);
+
+  // Pemeriksaan bentrok jadwal reservasi pada kamar tertentu
+  const getConflictingBooking = (roomNumber, checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return null;
+    return (dailyBookings || []).find((b) => {
+      if (b.roomNumber !== roomNumber) return false;
+      if (b.stayStatus === 'Selesai' || b.stayStatus === 'Batal') return false;
+      return !(checkOut <= b.checkIn || checkIn >= b.checkOut);
+    });
+  };
+
+  const selectedDailyRoom = useMemo(() => {
+    return dailyRooms.find((r) => r.number === bookingForm.roomNumber) || dailyRooms[0] || null;
+  }, [dailyRooms, bookingForm.roomNumber]);
+
+  const bookingNights = useMemo(() => {
+    return calculateNights(bookingForm.checkIn, bookingForm.checkOut);
+  }, [bookingForm.checkIn, bookingForm.checkOut]);
+
+  const bookingDailyRate = useMemo(() => {
+    if (!selectedDailyRoom) return 250000;
+    return selectedDailyRoom.dailyPrice || (selectedDailyRoom.type?.includes('Executive') ? 275000 : 250000);
+  }, [selectedDailyRoom]);
+
+  const bookingTotalCost = bookingNights * bookingDailyRate;
+  const bookingDpAmount = Math.round(bookingTotalCost * 0.5);
+  const bookingPaidAmount = bookingForm.paymentType === 'DP Lunas' ? bookingDpAmount : bookingTotalCost;
+  const bookingRemainingAmount = bookingForm.paymentType === 'DP Lunas' ? bookingTotalCost - bookingDpAmount : 0;
+
+  // Submit Formulir Booking Kamar Harian
+  const handleBookingSubmit = (e) => {
+    e.preventDefault();
+
+    if (!bookingForm.guestName.trim()) {
+      addToast('Nama tamu / pemesan wajib diisi!', 'error');
+      return;
+    }
+
+    if (!bookingForm.checkIn || !bookingForm.checkOut) {
+      addToast('Tanggal check-in dan check-out wajib dipilih!', 'error');
+      return;
+    }
+
+    if (bookingForm.checkOut <= bookingForm.checkIn) {
+      addToast('Tanggal check-out harus lebih besar dari tanggal check-in (minimal 1 malam)!', 'error');
+      return;
+    }
+
+    const conflict = getConflictingBooking(bookingForm.roomNumber, bookingForm.checkIn, bookingForm.checkOut);
+    if (conflict) {
+      addToast(
+        `Kamar ${bookingForm.roomNumber} sudah terisi oleh ${conflict.guestName} (${formatIndoDate(conflict.checkIn)} s/d ${formatIndoDate(conflict.checkOut)}). Silakan pilih kamar harian lain!`,
+        'error'
+      );
+      return;
+    }
+
+    const newBooking = {
+      roomNumber: bookingForm.roomNumber,
+      floor: selectedDailyRoom?.floor || 3,
+      roomType: selectedDailyRoom?.type || 'Executive Balcony',
+      guestName: bookingForm.guestName.trim(),
+      guestPhone: bookingForm.guestPhone.trim(),
+      guestCity: bookingForm.guestCity.trim(),
+      guestIdNumber: bookingForm.guestIdNumber.trim(),
+      checkIn: bookingForm.checkIn,
+      checkOut: bookingForm.checkOut,
+      nights: bookingNights,
+      dailyPrice: bookingDailyRate,
+      totalAmount: bookingTotalCost,
+      paidAmount: bookingPaidAmount,
+      remainingAmount: bookingRemainingAmount,
+      paymentStatus: bookingForm.paymentType, // "DP Lunas" | "Lunas Penuh"
+      paymentMethod: bookingForm.paymentMethod,
+      stayStatus: 'Terkonfirmasi',
+      notes: bookingForm.notes.trim()
+    };
+
+    handleSaveDailyBooking(newBooking);
+    setViewMode('list');
+    setActiveTabCategory('harian');
+  };
+
+  // =========================================================================
+  // VIEW MODE: HALAMAN FORMULIR BOOKING KAMAR HARIAN (PINDAH HALAMAN)
+  // =========================================================================
+  if (viewMode === 'booking_form') {
+    return (
+      <div className="pembayaran-container">
+        {/* Top Navigation Bar: Kembali ke Daftar Pembayaran */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <button
+            type="button"
+            className="btn-secondary-action"
+            onClick={() => setViewMode('list')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+          >
+            <IconArrowLeft size={18} />
+            <span>← Kembali ke Daftar Pembayaran</span>
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="badge-status badge-info" style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
+              ⚡ Modul Reservasi Sewa Harian
+            </span>
+          </div>
+        </div>
+
+        {/* Form Card Utama */}
+        <div className="dashboard-card" style={{ padding: '24px 28px' }}>
+          <div className="form-section-header" style={{ marginBottom: '24px', borderBottom: '1px solid var(--border-card)', paddingBottom: '16px' }}>
+            <div className="icon-badge-box bg-warm-tint">
+              <IconRoom size={24} className="text-forest-gold" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.28rem', fontWeight: 800, color: 'var(--forest-900)', margin: 0 }}>
+                Pemesanan Unit Kamar Sewa Harian
+              </h2>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                Pilih tanggal menginap, periksa ketersediaan kamar harian secara real-time, dan tentukan metode pembayaran DP Lunas atau Lunas Penuh. Data otomatis terhubung ke Jadwal Kamar di Dashboard Utama.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleBookingSubmit}>
+            {/* LANGKAH 1: PILIH JADWAL TANGGAL MENGINAP */}
+            <div className="form-section-block" style={{ marginBottom: '24px' }}>
+              <div className="form-section-header">
+                <IconCalendar size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">1. Pilih Jadwal Tanggal Sewa (Cek Ketersediaan)</h3>
+                  <p className="form-section-subtitle">
+                    Tentukan tanggal Check-In & Check-Out untuk memeriksa kamar harian mana saja yang tersedia bebas bentrok
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                <div className="form-group">
+                  <label className="form-label">Tanggal Check-In *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={bookingForm.checkIn}
+                    onChange={(e) => setBookingForm({ ...bookingForm, checkIn: e.target.value })}
+                    required
+                  />
+                  <span className="field-hint">Mulai menginap: {formatIndoDate(bookingForm.checkIn)}</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Tanggal Check-Out *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={bookingForm.checkOut}
+                    onChange={(e) => setBookingForm({ ...bookingForm, checkOut: e.target.value })}
+                    required
+                  />
+                  <span className="field-hint">Selesai menginap: {formatIndoDate(bookingForm.checkOut)}</span>
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label className="form-label">Durasi Menginap Terkalkulasi</label>
+                  <div style={{
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--forest-50)',
+                    border: '1px solid var(--forest-100)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <span style={{ fontSize: '1.15rem' }}>🌙</span>
+                    <div>
+                      <strong style={{ color: 'var(--forest-900)', fontSize: '0.98rem' }}>
+                        {bookingNights} Malam
+                      </strong>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {formatIndoDate(bookingForm.checkIn)} — {formatIndoDate(bookingForm.checkOut)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* LANGKAH 2: PILIH KAMAR SEWA HARIAN & CEK KETERSEDIAAN */}
+            <div className="form-section-block" style={{ marginBottom: '24px' }}>
+              <div className="form-section-header">
+                <IconRoom size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">2. Pilih Kamar Sewa Harian (Live Availability Check)</h3>
+                  <p className="form-section-subtitle">
+                    Sistem mendeteksi jadwal reservasi di tanggal {formatIndoDate(bookingForm.checkIn)} s/d {formatIndoDate(bookingForm.checkOut)}. Kamar yang bentrok ditandai penuh.
+                  </p>
+                </div>
+              </div>
+
+              <div className="booking-rooms-grid">
+                {dailyRooms.map((rm) => {
+                  const conflict = getConflictingBooking(rm.number, bookingForm.checkIn, bookingForm.checkOut);
+                  const isAvailable = !conflict;
+                  const isSelected = bookingForm.roomNumber === rm.number;
+
+                  return (
+                    <div
+                      key={rm.id || rm.number}
+                      className={`booking-room-choice-card ${isSelected ? 'selected' : ''} ${!isAvailable ? 'disabled' : ''}`}
+                      onClick={() => {
+                        if (isAvailable) {
+                          setBookingForm({ ...bookingForm, roomNumber: rm.number });
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="room-badge-small" style={{ fontSize: '0.86rem', padding: '4px 10px' }}>
+                            Kamar {rm.number}
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                            Lantai {rm.floor || 3}
+                          </span>
+                        </div>
+                        {isAvailable ? (
+                          <span className="badge-status badge-success" style={{ fontSize: '0.70rem' }}>
+                            ✓ Tersedia
+                          </span>
+                        ) : (
+                          <span className="badge-status badge-danger" style={{ fontSize: '0.70rem' }}>
+                            ✕ Penuh
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '0.80rem', color: 'var(--text-main)', marginTop: '2px' }}>
+                        <strong>{rm.type}</strong>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '6px' }}>
+                        <div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Tarif Sewa:</div>
+                          <div style={{ fontSize: '0.90rem', fontWeight: 800, color: 'var(--forest-900)' }}>
+                            Rp {(rm.dailyPrice || (rm.type?.includes('Executive') ? 275000 : 250000)).toLocaleString('id-ID')}
+                            <span style={{ fontSize: '0.68rem', fontWeight: 400, color: 'var(--text-muted)' }}>/malam</span>
+                          </div>
+                        </div>
+
+                        {isAvailable ? (
+                          <input
+                            type="radio"
+                            name="selectedRoomRadio"
+                            checked={isSelected}
+                            onChange={() => setBookingForm({ ...bookingForm, roomNumber: rm.number })}
+                            style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '0.68rem', color: '#dc2626', fontWeight: 600 }}>
+                            Tersewa ({conflict.guestName?.split(' ')[0]})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* LANGKAH 3: DATA IDENTITAS TAMU / PEMESAN */}
+            <div className="form-section-block" style={{ marginBottom: '24px' }}>
+              <div className="form-section-header">
+                <IconUsers size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">3. Data Identitas Tamu / Pemesan</h3>
+                  <p className="form-section-subtitle">
+                    Informasi kontak tamu untuk konfirmasi reservasi dan akses kamar sewa
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-responsive-grid">
+                <div className="form-group">
+                  <label className="form-label">Nama Lengkap Tamu *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Contoh: Hendro Wijaya"
+                    value={bookingForm.guestName}
+                    onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })}
+                    required
+                  />
+                  <span className="field-hint">Nama pemesan sesuai KTP/identitas resmi</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Nomor WhatsApp / HP *</label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    placeholder="Contoh: 081234567890"
+                    value={bookingForm.guestPhone}
+                    onChange={(e) => setBookingForm({ ...bookingForm, guestPhone: e.target.value })}
+                    required
+                  />
+                  <span className="field-hint">Untuk pengiriman invoice dan instruksi check-in</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Kota / Daerah Asal</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Contoh: Surabaya / Jakarta"
+                    value={bookingForm.guestCity}
+                    onChange={(e) => setBookingForm({ ...bookingForm, guestCity: e.target.value })}
+                  />
+                  <span className="field-hint">Asal domisili tamu</span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Catatan Tambahan (Opsional)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Contoh: Late check-in, butuh extra selimut"
+                    value={bookingForm.notes}
+                    onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
+                  />
+                  <span className="field-hint">Permintaan khusus tamu selama menginap</span>
+                </div>
+              </div>
+            </div>
+
+            {/* LANGKAH 4: DUA METODE PEMBAYARAN (DP LUNAS VS LUNAS PENUH) */}
+            <div className="form-section-block" style={{ marginBottom: '24px' }}>
+              <div className="form-section-header">
+                <IconPayment size={20} className="text-primary-green" />
+                <div>
+                  <h3 className="form-section-title">4. Metode Pembayaran Sewa (Pilihan Pembayaran)</h3>
+                  <p className="form-section-subtitle">
+                    Pilih skema pembayaran: <strong>DP Lunas (50%)</strong> atau <strong>Lunas Penuh (100%)</strong> sesuai instruksi sistem
+                  </p>
+                </div>
+              </div>
+
+              {/* 2 Metode Pembayaran Cards */}
+              <div className="booking-payment-type-grid">
+                {/* Opsi 1: DP Lunas */}
+                <div
+                  className={`booking-payment-card ${bookingForm.paymentType === 'DP Lunas' ? 'active-dp' : ''}`}
+                  onClick={() => setBookingForm({ ...bookingForm, paymentType: 'DP Lunas' })}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>💳</span>
+                      <strong style={{ fontSize: '0.98rem', color: '#b45309' }}>DP Lunas (50%)</strong>
+                    </div>
+                    <span className="badge-status badge-warning" style={{ fontSize: '0.72rem' }}>
+                      Uang Muka
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                    Tamu membayar uang muka tanda jadi 50% dari total sewa. Sisa pembayaran dilunasi saat check-in di Gladiola.
+                  </p>
+
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: '#fef3c7',
+                    border: '1px solid #fde68a'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.80rem' }}>
+                      <span style={{ color: '#92400e' }}>Nominal DP (Dibayar Sekarang):</span>
+                      <strong style={{ color: '#92400e' }}>Rp {bookingDpAmount.toLocaleString('id-ID')}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginTop: '3px' }}>
+                      <span style={{ color: '#b45309' }}>Sisa Saat Check-In:</span>
+                      <span style={{ color: '#b45309', fontWeight: 600 }}>Rp {(bookingTotalCost - bookingDpAmount).toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Opsi 2: Lunas Penuh */}
+                <div
+                  className={`booking-payment-card ${bookingForm.paymentType === 'Lunas Penuh' ? 'active-lunas' : ''}`}
+                  onClick={() => setBookingForm({ ...bookingForm, paymentType: 'Lunas Penuh' })}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>💰</span>
+                      <strong style={{ fontSize: '0.98rem', color: '#15803d' }}>Lunas Penuh (100%)</strong>
+                    </div>
+                    <span className="badge-status badge-success" style={{ fontSize: '0.72rem' }}>
+                      Lunas 100%
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                    Tamu membayar penuh 100% biaya sewa di muka. Tidak ada tanggungan sisa tagihan saat check-in.
+                  </p>
+
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: '#dcfce7',
+                    border: '1px solid #bbf7d0'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.80rem' }}>
+                      <span style={{ color: '#166534' }}>Nominal Lunas Penuh:</span>
+                      <strong style={{ color: '#166534' }}>Rp {bookingTotalCost.toLocaleString('id-ID')}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginTop: '3px' }}>
+                      <span style={{ color: '#15803d' }}>Sisa Tagihan:</span>
+                      <span style={{ color: '#15803d', fontWeight: 600 }}>Rp 0 (LUNAS PENUH)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Saluran Metode Pembayaran */}
+              <div className="form-responsive-grid" style={{ marginTop: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">Saluran Pembayaran</label>
+                  <select
+                    className="form-select"
+                    value={bookingForm.paymentMethod}
+                    onChange={(e) => setBookingForm({ ...bookingForm, paymentMethod: e.target.value })}
+                  >
+                    <option value="Transfer Bank BCA">Transfer Bank BCA ({bankInfo.accountNumber})</option>
+                    <option value="Transfer Bank Mandiri">Transfer Bank Mandiri</option>
+                    <option value="QRIS Gladiola">QRIS Gladiola (Instan)</option>
+                    <option value="Tunai / Cash (Kasir)">Tunai / Cash (Bayar di Tempat)</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <label className="form-label">Status Pembayaran yang Dicatat</label>
+                  <div style={{ padding: '8px 14px', background: '#f8fafc', borderRadius: 'var(--radius-md)', border: '1px solid #e2e8f0' }}>
+                    <span className={`badge-status ${bookingForm.paymentType === 'Lunas Penuh' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.85rem' }}>
+                      ✓ {bookingForm.paymentType}
+                    </span>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginLeft: '10px' }}>
+                      Akan tampil di kolom pembayaran jadwal dashboard
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* RINGKASAN BIAYA & SUBMIT ACTIONS */}
+            <div style={{
+              background: 'linear-gradient(135deg, var(--forest-900) 0%, var(--forest-800) 100%)',
+              color: '#ffffff',
+              borderRadius: 'var(--radius-lg)',
+              padding: '20px 24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '16px',
+              marginTop: '28px'
+            }}>
+              <div>
+                <div style={{ fontSize: '0.78rem', opacity: 0.85, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Ringkasan Booking Kamar {bookingForm.roomNumber} ({bookingNights} Malam)
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '2px' }}>
+                  Total Sewa: Rp {bookingTotalCost.toLocaleString('id-ID')}
+                </div>
+                <div style={{ fontSize: '0.82rem', opacity: 0.9, marginTop: '4px' }}>
+                  Status: <strong>{bookingForm.paymentType}</strong> (Dibayar: Rp {bookingPaidAmount.toLocaleString('id-ID')} {bookingRemainingAmount > 0 ? `• Sisa: Rp ${bookingRemainingAmount.toLocaleString('id-ID')}` : ''})
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="btn-secondary-action"
+                  onClick={() => setViewMode('list')}
+                  style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }}
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-primary-action"
+                  style={{ background: '#d4af37', color: '#1b4332', fontWeight: 800 }}
+                >
+                  <IconCheck size={18} />
+                  <span>Konfirmasi & Terbitkan Booking</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // VIEW MODE: DAFTAR TAGIHAN KOS BULANAN & SEWA HARIAN
+  // =========================================================================
   return (
     <div className="pembayaran-container">
       {/* Header Info Banner */}
@@ -312,7 +939,30 @@ export const PembayaranView = () => {
             </p>
           </div>
         </div>
-        <div className="bank-summary-right">
+        <div className="bank-summary-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => setViewMode('booking_form')}
+            style={{
+              background: '#15803d',
+              color: '#ffffff',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 16px',
+              borderRadius: 'var(--radius-pill)',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(21, 128, 61, 0.25)'
+            }}
+            title="Buka Formulir Booking Kamar Sewa Harian & Cek Ketersediaan"
+          >
+            <IconPlus size={16} />
+            <span>+ Booking Kamar (Harian)</span>
+          </button>
+
           <button
             type="button"
             className="btn-secondary-sm"
@@ -327,8 +977,301 @@ export const PembayaranView = () => {
         </div>
       </div>
 
-      {/* Summary Metrics Cards */}
-      <div className="pembayaran-stats-grid">
+      {/* Switcher Tab Kategori: Tagihan Kos Bulanan vs Pembayaran Sewa Harian */}
+      <div className="tab-category-switcher">
+        <button
+          type="button"
+          className={`tab-category-btn ${activeTabCategory === 'bulanan' ? 'active-bulanan' : ''}`}
+          onClick={() => setActiveTabCategory('bulanan')}
+        >
+          <span>🏡 Tagihan Kos Bulanan ({cleanPaymentsList.length} Tagihan)</span>
+        </button>
+
+        <button
+          type="button"
+          className={`tab-category-btn ${activeTabCategory === 'harian' ? 'active-harian' : ''}`}
+          onClick={() => setActiveTabCategory('harian')}
+        >
+          <span>⚡ Pembayaran & Booking Sewa Harian ({dailyBookings.length} Reservasi)</span>
+        </button>
+
+        <button
+          type="button"
+          className="btn-primary-sm"
+          onClick={() => setViewMode('booking_form')}
+          style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <IconPlus size={14} />
+          <span>+ Buat Booking Kamar Baru</span>
+        </button>
+      </div>
+
+      {/* RENDER KONTEN TAB: SEWA HARIAN VS KOS BULANAN */}
+      {activeTabCategory === 'harian' ? (
+        <>
+          {/* Summary Metrics Cards Khusus Sewa Harian */}
+          <div className="pembayaran-stats-grid">
+            <div className="pembayaran-stat-card card-primary">
+              <span className="stat-metric-label">Total Booking Sewa Harian</span>
+              <span className="stat-metric-value">{dailyMetrics.totalCount} Reservasi</span>
+              <span className="stat-metric-subtext">Omset: Rp {dailyMetrics.totalIncome.toLocaleString('id-ID')}</span>
+            </div>
+
+            <div className="pembayaran-stat-card card-success">
+              <span className="stat-metric-label">Pembayaran Lunas Penuh (100%)</span>
+              <span className="stat-metric-value">{dailyMetrics.lunasCount} Tamu Lunas</span>
+              <span className="stat-metric-subtext">Diterima Penuh di Muka</span>
+            </div>
+
+            <div className="pembayaran-stat-card card-warning">
+              <span className="stat-metric-label">Pembayaran DP Lunas (50%)</span>
+              <span className="stat-metric-value">{dailyMetrics.dpCount} Booking DP</span>
+              <span className="stat-metric-subtext">Uang Muka Diterima</span>
+            </div>
+
+            <div className="pembayaran-stat-card card-info">
+              <span className="stat-metric-label">Sisa Tagihan Saat Check-In</span>
+              <span className="stat-metric-value">Rp {dailyMetrics.remainingTotal.toLocaleString('id-ID')}</span>
+              <span className="stat-metric-subtext">Dari {dailyMetrics.dpCount} tamu bertipe DP</span>
+            </div>
+          </div>
+
+          {/* Filter Toolbar Sewa Harian */}
+          <div className="section-toolbar">
+            <div className="toolbar-search-group">
+              <div className="search-box-pill">
+                <IconSearch size={16} className="text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cari kamar / nama tamu / kode booking..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Filter Metode / Status Bayar: DP Lunas vs Lunas Penuh */}
+              <select
+                className="filter-select"
+                value={dailyPaymentFilter}
+                onChange={(e) => setDailyPaymentFilter(e.target.value)}
+                title="Filter Status Pembayaran Sewa Harian"
+              >
+                <option value="all">Semua Status Bayar</option>
+                <option value="DP Lunas">✓ DP Lunas (Uang Muka)</option>
+                <option value="Lunas Penuh">✓ Lunas Penuh (100%)</option>
+              </select>
+            </div>
+
+            <div className="toolbar-search-group">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setViewMode('booking_form')}
+                style={{
+                  background: '#15803d',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-pill)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <IconPlus size={16} />
+                <span>+ Booking Kamar Baru</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tabel Pembayaran & Reservasi Sewa Harian */}
+          <div className="dashboard-card no-padding">
+            <div className="table-responsive-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Kode & Kamar</th>
+                    <th>Tamu / Pemesan & Kontak</th>
+                    <th>Tipe Kamar</th>
+                    <th>Jadwal Sewa (Check-In & Out)</th>
+                    <th>Tarif & Total Biaya</th>
+                    <th>Status Pembayaran</th>
+                    <th>Rincian Terbayar / Sisa</th>
+                    <th>Metode Bayar</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDailyBookings.length > 0 ? (
+                    filteredDailyBookings.map((b) => (
+                      <tr key={b.id}>
+                        {/* Kode & Kamar */}
+                        <td>
+                          <div className="tenant-cell-info">
+                            <span className="room-badge-small">Kamar {b.roomNumber}</span>
+                            <div>
+                              <strong className="text-gray-900">{b.bookingCode}</strong>
+                              <span className="tenant-subtext">Lantai {b.floor || 3}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Tamu & Kontak */}
+                        <td>
+                          <div>
+                            <strong className="text-gray-900">{b.guestName}</strong>
+                            <span className="tenant-subtext">
+                              {b.guestPhone || '-'} {b.guestCity ? `• ${b.guestCity}` : ''}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Tipe Kamar */}
+                        <td>
+                          <span className="text-xs text-gray-700">{b.roomType}</span>
+                        </td>
+
+                        {/* Jadwal Check-In & Out */}
+                        <td>
+                          <div className="table-date-due">
+                            <strong className="text-gray-900">
+                              {formatIndoDate(b.checkIn)} - {formatIndoDate(b.checkOut)}
+                            </strong>
+                            <span className="due-pill" style={{ marginTop: '3px' }}>
+                              📅 {b.nights} Malam
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Tarif & Total Biaya */}
+                        <td>
+                          <strong className="text-gray-900">
+                            Rp {(b.totalAmount || 0).toLocaleString('id-ID')}
+                          </strong>
+                          <span className="tenant-subtext">
+                            @{b.dailyPrice?.toLocaleString('id-ID')}/malam
+                          </span>
+                        </td>
+
+                        {/* STATUS PEMBAYARAN: DP LUNAS ATAU LUNAS PENUH */}
+                        <td>
+                          <span
+                            className={`badge-status ${
+                              b.paymentStatus === 'Lunas Penuh' ? 'badge-success' : 'badge-warning'
+                            }`}
+                          >
+                            ✓ {b.paymentStatus}
+                          </span>
+                        </td>
+
+                        {/* Rincian Terbayar & Sisa */}
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ fontSize: '0.80rem', fontWeight: 700, color: '#15803d' }}>
+                              Dibayar: Rp {(b.paidAmount || 0).toLocaleString('id-ID')}
+                            </span>
+                            {b.remainingAmount > 0 ? (
+                              <span style={{ fontSize: '0.74rem', fontWeight: 600, color: '#b45309' }}>
+                                Sisa: Rp {(b.remainingAmount || 0).toLocaleString('id-ID')}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.72rem', color: '#16a34a' }}>
+                                Lunas Penuh (Rp 0 Sisa)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Metode Bayar */}
+                        <td>
+                          <div className="text-xs text-gray-700">
+                            <strong>{b.paymentMethod || 'Transfer BCA'}</strong>
+                            <div className="text-gray-400 font-mono" style={{ fontSize: '0.68rem' }}>
+                              {b.createdAt}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Aksi */}
+                        <td>
+                          <div className="action-buttons-row">
+                            {b.paymentStatus === 'DP Lunas' && (
+                              <button
+                                type="button"
+                                className="btn-validate-approve"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Lunaskan sisa pembayaran Rp ${(b.remainingAmount || 0).toLocaleString('id-ID')} untuk Kamar ${b.roomNumber} (${b.guestName})?`
+                                    )
+                                  ) {
+                                    handleUpdateDailyBookingPayment(b.id, {
+                                      paymentStatus: 'Lunas Penuh',
+                                      paidAmount: b.totalAmount,
+                                      remainingAmount: 0
+                                    });
+                                  }
+                                }}
+                                title="Tandai pembayaran telah dilunasi penuh saat tamu check-in"
+                              >
+                                <IconCheck size={14} />
+                                <span>Lunasi Sisa</span>
+                              </button>
+                            )}
+
+                            {b.guestPhone && (
+                              <a
+                                href={`https://wa.me/${b.guestPhone.replace(/^0/, '62').replace(/[^0-9]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-whatsapp-staff"
+                                style={{ padding: '6px 10px', fontSize: '0.74rem' }}
+                                title="Kirim invoice / konfirmasi via WhatsApp"
+                              >
+                                💬 WA
+                              </a>
+                            )}
+
+                            {currentUser?.role !== 'owner' && (
+                              <button
+                                type="button"
+                                className="btn-validate-reject"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Batalkan dan hapus reservasi Kamar ${b.roomNumber} a/n ${b.guestName}?`
+                                    )
+                                  ) {
+                                    handleDeleteDailyBooking(b.id);
+                                  }
+                                }}
+                                title="Batalkan reservasi kamar ini"
+                              >
+                                Batal
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={9} className="text-center py-8 text-gray-500">
+                        Belum ada reservasi sewa harian untuk filter ini. Klik "+ Booking Kamar Baru" untuk mendaftarkan tamu baru.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Summary Metrics Cards */}
+          <div className="pembayaran-stats-grid">
         <div className="pembayaran-stat-card card-primary">
           <span className="stat-metric-label">Total Tagihan ({filterMonth === 'all' ? 'Semua' : filterMonth})</span>
           <span className="stat-metric-value">{metrics.totalCount} Kamar</span>
@@ -657,7 +1600,7 @@ export const PembayaranView = () => {
               ) : (
                 <tr>
                   <td colSpan={canValidate ? 9 : 8} className="text-center py-8 text-gray-500">
-                    Tidak ada transaksi pembayaran pada filter ini.
+                    Tidak ada data tagihan sewa untuk kamar berpenghuni pada filter ini.
                   </td>
                 </tr>
               )}
@@ -665,6 +1608,8 @@ export const PembayaranView = () => {
           </table>
         </div>
       </div>
+    </>
+  )}
 
       {/* Multi-Month Validation Modal */}
       {multiMonthModal.isOpen && multiMonthModal.payment && (

@@ -5452,6 +5452,117 @@ html, body {
   letter-spacing: 0.02em;
 }
 
+/* ========================================================================= */
+/* STYLES FOR BOOKING KAMAR HARIAN & PEMERIKSAAN KETERSEDIAAN               */
+/* ========================================================================= */
+.booking-rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.booking-room-choice-card {
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-card);
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.booking-room-choice-card:hover:not(.disabled) {
+  border-color: var(--forest-500);
+  background: #fafdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(27, 67, 50, 0.08);
+}
+
+.booking-room-choice-card.selected {
+  border-color: #15803d;
+  background: #f0fdf4;
+  box-shadow: 0 4px 16px rgba(21, 128, 61, 0.14);
+}
+
+.booking-room-choice-card.disabled {
+  opacity: 0.6;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.booking-payment-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 12px 0 16px 0;
+}
+
+.booking-payment-card {
+  padding: 18px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-card);
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-payment-card.active-dp {
+  border-color: #b45309;
+  background: #fffbeb;
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.12);
+}
+
+.booking-payment-card.active-lunas {
+  border-color: #15803d;
+  background: #f0fdf4;
+  box-shadow: 0 4px 14px rgba(21, 128, 61, 0.12);
+}
+
+.tab-category-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.tab-category-btn {
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border-card);
+  background: #ffffff;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-category-btn.active-bulanan {
+  background: var(--forest-800);
+  color: #ffffff;
+  border-color: var(--forest-800);
+  box-shadow: 0 2px 8px rgba(27, 67, 50, 0.2);
+}
+
+.tab-category-btn.active-harian {
+  background: #6d28d9;
+  color: #ffffff;
+  border-color: #6d28d9;
+  box-shadow: 0 2px 8px rgba(109, 40, 217, 0.2);
+}
+
 
 
 
