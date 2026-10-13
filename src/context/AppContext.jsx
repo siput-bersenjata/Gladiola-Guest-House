@@ -12,7 +12,8 @@ import {
   INITIAL_RENT_PAYMENTS,
   INITIAL_ELECTRICITY_BILLS,
   INITIAL_OPERATORS,
-  INITIAL_ACTIVITY_LOGS
+  INITIAL_ACTIVITY_LOGS,
+  INITIAL_SESSION_HISTORY
 } from '../data/initialData';
 import {
   getStoredFirebaseConfig,
@@ -22,6 +23,11 @@ import {
   fetchOnceFromFirebase,
   testFirebaseConnection
 } from '../services/firebaseSync';
+import {
+  fetchFromNeon,
+  pushToNeon,
+  testNeonConnection
+} from '../services/neonSync';
 
 const AppContext = createContext(null);
 
@@ -171,6 +177,8 @@ export const AppProvider = ({ children }) => {
   const debounceTimerRef = useRef(null);
   const syncChannelRef = useRef(null);
   const lastFetchTimeRef = useRef(0);
+  const lastLocalUserEditRef = useRef(0);
+  const isFirstLoadRef = useRef(true);
 
   // Self-heal and reconcile tenant references across all collections
   const reconcileTenantReferences = (tList, rList, pList, eList) => {
@@ -296,6 +304,9 @@ export const AppProvider = ({ children }) => {
   const [activeSessions, setActiveSessions] = useState(() =>
     loadState('activeSessions', INITIAL_ACTIVE_SESSIONS)
   );
+  const [sessionHistory, setSessionHistory] = useState(() =>
+    loadState('sessionHistory', INITIAL_SESSION_HISTORY)
+  );
   const [notifications, setNotifications] = useState([]);
 
   // Save changes to localStorage
@@ -303,6 +314,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => saveState('systemAccounts', systemAccounts), [systemAccounts]);
   useEffect(() => saveState('userLocation', userLocation), [userLocation]);
   useEffect(() => saveState('activeSessions', activeSessions), [activeSessions]);
+  useEffect(() => saveState('sessionHistory', sessionHistory), [sessionHistory]);
   useEffect(() => saveState('tenants', tenants), [tenants]);
   useEffect(() => saveState('rooms', rooms), [rooms]);
   useEffect(() => saveState('payments', payments), [payments]);
@@ -404,20 +416,33 @@ const decompressPayload = async (base64Str) => {
       }
     }
     if (!cloudData || !Array.isArray(cloudData.tenants) || cloudData.tenants.length === 0) return;
-    const remoteVersion = cloudData.version || 0;
-    const remoteTime = cloudData.updatedAt || 0;
-    const localVersion = loadState('lastLocalVersion', 0);
-    const localTime = loadState('lastLocalEditTime', 0);
+    const remoteVersion = Number(cloudData.version || 0);
+    const remoteTime = Number(cloudData.updatedAt || 0);
+    const localVersion = Number(loadState('lastLocalVersion', 0));
+    const localTime = Number(loadState('lastLocalEditTime', 0));
 
     latestKnownRemoteVersionRef.current = Math.max(latestKnownRemoteVersionRef.current, remoteVersion);
 
-    const isRemoteNewer = remoteVersion > localVersion || (remoteVersion === localVersion && remoteTime > localTime);
+    // Has this specific client device made local edits in the last 4 seconds?
+    const hasRecentLocalEdit = Date.now() - (lastLocalUserEditRef.current || 0) < 4000;
 
-    // ONLY apply remote data if remote is strictly NEWER than our local edits!
-    if (isRemoteNewer) {
+    // Conditions to apply remote data:
+    // 1. Initial page load (isFirstLoadRef.current) -> adopt cloud truth immediately
+    // 2. Remote version is newer than local version
+    // 3. Remote time is newer than local time AND no unsaved recent local edit
+    // 4. Remote version is different from local version AND no recent local edit
+    const shouldApply =
+      isFirstLoadRef.current ||
+      (!hasRecentLocalEdit &&
+        (remoteVersion > localVersion ||
+          remoteTime > localTime ||
+          remoteVersion !== localVersion));
+
+    if (shouldApply) {
+      isFirstLoadRef.current = false;
       isApplyingRemoteRef.current = true;
       saveState('lastLocalVersion', remoteVersion);
-      saveState('lastLocalEditTime', remoteTime);
+      saveState('lastLocalEditTime', remoteTime || Date.now());
 
       const reconciled = reconcileTenantReferences(
         cloudData.tenants,
@@ -466,11 +491,15 @@ const decompressPayload = async (base64Str) => {
         setActivityLogs(cloudData.activityLogs);
         saveState('logs', cloudData.activityLogs);
       }
+      if (Array.isArray(cloudData.sessionHistory)) {
+        setSessionHistory(cloudData.sessionHistory);
+        saveState('sessionHistory', cloudData.sessionHistory);
+      }
 
       lastUploadedTimestampRef.current = remoteTime;
       setTimeout(() => {
         isApplyingRemoteRef.current = false;
-      }, 1500);
+      }, 1000);
 
       setCloudSyncStatus('synced');
       setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
@@ -478,7 +507,7 @@ const decompressPayload = async (base64Str) => {
   };
 
   // =========================================================================
-  // MULTI-DEVICE CLOUD SYNC ENGINE (GOOGLE FIREBASE + ULTRA-FAST CLOUD BIN)
+  // MULTI-DEVICE CLOUD SYNC ENGINE (NEON POSTGRESQL + FIREBASE FALLBACK)
   // =========================================================================
   const fetchCloudData = async (silent = false) => {
     if (isApplyingRemoteRef.current) return;
@@ -487,33 +516,22 @@ const decompressPayload = async (base64Str) => {
       lastFetchTimeRef.current = Date.now();
       let cloudData = null;
 
-      // 1. Try Firebase Realtime Database first if configured & online
-      if (firebaseConfig?.databaseURL) {
-        cloudData = await fetchOnceFromFirebase(firebaseConfig);
-        if (cloudData && Array.isArray(cloudData.tenants)) {
-          setFirebaseConnected(true);
-        }
-      }
+      // 1. Primary: Neon PostgreSQL Cloud Database (ACID, real-time, cross-network)
+      cloudData = await fetchFromNeon();
 
-      // 2. High-speed cache-busting fetch from cloud bin
+      // 2. Fallback: Firebase Realtime Database if configured & online
       if (!cloudData || !Array.isArray(cloudData.tenants)) {
-        try {
-          const res = await fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}?t=${Date.now()}&_r=${Math.random()}`, {
-            cache: 'no-store',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
+        if (firebaseConfig?.databaseURL) {
+          try {
+            cloudData = await fetchOnceFromFirebase(firebaseConfig);
+            if (cloudData && Array.isArray(cloudData.tenants)) {
+              setFirebaseConnected(true);
             }
-          });
-          if (res.ok) {
-            cloudData = await res.json();
-          }
-        } catch (binErr) {
-          console.warn('Fallback bin fetch error:', binErr);
+          } catch {}
         }
       }
 
-      if (cloudData && (Array.isArray(cloudData.tenants) || cloudData.data_z)) {
+      if (cloudData && Array.isArray(cloudData.tenants) && cloudData.tenants.length > 0) {
         await applyRemoteData(cloudData);
         setCloudSyncStatus('synced');
       }
@@ -531,6 +549,8 @@ const decompressPayload = async (base64Str) => {
       setIsCloudSyncing(true);
       setCloudSyncStatus('syncing');
       const now = Date.now();
+      lastLocalUserEditRef.current = now;
+
       const currentVer = Math.max(loadState('lastLocalVersion', 0), latestKnownRemoteVersionRef.current);
       const nextVer = currentVer + 1;
       latestKnownRemoteVersionRef.current = nextVer;
@@ -553,47 +573,39 @@ const decompressPayload = async (base64Str) => {
         wifiInfo: overrideData?.wifiInfo || wifiInfo,
         operators: overrideData?.operators || operators,
         systemAccounts: overrideData?.systemAccounts || systemAccounts,
-        activityLogs: overrideData?.activityLogs || activityLogs
+        activityLogs: overrideData?.activityLogs || activityLogs,
+        sessionHistory: overrideData?.sessionHistory || sessionHistory
       };
 
-      // Broadcast immediately to tabs on this machine (0ms latency)
+      // Broadcast immediately to tabs on this machine (0ms latency via BroadcastChannel)
       if (syncChannelRef.current) {
         try {
           syncChannelRef.current.postMessage({ type: 'REMOTE_DATA', payload });
         } catch {}
       }
 
-      // Compress for high-speed cloud upload (< 12KB)
-      const compressedStr = await compressPayload(payload);
-      const cloudPayload = compressedStr
-        ? {
-            version: nextVer,
-            updatedAt: now,
-            data_z: compressedStr,
-            source: 'client_compressed'
-          }
-        : payload;
+      // 1. Neon PostgreSQL Push
+      const neonPromise = pushToNeon(payload).catch((err) => {
+        console.warn('Neon push error:', err);
+        return false;
+      });
 
-      // Push to both in parallel
-      const binPromise = fetch(`https://extendsclass.com/api/json-storage/bin/${cloudBinId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
-        },
-        body: JSON.stringify(cloudPayload)
-      }).catch((err) => console.warn('Bin push error:', err));
+      // 2. Firebase Push (if configured)
+      const fbPromise = pushDataToFirebase(firebaseConfig, payload).catch((err) => {
+        console.warn('FB push error:', err);
+        return false;
+      });
 
-      const fbPromise = pushDataToFirebase(firebaseConfig, payload).catch((err) =>
-        console.warn('FB push error:', err)
-      );
-
-      const [binRes, fbRes] = await Promise.allSettled([binPromise, fbPromise]);
+      const [neonRes, fbRes] = await Promise.allSettled([neonPromise, fbPromise]);
+      const neonSuccess = neonRes.status === 'fulfilled' && neonRes.value;
       const fbSuccess = fbRes.status === 'fulfilled' && fbRes.value;
-      if (fbSuccess) setFirebaseConnected(true);
 
-      setCloudSyncStatus('synced');
-      setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
+      if (neonSuccess || fbSuccess) {
+        setCloudSyncStatus('synced');
+        setLastSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB');
+      } else {
+        setCloudSyncStatus('offline');
+      }
     } catch (err) {
       console.warn('Sync cloud push warning:', err);
       setCloudSyncStatus('offline');
@@ -683,7 +695,21 @@ const decompressPayload = async (base64Str) => {
       window.removeEventListener('pointerdown', handleInteraction);
       clearInterval(pollInterval);
     };
-  }, [cloudBinId, firebaseConfig]);
+  }, [firebaseConfig]);
+
+  const TAB_PAGE_NAMES = {
+    overview: 'Dashboard Ringkasan',
+    monitoring_lokasi: 'Monitoring User & Riwayat Akses',
+    penyewa: 'Data Penyewa Kos',
+    kamar: 'Katalog & Status Kamar',
+    pembayaran: 'Validasi Pembayaran Sewa',
+    listrik: 'Pencatatan Listrik & Token',
+    laporan: 'Laporan Keuangan & Okupansi',
+    petugas: 'Kelola Staf & Ulasan Petugas',
+    kelola_akun: 'Kelola Akun Akses',
+    pengaturan: 'Pengaturan Sistem & Database',
+    anak_kos: 'Portal Utama Anak Kos'
+  };
 
   // Sync active sessions with current user & telemetry
   useEffect(() => {
@@ -727,6 +753,8 @@ const decompressPayload = async (base64Str) => {
         isCurrent: true,
         lastActive: 'Sedang Aktif Sekarang',
         loginTime: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+        lastAccessedPage: TAB_PAGE_NAMES[activeTab] || 'Dashboard Ringkasan',
+        lastAction: `Mengakses halaman ${TAB_PAGE_NAMES[activeTab] || 'Dashboard'}`,
         coords: {
           lat: userLocation.lat || GLADIOLA_COORDS.lat,
           lng: userLocation.lng || GLADIOLA_COORDS.lng,
@@ -744,7 +772,7 @@ const decompressPayload = async (base64Str) => {
 
       return [userSession, ...others];
     });
-  }, [currentUser, userLocation.lat, userLocation.lng, userLocation.status]);
+  }, [currentUser, userLocation.lat, userLocation.lng, userLocation.status, activeTab]);
 
   // Toast notification helper
   const addToast = (message, type = 'info') => {
@@ -756,23 +784,42 @@ const decompressPayload = async (base64Str) => {
   };
 
   // Activity Logger
-  const logActivity = (action, details, customUser = null) => {
+  const logActivity = (action, details, customUser = null, customPage = null) => {
     const userToLog = customUser || currentUser;
+    if (!userToLog) return;
     const now = new Date();
     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')} WIB`;
+    const distKm = userLocation.distanceKm !== null ? userLocation.distanceKm : 0.008;
+    const distanceMeters = Math.round(distKm * 1000);
+    const isInsideKos = distanceMeters <= 50;
+    const distanceText = isInsideKos
+      ? `${distanceMeters} meter • Di Dalam Kos`
+      : distanceMeters >= 1000
+      ? `${(distanceMeters / 1000).toFixed(1)} km • Di Luar Kos`
+      : `${distanceMeters} meter • Di Luar Kos`;
+    const telemetry = getLiveDeviceTelemetry();
 
     const newLog = {
-      id: `log-${Date.now()}`,
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       timestamp,
-      user: userToLog.name,
-      role: userToLog.role,
+      time,
+      userId: userToLog.id || userToLog.userId || userToLog.username || userToLog.phone || `usr-${userToLog.role}`,
+      user: userToLog.name || 'Pengguna Sistem',
+      role: userToLog.role || 'anak_kos',
       action,
+      pageAccessed: customPage || TAB_PAGE_NAMES[activeTab] || 'Dashboard Ringkasan',
       details,
       coords: {
         lat: userLocation.lat || GLADIOLA_COORDS.lat,
         lng: userLocation.lng || GLADIOLA_COORDS.lng
       },
-      locationName: userLocation.address || 'Gladiola Guest House Area'
+      locationName: userLocation.address || 'Gladiola Guest House, Jl. Gladiol No. 1 Malang',
+      distanceMeters,
+      distanceText,
+      isInsideKos,
+      deviceModel: telemetry?.model || 'Perangkat Terdeteksi',
+      ipAddress: telemetry?.ipAddress || '103.145.22.84'
     };
 
     setActivityLogs((prev) => [newLog, ...prev]);
@@ -1018,6 +1065,20 @@ const decompressPayload = async (base64Str) => {
   const logout = () => {
     if (currentUser) {
       logActivity('Logout', `Pengguna ${currentUser.name} (${currentUser.role}) keluar dari sistem`);
+      const userSess = activeSessions.find(
+        (s) => s.username === currentUser.username || (currentUser.phone && s.phone === currentUser.phone)
+      );
+      if (userSess) {
+        const completedHist = {
+          ...userSess,
+          id: `hist-${Date.now()}`,
+          status: 'Selesai',
+          logoutTime: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+          sessionDuration: 'Sesi Aktif Selesai',
+          isCurrent: false
+        };
+        setSessionHistory((prev) => [completedHist, ...prev.slice(0, 49)]);
+      }
     }
     setCurrentUser(null);
     localStorage.removeItem('gladiola_currentUser');
@@ -1882,6 +1943,8 @@ const decompressPayload = async (base64Str) => {
         systemAccounts,
         activeSessions,
         setActiveSessions,
+        sessionHistory,
+        setSessionHistory,
         refreshActiveSessions,
         tenants,
         rooms,

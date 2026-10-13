@@ -11,6 +11,7 @@ import {
   IconShield,
   IconStar,
   IconRadar,
+  IconActivity,
   IconKey,
   IconGladiolLogo,
   IconX,
@@ -145,8 +146,8 @@ export const Sidebar = () => {
                   className={`nav-item ${activeTab === 'monitoring_lokasi' ? 'active' : ''}`}
                   onClick={() => handleNavClick('monitoring_lokasi')}
                 >
-                  <IconRadar size={19} />
-                  <span>Monitoring Lokasi</span>
+                  <IconActivity size={19} />
+                  <span>Monitoring User & Lokasi</span>
                   <span className="live-pulse-dot" style={{ marginLeft: 'auto' }}></span>
                 </button>
               )}

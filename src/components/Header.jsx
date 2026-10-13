@@ -9,6 +9,7 @@ import {
   IconCheck,
   IconLogOut,
   IconRadar,
+  IconActivity,
   IconKey,
   IconCloud,
   IconRefresh
@@ -101,8 +102,8 @@ export const Header = () => {
         };
       case 'monitoring_lokasi':
         return {
-          title: 'Monitoring Lokasi & Perangkat',
-          subtitle: 'Radar real-time pengguna aktif dan telemetri perangkat'
+          title: 'Monitoring Pengguna & Riwayat Akses',
+          subtitle: 'Pemantauan tabel user aktif, riwayat akses, dan jarak ke Gladiola Guest House'
         };
       case 'kelola_akun':
         return {
@@ -175,7 +176,7 @@ export const Header = () => {
           <span className={`cloud-status-dot ${isCloudSyncing ? 'pulsing' : cloudSyncStatus}`}></span>
           <IconCloud size={14} className={isCloudSyncing ? "text-primary-green spin-animate" : "text-primary-green"} />
           <span className="cloud-chip-text">
-            {isCloudSyncing ? 'Sync...' : firebaseConnected ? 'Firebase Realtime' : cloudSyncStatus === 'offline' ? 'Offline' : 'Cloud Aktif'}
+            {isCloudSyncing ? 'Sync...' : cloudSyncStatus === 'synced' ? 'Cloud Realtime' : cloudSyncStatus === 'offline' ? 'Offline' : 'Sinkronisasi...'}
           </span>
         </button>
 
@@ -195,16 +196,16 @@ export const Header = () => {
           </span>
         </button>
 
-        {/* Super Admin Quick Radar Shortcut */}
+        {/* Super Admin Quick Monitoring Shortcut */}
         {currentUser && currentUser.role === 'super_admin' && (
           <button
             type="button"
             className={`header-radar-shortcut ${activeTab === 'monitoring_lokasi' ? 'active' : ''}`}
             onClick={() => setActiveTab('monitoring_lokasi')}
-            title="Buka Dashboard Monitoring Lokasi & Perangkat"
+            title="Buka Dashboard Monitoring Pengguna & Riwayat Akses"
           >
-            <IconRadar size={15} />
-            <span className="shortcut-label">Monitoring Live</span>
+            <IconActivity size={15} />
+            <span className="shortcut-label">Monitoring User</span>
           </button>
         )}
 
