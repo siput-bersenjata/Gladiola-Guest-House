@@ -244,7 +244,7 @@ export const PenyewaView = () => {
                     }}
                     placeholder="Pilih atau cari nomor kamar..."
                   />
-                  <span className="field-hint">Pilih dari unit kamar di Lantai 1 & 2 Gladiola</span>
+                  <span className="field-hint">Pilih dari 10 unit kamar (5 di Lantai 1 & 5 di Lantai 2) Gladiola</span>
                 </div>
 
                 <div className="form-group">

@@ -416,7 +416,7 @@ export const PembayaranView = () => {
   const dailyRooms = useMemo(() => {
     const directDaily = rooms.filter((r) => r.category === 'Harian');
     if (directDaily.length > 0) return directDaily;
-    return rooms.filter((r) => ['201', '202', '203', '204', '205', '206'].includes(r.number));
+    return rooms.filter((r) => ['201', '202', '203', '204'].includes(r.number));
   }, [rooms]);
 
   // Pemeriksaan bentrok jadwal reservasi pada kamar tertentu

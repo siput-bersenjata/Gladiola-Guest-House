@@ -196,10 +196,12 @@ export const AppProvider = ({ children }) => {
       if (t.roomNumber) tenantByRoom.set(t.roomNumber, t);
     });
 
+    const ALLOWED_5_ROOMS = ["101", "102", "103", "104", "105", "201", "202", "203", "204", "205"];
+
     let roomsChanged = false;
-    const newRooms = (rList || []).filter((r) => r && r.floor <= 2 && !String(r.number).startsWith('3')).map((r) => {
+    const newRooms = (rList || []).filter((r) => r && ALLOWED_5_ROOMS.includes(String(r.number))).map((r) => {
       if (!r) return r;
-      const isDailyDefault = ["201", "202", "203", "204", "205", "206"].includes(String(r.number));
+      const isDailyDefault = ["201", "202", "203", "204"].includes(String(r.number));
       const category = r.category || (isDailyDefault ? 'Harian' : 'Bulanan');
       const dailyPrice = r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000);
       let updatedRoom = { ...r, category, dailyPrice };
@@ -219,7 +221,7 @@ export const AppProvider = ({ children }) => {
     });
 
     let paymentsChanged = false;
-    const mappedPayments = (pList || []).filter((p) => p && !String(p.roomNumber).startsWith('3')).map((p) => {
+    const mappedPayments = (pList || []).filter((p) => p && ALLOWED_5_ROOMS.includes(String(p.roomNumber))).map((p) => {
       const matchTenant =
         (p.tenantId && tenantById.get(p.tenantId)) ||
         (p.roomNumber && tenantByRoom.get(p.roomNumber));
@@ -249,7 +251,7 @@ export const AppProvider = ({ children }) => {
     }
 
     let billsChanged = false;
-    const newBills = (eList || []).filter((b) => b && !String(b.roomNumber).startsWith('3')).map((b) => {
+    const newBills = (eList || []).filter((b) => b && ALLOWED_5_ROOMS.includes(String(b.roomNumber))).map((b) => {
       const matchTenant =
         (b.tenantId && tenantById.get(b.tenantId)) ||
         (b.roomNumber && tenantByRoom.get(b.roomNumber));
@@ -285,23 +287,25 @@ export const AppProvider = ({ children }) => {
     };
   };
 
-  // App Data States - Lantai 1 & 2 (Total 36 Kamar)
+  const ALLOWED_5_ROOMS = ["101", "102", "103", "104", "105", "201", "202", "203", "204", "205"];
+
+  // App Data States - Lantai 1 (101-105) & Lantai 2 (201-205) - tepat 5 kamar per lantai
   const [tenants, setTenants] = useState(() => {
     const saved = loadState('tenants', null);
-    if (!saved || !Array.isArray(saved) || saved.length < 5) {
+    if (!saved || !Array.isArray(saved) || saved.length < 3) {
       return INITIAL_TENANTS;
     }
-    const filtered = saved.filter((t) => t && !String(t.roomNumber).startsWith('3'));
-    return filtered.length >= 5 ? filtered : INITIAL_TENANTS;
+    const filtered = saved.filter((t) => t && ALLOWED_5_ROOMS.includes(String(t.roomNumber)));
+    return filtered.length >= 3 ? filtered : INITIAL_TENANTS;
   });
   const [rooms, setRooms] = useState(() => {
     const saved = loadState('rooms', INITIAL_ROOMS);
     if (!saved || !Array.isArray(saved) || saved.length === 0) return INITIAL_ROOMS;
-    const purged = saved.filter((r) => r && r.floor <= 2 && !String(r.number).startsWith('3'));
-    const sourceRooms = purged.length >= 18 ? purged : INITIAL_ROOMS;
+    const purged = saved.filter((r) => r && ALLOWED_5_ROOMS.includes(String(r.number)));
+    const sourceRooms = purged.length === 10 ? purged : INITIAL_ROOMS;
     return sourceRooms.map((r, idx) => {
       const initialMatch = INITIAL_ROOMS.find((ir) => ir.number === r.number) || INITIAL_ROOMS[idx];
-      const isDailyDefault = ["201", "202", "203", "204", "205", "206"].includes(String(r.number));
+      const isDailyDefault = ["201", "202", "203", "204"].includes(String(r.number));
       return {
         ...r,
         floor: r.floor || (String(r.number).startsWith('1') ? 1 : 2),
@@ -317,22 +321,18 @@ export const AppProvider = ({ children }) => {
     if (!saved || !Array.isArray(saved) || saved.length === 0) {
       return INITIAL_DAILY_BOOKINGS;
     }
-    return saved.map((b) => {
-      if (b.floor === 3 || String(b.roomNumber).startsWith('3')) {
-        return { ...b, floor: 2, roomNumber: String(b.roomNumber).replace(/^3/, '2') };
-      }
-      return b;
-    });
+    const filtered = saved.filter((b) => b && ALLOWED_5_ROOMS.includes(String(b.roomNumber)));
+    return filtered.length > 0 ? filtered : INITIAL_DAILY_BOOKINGS;
   });
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
-    const base = (!saved || !Array.isArray(saved) || saved.length < 5) ? INITIAL_RENT_PAYMENTS : saved;
-    return deduplicatePayments(base.filter((p) => p && !String(p.roomNumber).startsWith('3')));
+    const base = (!saved || !Array.isArray(saved) || saved.length < 3) ? INITIAL_RENT_PAYMENTS : saved;
+    return deduplicatePayments(base.filter((p) => p && ALLOWED_5_ROOMS.includes(String(p.roomNumber))));
   });
   const [electricityBills, setElectricityBills] = useState(() => {
     const saved = loadState('electricity', null);
-    const base = (!saved || !Array.isArray(saved) || saved.length < 5) ? INITIAL_ELECTRICITY_BILLS : saved;
-    return deduplicateElectricityBills(base.filter((b) => b && !String(b.roomNumber).startsWith('3')));
+    const base = (!saved || !Array.isArray(saved) || saved.length < 3) ? INITIAL_ELECTRICITY_BILLS : saved;
+    return deduplicateElectricityBills(base.filter((b) => b && ALLOWED_5_ROOMS.includes(String(b.roomNumber))));
   });
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));

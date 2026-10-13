@@ -78,7 +78,7 @@ export const Header = () => {
       case 'kamar':
         return {
           title: 'Penyewaan Kamar',
-          subtitle: 'Status 50 kamar kos Gladiola: Terisi, Booking, dan Kosong'
+          subtitle: 'Status kamar kos Gladiola: Terisi, Booking, dan Kosong'
         };
       case 'utilitas':
         return {
