@@ -64,16 +64,19 @@ export const UtilitasView = () => {
       if (!b || !b.roomNumber) return false;
       const roomNum = String(b.roomNumber).trim().toLowerCase();
 
-      // 1. Cek unit kamar di daftar master rooms
+      // 1. KONEKSI UTAMA: Cek unit kamar di daftar master rooms (halaman kamar)
       const roomObj = (rooms || []).find(
         (r) => String(r.number).trim().toLowerCase() === roomNum
       );
 
+      // Jika kamar tidak ada di master rooms (telah dihapus dari halaman kamar), tagihan TIDAK BOLEH tampil sama sekali!
+      if (!roomObj) {
+        return false;
+      }
+
       // Jika kamar berstatus Kosong atau belum ada nama penghuni, sembunyikan tagihannya
-      if (roomObj) {
-        if (roomObj.status === 'Kosong' || !roomObj.currentTenant || !roomObj.currentTenant.trim()) {
-          return false;
-        }
+      if (roomObj.status === 'Kosong' || !roomObj.currentTenant || !roomObj.currentTenant.trim()) {
+        return false;
       }
 
       // 2. Cek tenant di daftar master tenants
@@ -84,15 +87,14 @@ export const UtilitasView = () => {
       );
 
       // Jika tenant berstatus nonaktif dan kamar tidak berstatus terisi
-      if (tenantObj && tenantObj.status === 'Nonaktif' && (!roomObj || roomObj.status !== 'Terisi')) {
+      if (tenantObj && tenantObj.status === 'Nonaktif' && roomObj.status !== 'Terisi') {
         return false;
       }
 
-      // Pastikan ada nama penghuni (baik dari data master room, master tenant, atau tagihan)
+      // Pastikan ada nama penghuni aktif
       const hasTenant =
         (roomObj && roomObj.currentTenant && roomObj.currentTenant.trim()) ||
-        (tenantObj && tenantObj.status === 'Aktif' && tenantObj.name && tenantObj.name.trim()) ||
-        (b.tenantName && b.tenantName.trim());
+        (tenantObj && tenantObj.status === 'Aktif' && tenantObj.name && tenantObj.name.trim());
 
       if (!hasTenant) {
         return false;

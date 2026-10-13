@@ -646,17 +646,47 @@ export const KamarView = () => {
             >
               <div className="room-card-top-row">
                 <span className="room-num-title">Kamar {room.number}</span>
-                <span
-                  className={`badge-status ${
-                    room.status === 'Terisi'
-                      ? 'badge-success'
-                      : room.status === 'Booking'
-                      ? 'badge-info'
-                      : 'badge-vacant'
-                  }`}
-                >
-                  {room.status}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    className={`badge-status ${
+                      room.status === 'Terisi'
+                        ? 'badge-success'
+                        : room.status === 'Booking'
+                        ? 'badge-info'
+                        : 'badge-vacant'
+                    }`}
+                  >
+                    {room.status}
+                  </span>
+                  {!isOwnerReadOnly && (
+                    <button
+                      type="button"
+                      className="btn-card-quick-delete"
+                      title={`Hapus Kamar ${room.number} & sinkronkan seluruh halaman`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Yakin ingin menghapus Kamar ${room.number}? Semua data penyewa, tagihan sewa, listrik, dan reservasi untuk kamar ini akan ikut terhapus di seluruh halaman.`)) {
+                          handleDeleteRoom(room.id);
+                        }
+                      }}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        color: '#dc2626',
+                        cursor: 'pointer',
+                        padding: '3px 6px',
+                        borderRadius: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.75rem',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <IconTrash size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Kategori Badge Chip */}

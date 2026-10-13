@@ -33,6 +33,8 @@ import {
   testNeonConnection
 } from '../services/neonSync';
 
+export const ALLOWED_ROOM_NUMBERS = ["101", "102", "103", "104", "105", "201", "202", "203", "204", "205"];
+
 const AppContext = createContext(null);
 
 // Extract live device telemetry from client browser
@@ -186,22 +188,23 @@ export const AppProvider = ({ children }) => {
 
   // Self-heal and reconcile tenant references across all collections
   const reconcileTenantReferences = (tList, rList, pList, eList) => {
-    if (!Array.isArray(tList) || tList.length === 0) {
-      return { rooms: rList, payments: pList, electricityBills: eList };
-    }
     const tenantById = new Map();
     const tenantByRoom = new Map();
-    tList.forEach((t) => {
-      tenantById.set(t.id, t);
-      if (t.roomNumber) tenantByRoom.set(t.roomNumber, t);
+    (tList || []).forEach((t) => {
+      if (t) {
+        tenantById.set(t.id, t);
+        if (t.roomNumber) tenantByRoom.set(String(t.roomNumber), t);
+      }
     });
 
-    const ALLOWED_5_ROOMS = ["101", "102", "103", "104", "105", "201", "202", "203", "204", "205"];
+    const validRoomsList = (rList || []).filter((r) => r && ALLOWED_ROOM_NUMBERS.includes(String(r.number)));
+    const validRoomNumSet = new Set(validRoomsList.map((r) => String(r.number)));
 
-    let roomsChanged = false;
-    const newRooms = (rList || []).filter((r) => r && ALLOWED_5_ROOMS.includes(String(r.number))).map((r) => {
+    let roomsChanged = validRoomsList.length !== (rList || []).length;
+    const newRooms = validRoomsList.map((r) => {
       if (!r) return r;
-      const isDailyDefault = ["201", "202", "203", "204"].includes(String(r.number));
+      const roomNumStr = String(r.number);
+      const isDailyDefault = ["201", "202", "203", "204"].includes(roomNumStr);
       const category = r.category || (isDailyDefault ? 'Harian' : 'Bulanan');
       const dailyPrice = r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000);
       let updatedRoom = { ...r, category, dailyPrice };
@@ -210,40 +213,47 @@ export const AppProvider = ({ children }) => {
         roomsChanged = true;
       }
 
-      const matchTenant = tenantByRoom.get(r.number);
+      const matchTenant = tenantByRoom.get(roomNumStr);
       if (matchTenant && matchTenant.status === 'Aktif') {
         if (r.currentTenant !== matchTenant.name || r.status !== 'Terisi') {
           roomsChanged = true;
           return { ...updatedRoom, currentTenant: matchTenant.name, status: 'Terisi' };
+        }
+      } else if (!isDailyDefault) {
+        if (r.status === 'Terisi' && (!r.currentTenant || !matchTenant)) {
+          roomsChanged = true;
+          return { ...updatedRoom, currentTenant: null, status: 'Kosong' };
         }
       }
       return updatedRoom;
     });
 
     let paymentsChanged = false;
-    const mappedPayments = (pList || []).filter((p) => p && ALLOWED_5_ROOMS.includes(String(p.roomNumber))).map((p) => {
-      const matchTenant =
-        (p.tenantId && tenantById.get(p.tenantId)) ||
-        (p.roomNumber && tenantByRoom.get(p.roomNumber));
-      if (matchTenant) {
-        if (
-          p.tenantName !== matchTenant.name ||
-          p.tenantPhone !== matchTenant.phone ||
-          (p.tenantId && p.tenantId !== matchTenant.id) ||
-          p.roomNumber !== (matchTenant.roomNumber || p.roomNumber)
-        ) {
-          paymentsChanged = true;
-          return {
-            ...p,
-            tenantId: matchTenant.id,
-            tenantName: matchTenant.name,
-            tenantPhone: matchTenant.phone,
-            roomNumber: matchTenant.roomNumber || p.roomNumber
-          };
+    const mappedPayments = (pList || [])
+      .filter((p) => p && validRoomNumSet.has(String(p.roomNumber)))
+      .map((p) => {
+        const matchTenant =
+          (p.tenantId && tenantById.get(p.tenantId)) ||
+          (p.roomNumber && tenantByRoom.get(String(p.roomNumber)));
+        if (matchTenant) {
+          if (
+            p.tenantName !== matchTenant.name ||
+            p.tenantPhone !== matchTenant.phone ||
+            (p.tenantId && p.tenantId !== matchTenant.id) ||
+            p.roomNumber !== (matchTenant.roomNumber || p.roomNumber)
+          ) {
+            paymentsChanged = true;
+            return {
+              ...p,
+              tenantId: matchTenant.id,
+              tenantName: matchTenant.name,
+              tenantPhone: matchTenant.phone,
+              roomNumber: matchTenant.roomNumber || p.roomNumber
+            };
+          }
         }
-      }
-      return p;
-    });
+        return p;
+      });
 
     const newPayments = deduplicatePayments(mappedPayments);
     if (newPayments.length !== (pList || []).length) {
@@ -251,43 +261,43 @@ export const AppProvider = ({ children }) => {
     }
 
     let billsChanged = false;
-    const newBills = (eList || []).filter((b) => b && ALLOWED_5_ROOMS.includes(String(b.roomNumber))).map((b) => {
-      const matchTenant =
-        (b.tenantId && tenantById.get(b.tenantId)) ||
-        (b.roomNumber && tenantByRoom.get(b.roomNumber));
-      if (matchTenant) {
-        if (
-          b.tenantName !== matchTenant.name ||
-          b.tenantPhone !== matchTenant.phone ||
-          (b.tenantId && b.tenantId !== matchTenant.id)
-        ) {
-          billsChanged = true;
-          return {
-            ...b,
-            tenantId: matchTenant.id,
-            tenantName: matchTenant.name,
-            tenantPhone: matchTenant.phone,
-            roomNumber: matchTenant.roomNumber || b.roomNumber
-          };
+    const mappedBills = (eList || [])
+      .filter((b) => b && validRoomNumSet.has(String(b.roomNumber)))
+      .map((b) => {
+        const matchTenant =
+          (b.tenantId && tenantById.get(b.tenantId)) ||
+          (b.roomNumber && tenantByRoom.get(String(b.roomNumber)));
+        if (matchTenant) {
+          if (
+            b.tenantName !== matchTenant.name ||
+            b.tenantPhone !== matchTenant.phone ||
+            (b.tenantId && b.tenantId !== matchTenant.id)
+          ) {
+            billsChanged = true;
+            return {
+              ...b,
+              tenantId: matchTenant.id,
+              tenantName: matchTenant.name,
+              tenantPhone: matchTenant.phone,
+              roomNumber: matchTenant.roomNumber || b.roomNumber
+            };
+          }
         }
-      }
-      return b;
-    });
+        return b;
+      });
 
-    const dedupedBills = deduplicateElectricityBills(newBills);
+    const dedupedBills = deduplicateElectricityBills(mappedBills);
     if (dedupedBills.length !== (eList || []).length) {
       billsChanged = true;
     }
 
     return {
-      rooms: roomsChanged ? newRooms : rList,
-      payments: paymentsChanged ? newPayments : pList,
-      electricityBills: billsChanged ? dedupedBills : eList,
+      rooms: newRooms,
+      payments: newPayments,
+      electricityBills: dedupedBills,
       hasAnyChange: roomsChanged || paymentsChanged || billsChanged
     };
   };
-
-  const ALLOWED_5_ROOMS = ["101", "102", "103", "104", "105", "201", "202", "203", "204", "205"];
 
   // App Data States - Lantai 1 (101-105) & Lantai 2 (201-205) - tepat 5 kamar per lantai
   const [tenants, setTenants] = useState(() => {
@@ -488,15 +498,45 @@ const decompressPayload = async (base64Str) => {
       saveState('lastLocalVersion', remoteVersion);
       saveState('lastLocalEditTime', remoteTime || Date.now());
 
-      const reconciled = reconcileTenantReferences(
-        cloudData.tenants,
-        cloudData.rooms || rooms,
-        cloudData.payments || payments,
-        cloudData.electricityBills || electricityBills
+      // 1. Strict Room Sanitization: only valid ALLOWED_ROOM_NUMBERS
+      const allowedSet = new Set(ALLOWED_ROOM_NUMBERS);
+      const incomingRooms = Array.isArray(cloudData.rooms) && cloudData.rooms.length > 0 ? cloudData.rooms : rooms;
+      const sanitizedRooms = incomingRooms.filter((r) => r && allowedSet.has(String(r.number)));
+      const validRoomNumbers = new Set(sanitizedRooms.map((r) => String(r.number)));
+
+      // 2. Strict Tenant Sanitization: tenant's room MUST exist in sanitizedRooms!
+      const incomingTenants = Array.isArray(cloudData.tenants) ? cloudData.tenants : tenants;
+      const sanitizedTenants = incomingTenants.filter(
+        (t) => t && validRoomNumbers.has(String(t.roomNumber))
       );
 
-      setTenants(cloudData.tenants);
-      saveState('tenants', cloudData.tenants);
+      // 3. Strict Payments Sanitization: payment's room MUST exist in sanitizedRooms!
+      const incomingPayments = Array.isArray(cloudData.payments) ? cloudData.payments : payments;
+      const sanitizedPayments = incomingPayments.filter(
+        (p) => p && validRoomNumbers.has(String(p.roomNumber))
+      );
+
+      // 4. Strict Electricity Sanitization: bill's room MUST exist in sanitizedRooms!
+      const incomingBills = Array.isArray(cloudData.electricityBills) ? cloudData.electricityBills : electricityBills;
+      const sanitizedBills = incomingBills.filter(
+        (b) => b && validRoomNumbers.has(String(b.roomNumber))
+      );
+
+      // 5. Strict Daily Bookings Sanitization: booking's room MUST exist in sanitizedRooms!
+      const incomingBookings = Array.isArray(cloudData.dailyBookings) ? cloudData.dailyBookings : dailyBookings;
+      const sanitizedBookings = incomingBookings.filter(
+        (b) => b && validRoomNumbers.has(String(b.roomNumber))
+      );
+
+      const reconciled = reconcileTenantReferences(
+        sanitizedTenants,
+        sanitizedRooms,
+        sanitizedPayments,
+        sanitizedBills
+      );
+
+      setTenants(sanitizedTenants);
+      saveState('tenants', sanitizedTenants);
 
       setRooms(reconciled.rooms);
       saveState('rooms', reconciled.rooms);
@@ -506,6 +546,9 @@ const decompressPayload = async (base64Str) => {
 
       setElectricityBills(reconciled.electricityBills);
       saveState('electricity', reconciled.electricityBills);
+
+      setDailyBookings(sanitizedBookings);
+      saveState('dailyBookings', sanitizedBookings);
 
       if (Array.isArray(cloudData.staffList)) {
         setStaffList(cloudData.staffList);
@@ -539,14 +582,28 @@ const decompressPayload = async (base64Str) => {
         setSessionHistory(cloudData.sessionHistory);
         saveState('sessionHistory', cloudData.sessionHistory);
       }
-      if (Array.isArray(cloudData.dailyBookings)) {
-        setDailyBookings(cloudData.dailyBookings);
-        saveState('dailyBookings', cloudData.dailyBookings);
-      }
       if (Array.isArray(cloudData.activeSessions)) {
         const liveOnly = cloudData.activeSessions.filter((s) => s && s.id && s.id.startsWith('sess-live-'));
         setActiveSessions(liveOnly);
         saveState('activeSessions', liveOnly);
+      }
+
+      // If incoming remote data was contaminated with obsolete rooms (>10) or orphaned records,
+      // heal cloud database by pushing clean sanitized dataset
+      const wasContaminated =
+        incomingRooms.length > sanitizedRooms.length ||
+        incomingTenants.length > sanitizedTenants.length;
+
+      if (wasContaminated) {
+        setTimeout(() => {
+          pushToCloud({
+            rooms: reconciled.rooms,
+            tenants: sanitizedTenants,
+            payments: reconciled.payments,
+            electricityBills: reconciled.electricityBills,
+            dailyBookings: sanitizedBookings
+          });
+        }, 1000);
       }
 
       lastUploadedTimestampRef.current = remoteTime;
@@ -1636,7 +1693,7 @@ const decompressPayload = async (base64Str) => {
     if (!tenantToDelete) return;
 
     const delName = tenantToDelete.name;
-    const delRoom = tenantToDelete.roomNumber;
+    const delRoom = String(tenantToDelete.roomNumber);
     const now = Date.now();
     saveState('lastLocalEditTime', now);
 
@@ -1646,29 +1703,29 @@ const decompressPayload = async (base64Str) => {
 
     // Set room to Kosong
     const newRooms = rooms.map((r) =>
-      r.number === delRoom || (delName && r.currentTenant === delName)
+      String(r.number) === delRoom || (delName && r.currentTenant === delName)
         ? { ...r, status: 'Kosong', currentTenant: null }
         : r
     );
     setRooms(newRooms);
     saveState('rooms', newRooms);
 
-    // Hapus tagihan sewa & listrik yang masih Belum Bayar untuk kamar yang ditinggalkan
+    // Hapus seluruh tagihan sewa & listrik untuk tenant ini (agar saling terkoneksi di seluruh halaman)
     const newPayments = payments.filter(
-      (p) => !(String(p.roomNumber).trim() === String(delRoom).trim() && p.status === 'Belum Bayar')
+      (p) => !(p.tenantId === tenantId || (String(p.roomNumber).trim() === delRoom.trim() && p.tenantName === delName))
     );
     setPayments(newPayments);
     saveState('payments', newPayments);
 
     const newElecBills = electricityBills.filter(
-      (b) => !(String(b.roomNumber).trim() === String(delRoom).trim() && b.status === 'Belum Bayar')
+      (b) => !(b.tenantId === tenantId || (String(b.roomNumber).trim() === delRoom.trim() && b.tenantName === delName))
     );
     setElectricityBills(newElecBills);
     saveState('electricity', newElecBills);
 
     pushToCloud({ tenants: newTenants, rooms: newRooms, payments: newPayments, electricityBills: newElecBills });
-    logActivity('Hapus Anak Kos', `Menghapus anak kos ${tenantToDelete.name} dari kamar ${tenantToDelete.roomNumber}`);
-    addToast(`Data penghuni ${tenantToDelete.name} telah dihapus`, 'info');
+    logActivity('Hapus Anak Kos', `Menghapus anak kos ${tenantToDelete.name} dari Kamar ${tenantToDelete.roomNumber}. Kamar kini berstatus Kosong dan tagihan disinkronkan.`);
+    addToast(`Data penghuni ${tenantToDelete.name} telah dihapus & Kamar ${delRoom} kembali kosong`, 'info');
   };
 
   // Room CRUD
@@ -1829,28 +1886,118 @@ const decompressPayload = async (base64Str) => {
 
     setDailyBookings(updatedBookings);
     saveState('dailyBookings', updatedBookings);
-    pushToCloud({ dailyBookings: updatedBookings });
+
+    let updatedRooms = rooms;
+    if (target?.roomNumber) {
+      const remainingForRoom = updatedBookings.filter((b) => String(b.roomNumber) === String(target.roomNumber));
+      if (remainingForRoom.length === 0) {
+        updatedRooms = rooms.map((r) =>
+          String(r.number) === String(target.roomNumber) && r.category === 'Harian' && r.status === 'Booking'
+            ? { ...r, status: 'Kosong', currentTenant: null }
+            : r
+        );
+        setRooms(updatedRooms);
+        saveState('rooms', updatedRooms);
+      }
+    }
+
+    pushToCloud({ dailyBookings: updatedBookings, rooms: updatedRooms });
 
     logActivity('Batalkan Booking Harian', `Menghapus reservasi Kamar ${target?.roomNumber || ''} a/n ${target?.guestName || ''}`);
     addToast('Reservasi sewa harian berhasil dihapus', 'info');
   };
 
   const handleDeleteRoom = (roomId) => {
-    if (currentUser.role === 'owner') {
+    if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan menghapus data kamar!', 'error');
       return;
     }
-    const roomToDelete = rooms.find((r) => r.id === roomId);
+    const roomToDelete = rooms.find((r) => r.id === roomId || String(r.number) === String(roomId));
     if (!roomToDelete) return;
+    const roomNum = String(roomToDelete.number);
 
     const now = Date.now();
     saveState('lastLocalEditTime', now);
-    const newRooms = rooms.filter((r) => r.id !== roomId);
+
+    // 1. Remove room from rooms list
+    const newRooms = rooms.filter((r) => r.id !== roomId && String(r.number) !== roomNum);
     setRooms(newRooms);
     saveState('rooms', newRooms);
-    pushToCloud({ rooms: newRooms });
-    logActivity('Hapus Kamar', `Menghapus unit Kamar ${roomToDelete.number}`);
-    addToast(`Kamar ${roomToDelete.number} telah dihapus dari sistem`, 'info');
+
+    // 2. Cascade delete tenant in this room (saling terkoneksi di seluruh halaman)
+    const newTenants = tenants.filter((t) => String(t.roomNumber) !== roomNum);
+    setTenants(newTenants);
+    saveState('tenants', newTenants);
+
+    // 3. Cascade delete rent payments for this room
+    const newPayments = payments.filter((p) => String(p.roomNumber) !== roomNum);
+    setPayments(newPayments);
+    saveState('payments', newPayments);
+
+    // 4. Cascade delete electricity bills for this room
+    const newBills = electricityBills.filter((b) => String(b.roomNumber) !== roomNum);
+    setElectricityBills(newBills);
+    saveState('electricity', newBills);
+
+    // 5. Cascade delete daily bookings for this room
+    const newBookings = dailyBookings.filter((b) => String(b.roomNumber) !== roomNum);
+    setDailyBookings(newBookings);
+    saveState('dailyBookings', newBookings);
+
+    // 6. Push all cascade deletions to cloud immediately
+    pushToCloud({
+      rooms: newRooms,
+      tenants: newTenants,
+      payments: newPayments,
+      electricityBills: newBills,
+      dailyBookings: newBookings
+    });
+
+    logActivity(
+      'Hapus Kamar & Sinkronisasi Semua Halaman',
+      `Menghapus unit Kamar ${roomToDelete.number}. Seluruh data penyewa, tagihan sewa, tagihan listrik & jadwal reservasi otomatis terhapus.`
+    );
+    addToast(`Kamar ${roomToDelete.number} beserta seluruh data terkait telah dihapus di semua halaman`, 'info');
+  };
+
+  const handleDeletePayment = (paymentId) => {
+    if (currentUser?.role === 'owner') {
+      addToast('Owner tidak diizinkan menghapus tagihan sewa!', 'error');
+      return;
+    }
+    const target = payments.find((p) => p.id === paymentId);
+    if (!target) return;
+
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+
+    const newPayments = payments.filter((p) => p.id !== paymentId);
+    setPayments(newPayments);
+    saveState('payments', newPayments);
+
+    pushToCloud({ payments: newPayments });
+    logActivity('Hapus Tagihan Sewa', `Menghapus tagihan sewa Kamar ${target.roomNumber} (${target.month})`);
+    addToast(`Tagihan sewa Kamar ${target.roomNumber} (${target.month}) berhasil dihapus`, 'info');
+  };
+
+  const handleDeleteElectricityBill = (billId) => {
+    if (currentUser?.role === 'owner') {
+      addToast('Owner tidak diizinkan menghapus tagihan listrik!', 'error');
+      return;
+    }
+    const target = electricityBills.find((b) => b.id === billId);
+    if (!target) return;
+
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
+
+    const newBills = electricityBills.filter((b) => b.id !== billId);
+    setElectricityBills(newBills);
+    saveState('electricity', newBills);
+
+    pushToCloud({ electricityBills: newBills });
+    logActivity('Hapus Tagihan Listrik', `Menghapus tagihan listrik Kamar ${target.roomNumber} (${target.month})`);
+    addToast(`Tagihan listrik Kamar ${target.roomNumber} (${target.month}) berhasil dihapus`, 'info');
   };
 
   // Electricity record save
@@ -2294,6 +2441,7 @@ const decompressPayload = async (base64Str) => {
         logout,
         handleValidatePayment,
         handleValidateMultiMonthPayment,
+        handleDeletePayment,
         generateMonthlyBills,
         handleBulkValidateMonth,
         handleAddStaffRating,
@@ -2306,6 +2454,7 @@ const decompressPayload = async (base64Str) => {
         handleUpdateDailyBookingPayment,
         handleDeleteDailyBooking,
         handleSaveElectricityBill,
+        handleDeleteElectricityBill,
         generateMonthlyElectricityBills,
         handleUpdateElectricityToken,
         handleQuickUpdateElectricity,

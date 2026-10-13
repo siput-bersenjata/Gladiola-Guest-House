@@ -125,6 +125,10 @@ export const PenyewaView = () => {
   };
 
   const filteredTenants = tenants.filter((t) => {
+    // KONEKSI UTAMA: Kamar harus benar-benar ada di master data rooms (halaman kamar)!
+    const roomExists = rooms.some((r) => String(r.number) === String(t.roomNumber));
+    if (!roomExists) return false;
+
     const matchSearch =
       t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (t.phone && t.phone.includes(searchTerm)) ||
@@ -136,8 +140,9 @@ export const PenyewaView = () => {
     return matchSearch && matchType && matchFloor;
   });
 
-  const floor1Count = tenants.filter((t) => String(t.roomNumber).startsWith('1')).length;
-  const floor2Count = tenants.filter((t) => String(t.roomNumber).startsWith('2')).length;
+  const validTenants = tenants.filter((t) => rooms.some((r) => String(r.number) === String(t.roomNumber)));
+  const floor1Count = validTenants.filter((t) => String(t.roomNumber).startsWith('1')).length;
+  const floor2Count = validTenants.filter((t) => String(t.roomNumber).startsWith('2')).length;
 
   // =========================================================================
   // DEDICATED FULL-PAGE FORM VIEW (NO CUT-OFF POPUP MODAL)

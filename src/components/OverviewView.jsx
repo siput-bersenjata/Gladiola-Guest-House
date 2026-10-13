@@ -92,6 +92,10 @@ export const OverviewView = () => {
   // Filtered daily bookings (KHUSUS kamar yang disewakan per hari sesuai instruksi user)
   const filteredDailyBookings = useMemo(() => {
     return (dailyBookings || []).filter((b) => {
+      // KONEKSI UTAMA: Kamar harus benar-benar ada di master rooms (halaman kamar)
+      const roomExists = rooms.some((r) => String(r.number) === String(b.roomNumber));
+      if (!roomExists) return false;
+
       const matchPayment = schedulePaymentFilter === 'all' || b.paymentStatus === schedulePaymentFilter;
       const matchStay = scheduleStayFilter === 'all' || b.stayStatus === scheduleStayFilter;
       const q = scheduleSearch.toLowerCase().trim();
@@ -104,7 +108,7 @@ export const OverviewView = () => {
         b.roomType?.toLowerCase().includes(q);
       return matchPayment && matchStay && matchSearch;
     });
-  }, [dailyBookings, schedulePaymentFilter, scheduleStayFilter, scheduleSearch]);
+  }, [dailyBookings, rooms, schedulePaymentFilter, scheduleStayFilter, scheduleSearch]);
 
   // Paged daily bookings
   const totalPages = Math.ceil(filteredDailyBookings.length / pageSize) || 1;
