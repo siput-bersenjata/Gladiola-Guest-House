@@ -13,7 +13,9 @@ import {
   INITIAL_ELECTRICITY_BILLS,
   INITIAL_OPERATORS,
   INITIAL_ACTIVITY_LOGS,
-  INITIAL_SESSION_HISTORY
+  INITIAL_SESSION_HISTORY,
+  deduplicatePayments,
+  getNextMonthName
 } from '../data/initialData';
 import {
   getStoredFirebaseConfig,
@@ -205,7 +207,7 @@ export const AppProvider = ({ children }) => {
     });
 
     let paymentsChanged = false;
-    const newPayments = (pList || []).map((p) => {
+    const mappedPayments = (pList || []).map((p) => {
       const matchTenant =
         (p.tenantId && tenantById.get(p.tenantId)) ||
         (p.roomNumber && tenantByRoom.get(p.roomNumber));
@@ -213,7 +215,8 @@ export const AppProvider = ({ children }) => {
         if (
           p.tenantName !== matchTenant.name ||
           p.tenantPhone !== matchTenant.phone ||
-          (p.tenantId && p.tenantId !== matchTenant.id)
+          (p.tenantId && p.tenantId !== matchTenant.id) ||
+          p.roomNumber !== (matchTenant.roomNumber || p.roomNumber)
         ) {
           paymentsChanged = true;
           return {
@@ -227,6 +230,11 @@ export const AppProvider = ({ children }) => {
       }
       return p;
     });
+
+    const newPayments = deduplicatePayments(mappedPayments);
+    if (newPayments.length !== (pList || []).length) {
+      paymentsChanged = true;
+    }
 
     let billsChanged = false;
     const newBills = (eList || []).map((b) => {
@@ -284,9 +292,9 @@ export const AppProvider = ({ children }) => {
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
     if (!saved || !Array.isArray(saved) || saved.length < 10) {
-      return INITIAL_RENT_PAYMENTS;
+      return deduplicatePayments(INITIAL_RENT_PAYMENTS);
     }
-    return saved;
+    return deduplicatePayments(saved);
   });
   const [electricityBills, setElectricityBills] = useState(() => {
     const saved = loadState('electricity', null);
@@ -1100,7 +1108,18 @@ const decompressPayload = async (base64Str) => {
     addToast('Anda telah berhasil keluar dari sistem.', 'info');
   };
 
+  const formatValidationDateTime = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+  };
+
   // Generate Monthly Bills for all active tenants when a month changes or is selected
+  // Strictly enforces: 1 room = 1 bill per month
   const generateMonthlyBills = (targetMonth) => {
     if (!targetMonth || targetMonth === 'all') return 0;
 
@@ -1108,14 +1127,15 @@ const decompressPayload = async (base64Str) => {
     let addedCount = 0;
 
     setPayments((prev) => {
+      const dedupedPrev = deduplicatePayments(prev);
       const newBills = [];
       activeTenants.forEach((tenant) => {
-        const hasBill = prev.some((p) => {
+        const hasBill = dedupedPrev.some((p) => {
           const matchMonth =
             p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
             p.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
-          const matchTenant = p.tenantId === tenant.id || p.roomNumber === tenant.roomNumber;
-          return matchMonth && matchTenant;
+          const matchRoom = String(p.roomNumber).trim() === String(tenant.roomNumber).trim();
+          return matchMonth && matchRoom;
         });
 
         if (!hasBill) {
@@ -1141,26 +1161,24 @@ const decompressPayload = async (base64Str) => {
 
       if (newBills.length > 0) {
         addedCount = newBills.length;
-        logActivity(
-          `Penerbitan Tagihan: ${targetMonth}`,
-          `Otomatis menerbitkan ${newBills.length} tagihan sewa bulanan ${targetMonth} untuk seluruh penghuni aktif.`
-        );
-        return [...prev, ...newBills];
+        const result = deduplicatePayments([...dedupedPrev, ...newBills]);
+        saveState('payments', result);
+        return result;
       }
-      return prev;
+      return dedupedPrev;
     });
 
     return addedCount;
   };
 
-  // Actions
+  // Actions: Validasi pembayaran (paidAt diisi tanggal & jam saat divalidasi)
   const handleValidatePayment = (paymentId, newStatus, customMethod = null) => {
-    const nowStr = new Date().toLocaleString('id-ID');
+    const nowStr = formatValidationDateTime();
     const isApproval = newStatus === 'Tervalidasi';
     const now = Date.now();
     saveState('lastLocalEditTime', now);
 
-    const newPayments = payments.map((p) => {
+    const updatedPayments = payments.map((p) => {
       if (p.id === paymentId) {
         return {
           ...p,
@@ -1168,14 +1186,15 @@ const decompressPayload = async (base64Str) => {
           paymentMethod: isApproval
             ? (customMethod || (p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA'))
             : (newStatus === 'Belum Bayar' ? 'Belum Transfer' : p.paymentMethod),
-          paidAt: isApproval ? (p.paidAt || nowStr) : (newStatus === 'Belum Bayar' ? null : p.paidAt),
-          validatedBy: isApproval ? (currentUser?.name || 'Petugas Gladiola') : null,
+          paidAt: isApproval ? nowStr : (newStatus === 'Belum Bayar' ? null : p.paidAt),
+          validatedBy: isApproval ? (currentUser?.name || 'Operator Taman') : null,
           validatedAt: isApproval ? nowStr : null
         };
       }
       return p;
     });
 
+    const newPayments = deduplicatePayments(updatedPayments);
     setPayments(newPayments);
     saveState('payments', newPayments);
     pushToCloud({ payments: newPayments });
@@ -1189,15 +1208,84 @@ const decompressPayload = async (base64Str) => {
     addToast(`Tagihan sewa ${label} berhasil diubah ke ${newStatus}`, 'success');
   };
 
+  // Validasi pembayaran lunas beberapa bulan sekaligus (Multi-Month Validation)
+  // Menjamin setiap bulan terekam per 1 kamar saja (misal September lunas, Oktober lunas, November lunas)
+  const handleValidateMultiMonthPayment = (paymentId, monthCount, startMonth, customMethod = 'Transfer Bank BCA') => {
+    const target = payments.find((p) => p.id === paymentId);
+    if (!target) return;
+    const nowStr = formatValidationDateTime();
+    const count = Math.max(1, parseInt(monthCount) || 1);
+
+    const monthsList = [startMonth || target.month];
+    for (let i = 1; i < count; i++) {
+      monthsList.push(getNextMonthName(monthsList[i - 1]));
+    }
+
+    setPayments((prev) => {
+      let updated = deduplicatePayments([...prev]);
+
+      monthsList.forEach((m) => {
+        const cleanM = m.toLowerCase().trim();
+        const existingIdx = updated.findIndex((p) =>
+          p.month.toLowerCase().trim() === cleanM &&
+          String(p.roomNumber).trim() === String(target.roomNumber).trim()
+        );
+
+        if (existingIdx >= 0) {
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            status: 'Tervalidasi',
+            paymentMethod: customMethod,
+            paidAt: nowStr,
+            validatedBy: currentUser?.name || 'Operator Taman',
+            validatedAt: nowStr
+          };
+        } else {
+          const monthClean = m.replace(/\s+/g, '').toLowerCase();
+          updated.push({
+            id: `pay-${monthClean}-${target.roomNumber}`,
+            tenantId: target.tenantId,
+            tenantName: target.tenantName,
+            tenantPhone: target.tenantPhone,
+            roomNumber: target.roomNumber,
+            month: m,
+            amount: target.amount || 1750000,
+            paidAt: nowStr,
+            paymentMethod: customMethod,
+            status: 'Tervalidasi',
+            validatedBy: currentUser?.name || 'Operator Taman',
+            validatedAt: nowStr,
+            proofUrl: target.proofUrl || null,
+            ratingGiven: false
+          });
+        }
+      });
+
+      const finalPayments = deduplicatePayments(updated);
+      saveState('payments', finalPayments);
+      pushToCloud({ payments: finalPayments });
+      return finalPayments;
+    });
+
+    logActivity(
+      `Validasi Multi-Bulan: Kamar ${target.roomNumber}`,
+      `Validasi lunas ${count} bulan (${monthsList.join(', ')}) untuk Kamar ${target.roomNumber} (${target.tenantName}) oleh ${currentUser?.name || 'Petugas'}`
+    );
+    addToast(
+      `Berhasil memvalidasi lunas ${count} bulan untuk Kamar ${target.roomNumber} (${monthsList[0]} s/d ${monthsList[monthsList.length - 1]})!`,
+      'success'
+    );
+  };
+
   // Bulk validate all bills for a specific month (memudahkan petugas dalam 1 klik)
   const handleBulkValidateMonth = (targetMonth) => {
     if (!targetMonth || targetMonth === 'all') return;
-    const nowStr = new Date().toLocaleString('id-ID');
+    const nowStr = formatValidationDateTime();
     let updatedCount = 0;
     const now = Date.now();
     saveState('lastLocalEditTime', now);
 
-    const newPayments = payments.map((p) => {
+    const updatedPayments = payments.map((p) => {
       const matchMonth =
         p.month.toLowerCase().trim() === targetMonth.toLowerCase().trim() ||
         p.month.toLowerCase().includes(targetMonth.toLowerCase().trim());
@@ -1207,14 +1295,15 @@ const decompressPayload = async (base64Str) => {
           ...p,
           status: 'Tervalidasi',
           paymentMethod: p.paymentMethod && p.paymentMethod !== 'Belum Transfer' ? p.paymentMethod : 'Transfer Bank BCA',
-          paidAt: p.paidAt || nowStr,
-          validatedBy: currentUser?.name || 'Petugas Gladiola',
+          paidAt: nowStr,
+          validatedBy: currentUser?.name || 'Operator Taman',
           validatedAt: nowStr
         };
       }
       return p;
     });
 
+    const newPayments = deduplicatePayments(updatedPayments);
     setPayments(newPayments);
     saveState('payments', newPayments);
     pushToCloud({ payments: newPayments });
@@ -1982,6 +2071,7 @@ const decompressPayload = async (base64Str) => {
         loginByPhone,
         logout,
         handleValidatePayment,
+        handleValidateMultiMonthPayment,
         generateMonthlyBills,
         handleBulkValidateMonth,
         handleAddStaffRating,

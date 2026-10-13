@@ -706,11 +706,67 @@ const REMAINING_OCTOBER_PAYMENTS = INITIAL_TENANTS
     ratingGiven: false
   }));
 
-export const INITIAL_RENT_PAYMENTS = [
+export const INDONESIAN_MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+export const getNextMonthName = (monthStr) => {
+  if (!monthStr) return 'November 2026';
+  const parts = monthStr.trim().split(/\s+/);
+  if (parts.length < 2) return monthStr;
+  const name = parts[0];
+  let year = parseInt(parts[1]) || 2026;
+  let idx = INDONESIAN_MONTH_NAMES.findIndex(
+    (m) => m.toLowerCase() === name.toLowerCase()
+  );
+  if (idx === -1) return monthStr;
+  idx += 1;
+  if (idx >= 12) {
+    idx = 0;
+    year += 1;
+  }
+  return `${INDONESIAN_MONTH_NAMES[idx]} ${year}`;
+};
+
+export const deduplicatePayments = (paymentsList) => {
+  if (!Array.isArray(paymentsList)) return [];
+  const map = new Map();
+
+  paymentsList.forEach((p) => {
+    if (!p || !p.month || !p.roomNumber) return;
+    const cleanMonth = p.month.toLowerCase().trim();
+    const cleanRoom = String(p.roomNumber).trim();
+    const key = `${cleanMonth}_${cleanRoom}`;
+
+    if (!map.has(key)) {
+      map.set(key, p);
+    } else {
+      const existing = map.get(key);
+      const statusScore = (s) => (s === 'Tervalidasi' ? 3 : s === 'Menunggu Validasi' ? 2 : 1);
+      const existingScore = statusScore(existing.status);
+      const newScore = statusScore(p.status);
+
+      if (newScore > existingScore) {
+        map.set(key, p);
+      } else if (newScore === existingScore) {
+        if (p.proofUrl && !existing.proofUrl) {
+          map.set(key, p);
+        } else if (p.paidAt && !existing.paidAt) {
+          map.set(key, p);
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values());
+};
+
+export const INITIAL_RENT_PAYMENTS = deduplicatePayments([
   ...SPECIFIC_PAYMENTS,
   ...REMAINING_OCTOBER_PAYMENTS,
   ...HISTORY_PAYMENTS
-];
+]);
 
 // Base electricity bills with specific states and tokens for Oktober 2026
 const SPECIFIC_ELEC_BILLS = [

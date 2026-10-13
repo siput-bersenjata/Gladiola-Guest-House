@@ -2232,6 +2232,63 @@ html, body {
   white-space: nowrap;
 }
 
+.data-table thead th.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.data-table thead th.sortable-th:hover {
+  background: var(--forest-100);
+  color: var(--forest-900);
+}
+
+.data-table thead th.sortable-th .th-sort-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.data-table thead th.sortable-th .sort-indicator {
+  font-size: 0.74rem;
+  opacity: 0.4;
+  transition: opacity 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.data-table thead th.sortable-th.active-sort {
+  color: var(--forest-900);
+  background: rgba(30, 77, 55, 0.08);
+}
+
+.data-table thead th.sortable-th.active-sort .sort-indicator {
+  opacity: 1;
+  color: var(--forest-800);
+  font-weight: 900;
+}
+
+.btn-multi-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-multi-month:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+  transform: translateY(-1px);
+}
+
 .data-table tbody td {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border-subtle);

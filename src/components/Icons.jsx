@@ -317,3 +317,4 @@ export const IconGladiolLogo = ({ size = 32, className = "" }) => (
   </svg>
 );
 
+
