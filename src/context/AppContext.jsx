@@ -34,6 +34,7 @@ import {
 } from '../services/neonSync';
 
 export const ALLOWED_ROOM_NUMBERS = ["101", "102", "103", "104", "105", "201", "202", "203", "204", "205"];
+export const ALLOWED_5_ROOMS = ALLOWED_ROOM_NUMBERS;
 
 const AppContext = createContext(null);
 
@@ -305,13 +306,13 @@ export const AppProvider = ({ children }) => {
     if (!saved || !Array.isArray(saved) || saved.length < 3) {
       return INITIAL_TENANTS;
     }
-    const filtered = saved.filter((t) => t && ALLOWED_5_ROOMS.includes(String(t.roomNumber)));
+    const filtered = saved.filter((t) => t && ALLOWED_ROOM_NUMBERS.includes(String(t.roomNumber)));
     return filtered.length >= 3 ? filtered : INITIAL_TENANTS;
   });
   const [rooms, setRooms] = useState(() => {
     const saved = loadState('rooms', INITIAL_ROOMS);
     if (!saved || !Array.isArray(saved) || saved.length === 0) return INITIAL_ROOMS;
-    const purged = saved.filter((r) => r && ALLOWED_5_ROOMS.includes(String(r.number)));
+    const purged = saved.filter((r) => r && ALLOWED_ROOM_NUMBERS.includes(String(r.number)));
     const sourceRooms = purged.length === 10 ? purged : INITIAL_ROOMS;
     return sourceRooms.map((r, idx) => {
       const initialMatch = INITIAL_ROOMS.find((ir) => ir.number === r.number) || INITIAL_ROOMS[idx];
@@ -331,18 +332,18 @@ export const AppProvider = ({ children }) => {
     if (!saved || !Array.isArray(saved) || saved.length === 0) {
       return INITIAL_DAILY_BOOKINGS;
     }
-    const filtered = saved.filter((b) => b && ALLOWED_5_ROOMS.includes(String(b.roomNumber)));
+    const filtered = saved.filter((b) => b && ALLOWED_ROOM_NUMBERS.includes(String(b.roomNumber)));
     return filtered.length > 0 ? filtered : INITIAL_DAILY_BOOKINGS;
   });
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
     const base = (!saved || !Array.isArray(saved) || saved.length < 3) ? INITIAL_RENT_PAYMENTS : saved;
-    return deduplicatePayments(base.filter((p) => p && ALLOWED_5_ROOMS.includes(String(p.roomNumber))));
+    return deduplicatePayments(base.filter((p) => p && ALLOWED_ROOM_NUMBERS.includes(String(p.roomNumber))));
   });
   const [electricityBills, setElectricityBills] = useState(() => {
     const saved = loadState('electricity', null);
     const base = (!saved || !Array.isArray(saved) || saved.length < 3) ? INITIAL_ELECTRICITY_BILLS : saved;
-    return deduplicateElectricityBills(base.filter((b) => b && ALLOWED_5_ROOMS.includes(String(b.roomNumber))));
+    return deduplicateElectricityBills(base.filter((b) => b && ALLOWED_ROOM_NUMBERS.includes(String(b.roomNumber))));
   });
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));
