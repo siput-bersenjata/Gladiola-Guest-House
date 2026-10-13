@@ -12,7 +12,8 @@ import {
   IconShield,
   IconCalendar,
   IconSearch,
-  IconClock
+  IconClock,
+  IconPlus
 } from './Icons';
 import { GLADIOLA_COORDS } from '../data/initialData';
 
@@ -612,7 +613,7 @@ export const OverviewView = () => {
                     {/* Tarif & Total Biaya */}
                     <td>
                       <strong className="text-gray-900">
-                        Rp {item.totalAmount.toLocaleString('id-ID')}
+                        Rp {(item.totalAmount || 0).toLocaleString('id-ID')}
                       </strong>
                       <span className="tenant-subtext">
                         @{item.dailyPrice?.toLocaleString('id-ID')}/malam

@@ -198,14 +198,24 @@ export const AppProvider = ({ children }) => {
 
     let roomsChanged = false;
     const newRooms = (rList || []).map((r) => {
+      if (!r) return r;
+      const isDailyDefault = ["301", "302", "303", "304", "305", "306"].includes(String(r.number));
+      const category = r.category || (isDailyDefault ? 'Harian' : 'Bulanan');
+      const dailyPrice = r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000);
+      let updatedRoom = { ...r, category, dailyPrice };
+
+      if (!r.category || !r.dailyPrice) {
+        roomsChanged = true;
+      }
+
       const matchTenant = tenantByRoom.get(r.number);
       if (matchTenant && matchTenant.status === 'Aktif') {
         if (r.currentTenant !== matchTenant.name || r.status !== 'Terisi') {
           roomsChanged = true;
-          return { ...r, currentTenant: matchTenant.name, status: 'Terisi' };
+          return { ...updatedRoom, currentTenant: matchTenant.name, status: 'Terisi' };
         }
       }
-      return r;
+      return updatedRoom;
     });
 
     let paymentsChanged = false;

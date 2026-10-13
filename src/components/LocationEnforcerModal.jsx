@@ -13,7 +13,7 @@ export const LocationEnforcerModal = () => {
 
   const [isRequesting, setIsRequesting] = useState(false);
 
-  if (!isLocationEnforcedModalOpen && userLocation.status === 'granted') {
+  if (!isLocationEnforcedModalOpen && userLocation?.status === 'granted') {
     return null;
   }
 
@@ -68,10 +68,10 @@ export const LocationEnforcerModal = () => {
         </div>
 
         {/* Status display */}
-        {userLocation.status === 'granted' ? (
+        {userLocation?.status === 'granted' ? (
           <div className="location-status-badge success">
             <IconCheck size={18} />
-            <span>Lokasi Terverifikasi ({userLocation.distanceKm} km dari Kos)</span>
+            <span>Lokasi Terverifikasi ({userLocation?.distanceKm ?? 0} km dari Kos)</span>
           </div>
         ) : (
           <div className="location-status-badge pending">
