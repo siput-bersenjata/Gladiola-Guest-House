@@ -197,9 +197,9 @@ export const AppProvider = ({ children }) => {
     });
 
     let roomsChanged = false;
-    const newRooms = (rList || []).map((r) => {
+    const newRooms = (rList || []).filter((r) => r && r.floor <= 2 && !String(r.number).startsWith('3')).map((r) => {
       if (!r) return r;
-      const isDailyDefault = ["301", "302", "303", "304", "305", "306"].includes(String(r.number));
+      const isDailyDefault = ["201", "202", "203", "204", "205", "206"].includes(String(r.number));
       const category = r.category || (isDailyDefault ? 'Harian' : 'Bulanan');
       const dailyPrice = r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000);
       let updatedRoom = { ...r, category, dailyPrice };
@@ -219,7 +219,7 @@ export const AppProvider = ({ children }) => {
     });
 
     let paymentsChanged = false;
-    const mappedPayments = (pList || []).map((p) => {
+    const mappedPayments = (pList || []).filter((p) => p && !String(p.roomNumber).startsWith('3')).map((p) => {
       const matchTenant =
         (p.tenantId && tenantById.get(p.tenantId)) ||
         (p.roomNumber && tenantByRoom.get(p.roomNumber));
@@ -249,7 +249,7 @@ export const AppProvider = ({ children }) => {
     }
 
     let billsChanged = false;
-    const newBills = (eList || []).map((b) => {
+    const newBills = (eList || []).filter((b) => b && !String(b.roomNumber).startsWith('3')).map((b) => {
       const matchTenant =
         (b.tenantId && tenantById.get(b.tenantId)) ||
         (b.roomNumber && tenantByRoom.get(b.roomNumber));
@@ -285,22 +285,26 @@ export const AppProvider = ({ children }) => {
     };
   };
 
-  // App Data States - smart fallback ensures full 48 tenants on fresh/old installs
+  // App Data States - Lantai 1 & 2 (Total 36 Kamar)
   const [tenants, setTenants] = useState(() => {
     const saved = loadState('tenants', null);
-    if (!saved || !Array.isArray(saved) || saved.length < 10) {
+    if (!saved || !Array.isArray(saved) || saved.length < 5) {
       return INITIAL_TENANTS;
     }
-    return saved;
+    const filtered = saved.filter((t) => t && !String(t.roomNumber).startsWith('3'));
+    return filtered.length >= 5 ? filtered : INITIAL_TENANTS;
   });
   const [rooms, setRooms] = useState(() => {
     const saved = loadState('rooms', INITIAL_ROOMS);
     if (!saved || !Array.isArray(saved) || saved.length === 0) return INITIAL_ROOMS;
-    return saved.map((r, idx) => {
+    const purged = saved.filter((r) => r && r.floor <= 2 && !String(r.number).startsWith('3'));
+    const sourceRooms = purged.length >= 18 ? purged : INITIAL_ROOMS;
+    return sourceRooms.map((r, idx) => {
       const initialMatch = INITIAL_ROOMS.find((ir) => ir.number === r.number) || INITIAL_ROOMS[idx];
-      const isDailyDefault = ["301", "302", "303", "304", "305", "306"].includes(r.number);
+      const isDailyDefault = ["201", "202", "203", "204", "205", "206"].includes(String(r.number));
       return {
         ...r,
+        floor: r.floor || (String(r.number).startsWith('1') ? 1 : 2),
         category: r.category || (isDailyDefault ? 'Harian' : 'Bulanan'),
         dailyPrice: r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000),
         electricityToken: r.electricityToken || initialMatch?.electricityToken || `3819-2041-${String(8800 + (idx + 1) * 3).padStart(4, "0")}-9014-${String(5520 + (idx + 1)).padStart(4, "0")}`,
@@ -313,21 +317,22 @@ export const AppProvider = ({ children }) => {
     if (!saved || !Array.isArray(saved) || saved.length === 0) {
       return INITIAL_DAILY_BOOKINGS;
     }
-    return saved;
+    return saved.map((b) => {
+      if (b.floor === 3 || String(b.roomNumber).startsWith('3')) {
+        return { ...b, floor: 2, roomNumber: String(b.roomNumber).replace(/^3/, '2') };
+      }
+      return b;
+    });
   });
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
-    if (!saved || !Array.isArray(saved) || saved.length < 10) {
-      return deduplicatePayments(INITIAL_RENT_PAYMENTS);
-    }
-    return deduplicatePayments(saved);
+    const base = (!saved || !Array.isArray(saved) || saved.length < 5) ? INITIAL_RENT_PAYMENTS : saved;
+    return deduplicatePayments(base.filter((p) => p && !String(p.roomNumber).startsWith('3')));
   });
   const [electricityBills, setElectricityBills] = useState(() => {
     const saved = loadState('electricity', null);
-    if (!saved || !Array.isArray(saved) || saved.length < 10) {
-      return deduplicateElectricityBills(INITIAL_ELECTRICITY_BILLS);
-    }
-    return deduplicateElectricityBills(saved);
+    const base = (!saved || !Array.isArray(saved) || saved.length < 5) ? INITIAL_ELECTRICITY_BILLS : saved;
+    return deduplicateElectricityBills(base.filter((b) => b && !String(b.roomNumber).startsWith('3')));
   });
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));

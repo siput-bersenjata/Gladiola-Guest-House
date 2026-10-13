@@ -45,7 +45,7 @@ export const PembayaranView = () => {
   const [bookingForm, setBookingForm] = useState({
     checkIn: '2026-10-14',
     checkOut: '2026-10-16',
-    roomNumber: '301',
+    roomNumber: '201',
     guestName: '',
     guestPhone: '',
     guestCity: '',
@@ -416,7 +416,7 @@ export const PembayaranView = () => {
   const dailyRooms = useMemo(() => {
     const directDaily = rooms.filter((r) => r.category === 'Harian');
     if (directDaily.length > 0) return directDaily;
-    return rooms.filter((r) => ['301', '302', '303', '304', '305', '306'].includes(r.number));
+    return rooms.filter((r) => ['201', '202', '203', '204', '205', '206'].includes(r.number));
   }, [rooms]);
 
   // Pemeriksaan bentrok jadwal reservasi pada kamar tertentu
@@ -639,7 +639,7 @@ export const PembayaranView = () => {
                             Kamar {rm.number}
                           </span>
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                            Lantai {rm.floor || 3}
+                            Lantai {rm.floor || 2}
                           </span>
                         </div>
                         {isAvailable ? (
@@ -960,7 +960,7 @@ export const PembayaranView = () => {
             title="Buka Formulir Booking Kamar Sewa Harian & Cek Ketersediaan"
           >
             <IconPlus size={16} />
-            <span>+ Booking Kamar (Harian)</span>
+            <span>Booking Kamar (Harian)</span>
           </button>
 
           <button
@@ -1002,7 +1002,7 @@ export const PembayaranView = () => {
           style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           <IconPlus size={14} />
-          <span>+ Buat Booking Kamar Baru</span>
+          <span>Buat Booking Kamar Baru</span>
         </button>
       </div>
 
@@ -1081,7 +1081,7 @@ export const PembayaranView = () => {
                 }}
               >
                 <IconPlus size={16} />
-                <span>+ Booking Kamar Baru</span>
+                <span>Booking Kamar Baru</span>
               </button>
             </div>
           </div>
@@ -1113,7 +1113,7 @@ export const PembayaranView = () => {
                             <span className="room-badge-small">Kamar {b.roomNumber}</span>
                             <div>
                               <strong className="text-gray-900">{b.bookingCode}</strong>
-                              <span className="tenant-subtext">Lantai {b.floor || 3}</span>
+                              <span className="tenant-subtext">Lantai {b.floor || 2}</span>
                             </div>
                           </div>
                         </td>
@@ -1259,7 +1259,7 @@ export const PembayaranView = () => {
                   ) : (
                     <tr>
                       <td colSpan={9} className="text-center py-8 text-gray-500">
-                        Belum ada reservasi sewa harian untuk filter ini. Klik "+ Booking Kamar Baru" untuk mendaftarkan tamu baru.
+                        Belum ada reservasi sewa harian untuk filter ini. Klik "Booking Kamar Baru" untuk mendaftarkan tamu baru.
                       </td>
                     </tr>
                   )}

@@ -249,8 +249,6 @@ export const KamarView = () => {
                   >
                     <option value={1}>Lantai 1</option>
                     <option value={2}>Lantai 2</option>
-                    <option value={3}>Lantai 3</option>
-                    <option value={4}>Lantai 4</option>
                   </select>
                   <span className="field-hint">Lokasi lantai gedung Gladiola Guest House</span>
                 </div>
@@ -619,8 +617,6 @@ export const KamarView = () => {
             <option value="all">Semua Lantai</option>
             <option value="1">Lantai 1</option>
             <option value="2">Lantai 2</option>
-            <option value="3">Lantai 3</option>
-            <option value="4">Lantai 4</option>
           </select>
         </div>
 

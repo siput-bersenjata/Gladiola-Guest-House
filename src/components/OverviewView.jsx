@@ -485,7 +485,7 @@ export const OverviewView = () => {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}
             >
               <IconPlus size={14} />
-              <span>+ Booking Kamar Baru</span>
+              <span>Booking Kamar Baru</span>
             </button>
           </div>
         </div>
@@ -577,7 +577,7 @@ export const OverviewView = () => {
                       <div className="tenant-cell-info">
                         <span className="room-badge-small">Kamar {item.roomNumber}</span>
                         <div>
-                          <strong className="text-gray-900">Lantai {item.floor || 3}</strong>
+                          <strong className="text-gray-900">Lantai {item.floor || 2}</strong>
                           <span className="tenant-subtext">{item.bookingCode}</span>
                         </div>
                       </div>
@@ -718,8 +718,10 @@ export const OverviewView = () => {
                         type="button"
                         className="btn-primary-sm"
                         onClick={() => setActiveTab('pembayaran')}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       >
-                        + Buat Booking Kamar Harian Sekarang
+                        <IconPlus size={14} />
+                        <span>Buat Booking Kamar Harian Sekarang</span>
                       </button>
                     </div>
                   </td>

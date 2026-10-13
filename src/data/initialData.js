@@ -454,13 +454,7 @@ const INITIAL_TENANT_SPECS = [
   { name: "Lukman Hakim", phone: "081377889900", room: "116", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-01", notes: "Wirausaha Online", emergency: "081366554422 (Ibu)" },
   { name: "Muhammad Farhan", phone: "081388990011", room: "117", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-10", notes: "Mahasiswa UB FIA", emergency: "081255443311 (Kakak)" },
   { name: "Naufal Zaki", phone: "081399001122", room: "118", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-20", notes: "Mahasiswa UM Sastra", emergency: "081344332200 (Ayah)" },
-  // Lantai 2 (201-218)
-  { name: "Siti Rahmawati", phone: "085612340001", room: "201", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-01", notes: "Mahasiswi UM", emergency: "085699998888 (Ibu)" },
-  { name: "Putri Anggraini", phone: "085623450002", room: "202", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-10", notes: "Mahasiswi UB Kedokteran", emergency: "085688887777 (Ayah)" },
-  { name: "Dewi Lestari", phone: "085634560003", room: "203", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-02-20", notes: "Karyawati Startup", emergency: "085677776666 (Ibu)" },
-  { name: "Anisa Fitriani", phone: "085645670004", room: "204", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-03-01", notes: "Mahasiswi UB FEB", emergency: "085666665555 (Kakak)" },
-  { name: "Nabila Putri", phone: "081345678910", room: "205", type: "Executive Balcony", price: 2100000, start: "2024-03-01", notes: "Karyawati IT Malang, WFH", emergency: "081311223344 (Ayah)" },
-  { name: "Rina Marlina", phone: "085656780005", room: "206", type: "Executive Balcony", price: 2100000, start: "2024-03-15", notes: "Data Analyst", emergency: "085655554444 (Ibu)" },
+  // Lantai 2 (207-216 Terisi Bulanan, 217-218 Kosong)
   { name: "Maya Safitri", phone: "085667890006", room: "207", type: "Executive Balcony", price: 2100000, start: "2024-04-01", notes: "Mahasiswi S2 UB", emergency: "085644443333 (Ayah)" },
   { name: "Tia Rahayu", phone: "085678900007", room: "208", type: "Executive Balcony", price: 2100000, start: "2024-04-10", notes: "Staff Keuangan", emergency: "085633332222 (Ibu)" },
   { name: "Sari Indah", phone: "085689010008", room: "209", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-05-01", notes: "Mahasiswi Polinema Akuntansi", emergency: "085622221111 (Kakak)" },
@@ -470,23 +464,7 @@ const INITIAL_TENANT_SPECS = [
   { name: "Zahra Amalia", phone: "085723450012", room: "213", type: "Standard Sejuk", price: 1500000, start: "2024-07-01", notes: "Mahasiswi Polinema Rekayasa", emergency: "085777889900 (Kakak)" },
   { name: "Bella Shofie", phone: "085734560013", room: "214", type: "Standard Sejuk", price: 1500000, start: "2024-07-15", notes: "Staff Apotek", emergency: "085766778899 (Ayah)" },
   { name: "Citra Kirana", phone: "085745670014", room: "215", type: "Standard Sejuk", price: 1500000, start: "2024-08-01", notes: "Mahasiswi UM Desain", emergency: "085755667788 (Ibu)" },
-  { name: "Dian Sastrowardoyo", phone: "085756780015", room: "216", type: "Standard Sejuk", price: 1500000, start: "2024-08-15", notes: "Guru Les Privat", emergency: "085744556677 (Ayah)" },
-  { name: "Farah Quinn", phone: "085767890016", room: "217", type: "Standard Sejuk", price: 1500000, start: "2024-09-01", notes: "Chef Pastry Cafe", emergency: "085733445566 (Ibu)" },
-  { name: "Gita Gutawa", phone: "085778900017", room: "218", type: "Standard Sejuk", price: 1500000, start: "2024-09-15", notes: "Mahasiswi Musik", emergency: "085722334455 (Kakak)" },
-  // Lantai 3 (301-309 Terisi, 310-312 Booking)
-  { name: "Hani Syarifah", phone: "087711220001", room: "301", type: "Executive Balcony", price: 2100000, start: "2024-05-01", notes: "Peneliti Muda", emergency: "087700112233 (Ibu)" },
-  { name: "Fajar Nugraha", phone: "087700998811", room: "302", type: "Executive Balcony", price: 2100000, start: "2024-06-01", notes: "Dokter Muda RSSA", emergency: "087711223344 (Ayah)" },
-  { name: "Irfan Bachdim", phone: "087722330002", room: "303", type: "Executive Balcony", price: 2100000, start: "2024-06-15", notes: "Atlet & Pelatih Kebugaran", emergency: "087722110099 (Istri)" },
-  { name: "Reza Rahadian", phone: "087733440003", room: "304", type: "Executive Balcony", price: 2100000, start: "2024-07-01", notes: "Creative Director", emergency: "087733221100 (Ibu)" },
-  { name: "Ahmad Fauzi", phone: "087744550004", room: "305", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-07-15", notes: "Mahasiswa S2 Teknik", emergency: "087744332211 (Ayah)" },
-  { name: "Rian Hidayat", phone: "087755660005", room: "306", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-08-01", notes: "Software Developer", emergency: "087755443322 (Ibu)" },
-  { name: "Wahyu Nugraha", phone: "087766770006", room: "307", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-08-15", notes: "Mahasiswa UB Peternakan", emergency: "087766554433 (Kakak)" },
-  { name: "Yoga Pratama", phone: "087777880007", room: "308", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-01", notes: "Fotografer Profesional", emergency: "087777665544 (Ayah)" },
-  { name: "Zulham Zamrun", phone: "087788990008", room: "309", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-09-10", notes: "Mahasiswa Polinema Sipil", emergency: "087788776655 (Ibu)" },
-  // Booking Tenants (310-312)
-  { name: "Calon Penghuni (Kurniawan)", phone: "087811223301", room: "310", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-11-01", notes: "Booking DP 50%, masuk awal bulan depan", emergency: "087811002299 (Ibu)", status: "Booking" },
-  { name: "Calon Penghuni (Mega Lestari)", phone: "087822334402", room: "311", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-11-01", notes: "Booking konfirmasi wawancara kerja", emergency: "087822113300 (Ayah)", status: "Booking" },
-  { name: "Calon Penghuni (Oki Setiana)", phone: "087833445503", room: "312", type: "Deluxe Taman (AC + KM Dalam)", price: 1750000, start: "2024-11-05", notes: "Booking mahasiswa baru semester genap", emergency: "087833224411 (Kakak)", status: "Booking" }
+  { name: "Dian Sastrowardoyo", phone: "085756780015", room: "216", type: "Standard Sejuk", price: 1500000, start: "2024-08-15", notes: "Guru Les Privat", emergency: "085744556677 (Ayah)" }
 ];
 
 export const INITIAL_TENANTS = INITIAL_TENANT_SPECS.map((spec, i) => ({
@@ -502,8 +480,10 @@ export const INITIAL_TENANTS = INITIAL_TENANT_SPECS.map((spec, i) => ({
   notes: spec.notes
 }));
 
-export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
-  const roomNumber = `${Math.floor(i / 18) + 1}${String((i % 18) + 1).padStart(2, "0")}`;
+// Total 36 kamar: Lantai 1 (101-118) & Lantai 2 (201-218)
+export const INITIAL_ROOMS = Array.from({ length: 36 }, (_, i) => {
+  const floor = Math.floor(i / 18) + 1;
+  const roomNumber = `${floor}${String((i % 18) + 1).padStart(2, "0")}`;
   let status = "Terisi";
   let tenant = null;
   let type = "Deluxe Taman (AC + KM Dalam)";
@@ -511,20 +491,38 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
 
   const matchedTenant = INITIAL_TENANT_SPECS.find((t) => t.room === roomNumber);
 
-  if (i === 48 || i === 49) {
+  // Kamar 201 - 206 disiapkan khusus sebagai unit Sewa Harian eksklusif Gladiola di Lantai 2
+  const isDaily = ["201", "202", "203", "204", "205", "206"].includes(roomNumber);
+  const category = isDaily ? "Harian" : "Bulanan";
+
+  if (isDaily) {
+    type = "Executive Balcony";
+    price = 2100000;
+    if (roomNumber === "201") {
+      status = "Terisi";
+      tenant = "Hendro Wijaya (Tamu Harian)";
+    } else if (roomNumber === "202") {
+      status = "Booking";
+      tenant = "Dr. Nadia Pratiwi (Tamu Harian)";
+    } else if (roomNumber === "203") {
+      status = "Booking";
+      tenant = "Bima Arya Prasetya (Tamu Harian)";
+    } else if (roomNumber === "204") {
+      status = "Booking";
+      tenant = "Siti Rahmawati (Tamu Harian)";
+    } else {
+      status = "Kosong";
+      tenant = null;
+    }
+  } else if (i === 34 || i === 35) { // 217 & 218
     status = "Kosong";
     tenant = null;
-    type = "Deluxe Taman (AC + KM Dalam)";
-    price = 1750000;
-  } else if (i >= 45 && i <= 47) {
-    status = "Booking";
-    tenant = matchedTenant ? matchedTenant.name : "Calon Penghuni";
-    type = matchedTenant ? matchedTenant.type : "Deluxe Taman (AC + KM Dalam)";
-    price = matchedTenant ? matchedTenant.price : 1750000;
+    type = "Standard Sejuk";
+    price = 1500000;
   } else {
     status = "Terisi";
     tenant = matchedTenant ? matchedTenant.name : `Penghuni Kamar ${roomNumber}`;
-    type = matchedTenant ? matchedTenant.type : (roomNumber.startsWith("3") || ["205", "206", "207", "208"].includes(roomNumber) ? "Executive Balcony" : ["108", "109", "110", "111", "112", "213", "214", "215", "216", "217", "218"].includes(roomNumber) ? "Standard Sejuk" : "Deluxe Taman (AC + KM Dalam)");
+    type = matchedTenant ? matchedTenant.type : (["207", "208"].includes(roomNumber) ? "Executive Balcony" : ["108", "109", "110", "111", "112", "213", "214", "215", "216"].includes(roomNumber) ? "Standard Sejuk" : "Deluxe Taman (AC + KM Dalam)");
     price = matchedTenant ? matchedTenant.price : (type.includes("Executive") ? 2100000 : type.includes("Standard") ? 1500000 : 1750000);
   }
 
@@ -535,17 +533,12 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
   const tokenP5 = String(5520 + (i + 1)).padStart(4, "0");
   const electricityToken = `${tokenP1}-${tokenP2}-${tokenP3}-${tokenP4}-${tokenP5}`;
   const meterId = `PLN-14${String(28000000 + (i + 1) * 137).slice(-8)}`;
-
-  // Kategori Kamar: 'Bulanan' (Kos Bulanan) vs 'Harian' (Disewakan Harian / Guest House)
-  // Kamar 301 - 306 disiapkan khusus sebagai unit Sewa Harian eksklusif Gladiola
-  const isDaily = ["301", "302", "303", "304", "305", "306"].includes(roomNumber);
-  const category = isDaily ? "Harian" : "Bulanan";
   const dailyPrice = type.includes("Executive") ? 275000 : type.includes("Standard") ? 200000 : 250000;
 
   return {
     id: `rm-${i + 1}`,
     number: roomNumber,
-    floor: Math.floor(i / 18) + 1,
+    floor,
     type,
     price,
     dailyPrice,
@@ -558,14 +551,13 @@ export const INITIAL_ROOMS = Array.from({ length: 50 }, (_, i) => {
   };
 });
 
-// INITIAL_DAILY_BOOKINGS: Jadwal reservasi khusus unit kamar yang disewakan per hari
-// Memuat data tanggal sewa per hari dan status pembayaran ("DP Lunas" atau "Lunas Penuh")
+// INITIAL_DAILY_BOOKINGS: Jadwal reservasi khusus unit kamar yang disewakan per hari di Lantai 2
 export const INITIAL_DAILY_BOOKINGS = [
   {
     id: "book-daily-101",
     bookingCode: "GLD-HR-001",
-    roomNumber: "301",
-    floor: 3,
+    roomNumber: "201",
+    floor: 2,
     roomType: "Executive Balcony",
     guestName: "Hendro Wijaya",
     guestPhone: "081234567890",
@@ -587,8 +579,8 @@ export const INITIAL_DAILY_BOOKINGS = [
   {
     id: "book-daily-102",
     bookingCode: "GLD-HR-002",
-    roomNumber: "302",
-    floor: 3,
+    roomNumber: "202",
+    floor: 2,
     roomType: "Executive Balcony",
     guestName: "Dr. Nadia Pratiwi",
     guestPhone: "081398765432",
@@ -610,8 +602,8 @@ export const INITIAL_DAILY_BOOKINGS = [
   {
     id: "book-daily-103",
     bookingCode: "GLD-HR-003",
-    roomNumber: "303",
-    floor: 3,
+    roomNumber: "203",
+    floor: 2,
     roomType: "Executive Balcony",
     guestName: "Bima Arya Prasetya",
     guestPhone: "081277889900",
@@ -633,8 +625,8 @@ export const INITIAL_DAILY_BOOKINGS = [
   {
     id: "book-daily-104",
     bookingCode: "GLD-HR-004",
-    roomNumber: "304",
-    floor: 3,
+    roomNumber: "204",
+    floor: 2,
     roomType: "Executive Balcony",
     guestName: "Siti Rahmawati",
     guestPhone: "085611223344",
@@ -707,12 +699,12 @@ const SPECIFIC_PAYMENTS = [
   },
   {
     id: "pay-104",
-    tenantId: "t-4",
-    tenantName: "Siti Rahmawati",
-    tenantPhone: "085612340001",
-    roomNumber: "201",
+    tenantId: "t-19",
+    tenantName: "Maya Safitri",
+    tenantPhone: "085667890006",
+    roomNumber: "207",
     month: "Oktober 2026",
-    amount: 1750000,
+    amount: 2100000,
     paidAt: "2026-10-07 19:10",
     paymentMethod: "Transfer Bank BCA",
     status: "Menunggu Validasi",
@@ -723,10 +715,10 @@ const SPECIFIC_PAYMENTS = [
   },
   {
     id: "pay-105",
-    tenantId: "t-5",
-    tenantName: "Fajar Nugraha",
-    tenantPhone: "087700998811",
-    roomNumber: "302",
+    tenantId: "t-20",
+    tenantName: "Tia Rahayu",
+    tenantPhone: "085678900007",
+    roomNumber: "208",
     month: "Oktober 2026",
     amount: 2100000,
     paidAt: null,
@@ -963,10 +955,10 @@ const SPECIFIC_ELEC_BILLS = [
   },
   {
     id: "elec-104",
-    tenantId: "t-4",
-    tenantName: "Siti Rahmawati",
-    tenantPhone: "085612340001",
-    roomNumber: "201",
+    tenantId: "t-19",
+    tenantName: "Maya Safitri",
+    tenantPhone: "085667890006",
+    roomNumber: "207",
     month: "Oktober 2026",
     meterStart: 1540,
     meterEnd: 1618,
@@ -1189,13 +1181,13 @@ export const INITIAL_ACTIVITY_LOGS = [
     userId: "acc-2",
     user: "Andre (Pengelola Kos)",
     role: "operator",
-    action: "Pembaruan Status Kamar 301",
+    action: "Pembaruan Status Kamar 201",
     pageAccessed: "Katalog & Status Kamar",
-    details: "Mengubah status kamar 301 menjadi 'Tersedia' setelah inspeksi checkout",
+    details: "Mengubah status kamar 201 menjadi 'Tersedia' setelah inspeksi checkout",
     timestamp: "2026-10-12 17:40:05",
     time: "17:40:05 WIB",
     coords: { lat: -7.9584200, lng: 112.6059750 },
-    locationName: "Lantai 3 Gladiola Guest House",
+    locationName: "Lantai 2 Koridor Timur Gladiola Guest House",
     distanceMeters: 22,
     distanceText: "22 meter • Di Dalam Kos",
     isInsideKos: true,

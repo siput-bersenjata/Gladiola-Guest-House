@@ -10,7 +10,9 @@ import {
   IconRoom,
   IconShield,
   IconCheck,
-  IconArrowLeft
+  IconArrowLeft,
+  IconCalendar,
+  IconWhatsApp
 } from './Icons';
 import { SearchableRoomSelect } from './SearchableRoomSelect';
 
@@ -25,6 +27,7 @@ export const PenyewaView = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoomType, setFilterRoomType] = useState('all');
+  const [filterFloor, setFilterFloor] = useState('all'); // 'all' | '1' | '2'
   
   // 'list' or 'form' (dedicated full-page view for editing/adding)
   const [viewMode, setViewMode] = useState('list');
@@ -83,15 +86,58 @@ export const PenyewaView = () => {
     setViewMode('list');
   };
 
+  // Format tanggal Indonesia e.g. "2024-01-10" -> "10 Jan 2024"
+  const formatDateIndo = (dateStr) => {
+    if (!dateStr) return '-';
+    try {
+      const parts = String(dateStr).split('-');
+      if (parts.length === 3) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const day = parseInt(parts[2], 10);
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        const year = parts[0];
+        if (monthIdx >= 0 && monthIdx < 12) {
+          return `${day} ${months[monthIdx]} ${year}`;
+        }
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Avatar Initials (e.g. "Andi Pratama" -> "AP")
+  const getInitials = (name) => {
+    if (!name) return 'AK';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  // Parse emergency contact string: "081299001122 (Ayah)" -> { phone: "081299001122", relation: "Ayah" }
+  const parseEmergency = (str) => {
+    if (!str || str === '-') return { phone: '-', relation: '' };
+    const match = str.match(/(.*?)\s*\((.*?)\)/);
+    if (match) {
+      return { phone: match[1].trim(), relation: match[2].trim() };
+    }
+    return { phone: str.trim(), relation: '' };
+  };
+
   const filteredTenants = tenants.filter((t) => {
     const matchSearch =
       t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.phone.includes(searchTerm) ||
-      t.roomNumber.includes(searchTerm);
+      (t.phone && t.phone.includes(searchTerm)) ||
+      (t.roomNumber && t.roomNumber.includes(searchTerm));
     const matchType =
       filterRoomType === 'all' || (t.roomType && t.roomType.includes(filterRoomType));
-    return matchSearch && matchType;
+    const floor = String(t.roomNumber).startsWith('1') ? '1' : '2';
+    const matchFloor = filterFloor === 'all' || floor === filterFloor;
+    return matchSearch && matchType && matchFloor;
   });
+
+  const floor1Count = tenants.filter((t) => String(t.roomNumber).startsWith('1')).length;
+  const floor2Count = tenants.filter((t) => String(t.roomNumber).startsWith('2')).length;
 
   // =========================================================================
   // DEDICATED FULL-PAGE FORM VIEW (NO CUT-OFF POPUP MODAL)
@@ -198,7 +244,7 @@ export const PenyewaView = () => {
                     }}
                     placeholder="Pilih atau cari nomor kamar..."
                   />
-                  <span className="field-hint">Pilih dari 50 kamar di lantai 1 - 3 Gladiola</span>
+                  <span className="field-hint">Pilih dari unit kamar di Lantai 1 & 2 Gladiola</span>
                 </div>
 
                 <div className="form-group">
@@ -319,18 +365,38 @@ export const PenyewaView = () => {
         </div>
       )}
 
-      {/* Toolbar */}
-      <div className="section-toolbar">
-        <div className="toolbar-search-group">
-          <div className="search-box-pill">
-            <IconSearch size={16} />
+      {/* Toolbar Pencarian & Filter */}
+      <div className="section-toolbar" style={{ margin: '14px 0 16px 0', padding: '0 2px' }}>
+        <div className="toolbar-search-group" style={{ flexWrap: 'wrap', gap: '10px' }}>
+          <div className="search-box-pill" style={{ minWidth: '260px' }}>
+            <IconSearch size={16} className="text-gray-400" />
             <input
               type="text"
-              placeholder="Cari nama, kamar, no HP..."
+              placeholder="Cari nama, kamar, no HP anak kos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '12px' }}
+                title="Hapus pencarian"
+              >
+                ✕
+              </button>
+            )}
           </div>
+
+          <select
+            className="filter-select"
+            value={filterFloor}
+            onChange={(e) => setFilterFloor(e.target.value)}
+          >
+            <option value="all">Semua Lantai (1-2)</option>
+            <option value="1">Lantai 1</option>
+            <option value="2">Lantai 2</option>
+          </select>
 
           <select
             className="filter-select"
@@ -349,6 +415,15 @@ export const PenyewaView = () => {
             type="button"
             className="btn-primary"
             onClick={openAddForm}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 18px',
+              borderRadius: 'var(--radius-pill)',
+              boxShadow: '0 4px 12px rgba(21, 128, 61, 0.25)',
+              marginLeft: 'auto'
+            }}
           >
             <IconPlus size={16} />
             <span>Tambah Anak Kos</span>
@@ -356,83 +431,190 @@ export const PenyewaView = () => {
         )}
       </div>
 
-      {/* Tenants Table */}
-      <div className="dashboard-card no-padding">
+      {/* Tenants Table Card */}
+      <div className="penyewa-table-card">
+        {/* Table Header Strip */}
+        <div className="penyewa-card-header">
+          <div className="penyewa-card-title-group">
+            <h3>
+              <IconUsers size={18} className="text-forest-700" />
+              Direktori Penghuni Kos Gladiola
+            </h3>
+            <p>
+              Data identitas, kontak WhatsApp, nomor unit kamar, dan tarif sewa bulanan anak kos terdaftar
+            </p>
+          </div>
+
+          <div className="penyewa-stats-chips">
+            <span className="penyewa-stat-pill">
+              🌿 Menampilkan: <strong>{filteredTenants.length}</strong> Anak Kos
+            </span>
+            <span className="penyewa-stat-pill">
+              🏢 Lantai 1: <strong>{floor1Count}</strong>
+            </span>
+            <span className="penyewa-stat-pill">
+              🍃 Lantai 2: <strong>{floor2Count}</strong>
+            </span>
+          </div>
+        </div>
+
         <div className="table-responsive-wrapper">
-          <table className="data-table">
+          <table className="penyewa-table">
             <thead>
               <tr>
-                <th>Penghuni Kos</th>
-                <th>Kamar</th>
-                <th>Tipe Kamar</th>
-                <th>Tarif Sewa</th>
-                <th>Tanggal Masuk</th>
-                <th>Kontak Darurat</th>
-                <th>Catatan / Kendaraan</th>
-                <th>Status</th>
-                {!isOwnerReadOnly && <th>Aksi</th>}
+                <th style={{ width: '22%' }}>Penghuni Kos</th>
+                <th style={{ width: '13%' }}>Unit Kamar</th>
+                <th style={{ width: '15%' }}>Tipe Kamar</th>
+                <th style={{ width: '13%' }}>Tarif Sewa</th>
+                <th style={{ width: '12%' }}>Tanggal Masuk</th>
+                <th style={{ width: '13%' }}>Kontak Darurat</th>
+                <th style={{ width: '14%' }}>Catatan / Kendaraan</th>
+                <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
+                {!isOwnerReadOnly && <th style={{ width: '7%', textAlign: 'center' }}>Aksi</th>}
               </tr>
             </thead>
             <tbody>
               {filteredTenants.length > 0 ? (
-                filteredTenants.map((tenant) => (
-                  <tr key={tenant.id}>
-                    <td>
-                      <div>
-                        <strong className="text-gray-900 block">{tenant.name}</strong>
-                        <span className="text-xs text-gray-500 flex items-center gap-1 font-mono">
-                          <IconPhone size={11} className="text-gray-400" />
-                          {tenant.phone}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="room-badge">Kamar {tenant.roomNumber}</span>
-                    </td>
-                    <td className="text-sm text-gray-700">{tenant.roomType}</td>
-                    <td className="text-sm font-semibold text-gray-900">
-                      Rp {tenant.monthlyRent.toLocaleString('id-ID')}
-                    </td>
-                    <td className="text-sm text-gray-600 font-mono">{tenant.startDate}</td>
-                    <td className="text-sm text-gray-600">{tenant.emergencyContact || '-'}</td>
-                    <td className="text-sm text-gray-600 max-w-xs truncate" title={tenant.notes}>
-                      {tenant.notes || '-'}
-                    </td>
-                    <td>
-                      <span className="badge-status badge-success">✓ {tenant.status}</span>
-                    </td>
-                    {!isOwnerReadOnly && (
+                filteredTenants.map((tenant) => {
+                  const emergency = parseEmergency(tenant.emergencyContact);
+                  const floorNum = String(tenant.roomNumber).startsWith('1') ? 1 : 2;
+                  const waNumber = (tenant.phone || '').replace(/^0/, '62').replace(/\D/g, '');
+
+                  return (
+                    <tr key={tenant.id}>
+                      {/* Penghuni Kos */}
                       <td>
-                        <div className="action-buttons-row">
-                          <button
-                            type="button"
-                            className="btn-icon-action"
-                            onClick={() => openEditForm(tenant)}
-                            title="Ubah Data Penghuni (Pindah Halaman)"
-                          >
-                            <IconEdit size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-icon-action danger"
-                            onClick={() => {
-                              if (window.confirm(`Hapus data anak kos ${tenant.name}?`)) {
-                                handleDeleteTenant(tenant.id);
-                              }
-                            }}
-                            title="Hapus Data Penghuni"
-                          >
-                            <IconTrash size={16} />
-                          </button>
+                        <div className="tenant-identity-cell">
+                          <div className="tenant-avatar-circle" title={tenant.name}>
+                            {getInitials(tenant.name)}
+                          </div>
+                          <div className="tenant-identity-meta">
+                            <span className="tenant-name-text">{tenant.name}</span>
+                            <a
+                              href={`https://wa.me/${waNumber}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="tenant-phone-badge"
+                              title="Kirim pesan WhatsApp ke penghuni"
+                            >
+                              <IconPhone size={11} className="text-forest-600" />
+                              <span>{tenant.phone}</span>
+                            </a>
+                          </div>
                         </div>
                       </td>
-                    )}
-                  </tr>
-                ))
+
+                      {/* Unit Kamar & Lantai */}
+                      <td>
+                        <div className="room-unit-pill">
+                          <span className="room-pill-badge">
+                            Kamar {tenant.roomNumber}
+                          </span>
+                          <span className="room-floor-tag">
+                            • Lantai {floorNum}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Tipe Kamar */}
+                      <td>
+                        <div className="room-type-chip">
+                          <span className="room-type-title">
+                            {tenant.roomType ? tenant.roomType.split('(')[0].trim() : 'Deluxe Taman'}
+                          </span>
+                          {tenant.roomType && tenant.roomType.includes('(') && (
+                            <span className="room-type-desc">
+                              {tenant.roomType.split('(')[1].replace(')', '')}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Tarif Sewa */}
+                      <td>
+                        <div className="rent-price-box">
+                          <span className="rent-price-amount">
+                            Rp {(tenant.monthlyRent || 0).toLocaleString('id-ID')}
+                          </span>
+                          <span className="rent-price-period">per bulan</span>
+                        </div>
+                      </td>
+
+                      {/* Tanggal Masuk */}
+                      <td>
+                        <div className="date-join-badge">
+                          <IconCalendar size={13} className="text-forest-600" />
+                          <span>{formatDateIndo(tenant.startDate)}</span>
+                        </div>
+                      </td>
+
+                      {/* Kontak Darurat */}
+                      <td>
+                        <div className="emergency-contact-box">
+                          {emergency.relation && (
+                            <span className="emergency-relation-tag">
+                              {emergency.relation}
+                            </span>
+                          )}
+                          <span className="emergency-phone-text">
+                            {emergency.phone}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Catatan / Kendaraan */}
+                      <td>
+                        <div className="notes-tenant-pill" title={tenant.notes || '-'}>
+                          {tenant.notes || '-'}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td style={{ textAlign: 'center' }}>
+                        <span className="status-live-pill">
+                          <span className="status-dot-pulse"></span>
+                          <span>{tenant.status || 'Aktif'}</span>
+                        </span>
+                      </td>
+
+                      {/* Aksi */}
+                      {!isOwnerReadOnly && (
+                        <td>
+                          <div className="table-action-group" style={{ justifyContent: 'center' }}>
+                            <button
+                              type="button"
+                              className="btn-table-edit"
+                              onClick={() => openEditForm(tenant)}
+                              title="Ubah Data Anak Kos (Pindah ke Form)"
+                            >
+                              <IconEdit size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-table-delete"
+                              onClick={() => {
+                                if (window.confirm(`Hapus data anak kos ${tenant.name} dari sistem?`)) {
+                                  handleDeleteTenant(tenant.id);
+                                }
+                              }}
+                              title="Hapus Data Anak Kos"
+                            >
+                              <IconTrash size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={isOwnerReadOnly ? 8 : 9} className="text-center py-8 text-gray-500">
-                    Tidak ada data anak kos yang cocok dengan pencarian.
+                  <td colSpan={isOwnerReadOnly ? 8 : 9} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <IconSearch size={28} className="text-gray-300" />
+                      <strong>Tidak ada anak kos yang sesuai dengan filter pencarian.</strong>
+                      <span style={{ fontSize: '0.78rem' }}>Coba ubah kata kunci atau setel ulang filter lantai dan tipe kamar.</span>
+                    </div>
                   </td>
                 </tr>
               )}
