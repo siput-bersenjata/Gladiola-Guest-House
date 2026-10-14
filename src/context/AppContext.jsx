@@ -397,6 +397,7 @@ export const AppProvider = ({ children }) => {
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));
   const [bankInfo, setBankInfo] = useState(() => loadState('bankInfo', INITIAL_BANK_INFO));
+  const [wifiInfo, setWifiInfo] = useState(() => loadState('wifiInfo', INITIAL_WIFI_INFO) || INITIAL_WIFI_INFO);
   const [operators, setOperators] = useState(() => {
     const raw = loadState('operators', INITIAL_OPERATORS);
     const list = Array.isArray(raw) ? raw : INITIAL_OPERATORS;
