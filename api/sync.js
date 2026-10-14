@@ -51,6 +51,11 @@ export default async function handler(req, res) {
       const { version, data } = body || {};
       if (!data) return res.status(400).json({ error: 'Missing data payload' });
 
+      // Safety guard: Reject empty or corrupt payloads to protect production database
+      if (!Array.isArray(data.tenants) || data.tenants.length < 3 || !Array.isArray(data.rooms) || data.rooms.length === 0) {
+        return res.status(400).json({ error: 'Invalid or incomplete data payload: database update rejected for safety' });
+      }
+
       const newVersion = Number(version || Date.now());
       const now = new Date();
 
@@ -61,6 +66,7 @@ export default async function handler(req, res) {
           version = EXCLUDED.version,
           data = EXCLUDED.data,
           updated_at = EXCLUDED.updated_at
+        WHERE EXCLUDED.version >= gladiola_sync.version
       `;
 
       return res.status(200).json({ success: true, version: newVersion });

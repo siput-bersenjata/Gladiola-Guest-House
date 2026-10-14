@@ -321,7 +321,7 @@ export const LoginPage = () => {
         <div className="login-footer-security">
           <div className="security-note-row">
             <IconMapPin size={14} className="text-forest-gold" />
-            <span>Gladiola Guest House • Jl. Gladiol No. 1, Malang</span>
+            <span>Gladiola Guest House • Jl. Bend. Palasari No.1, Malang</span>
           </div>
           <p className="security-subnote">
             Sistem terlindungi enkripsi dan pemantauan verifikasi lokasi GPS otomatis.

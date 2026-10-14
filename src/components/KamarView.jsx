@@ -59,7 +59,7 @@ export const KamarView = () => {
     type: 'Deluxe Taman (AC + KM Dalam)',
     category: 'Bulanan', // 'Bulanan' | 'Harian'
     dailyPrice: 250000,
-    price: 1750000,
+    price: 1600000,
     status: 'Kosong',
     currentTenant: '',
     electricityToken: '',
@@ -89,7 +89,7 @@ export const KamarView = () => {
       type: 'Deluxe Taman (AC + KM Dalam)',
       category: 'Bulanan',
       dailyPrice: 250000,
-      price: 1750000,
+      price: 1600000,
       status: 'Kosong',
       currentTenant: '',
       electricityToken: generateRandomToken(),
@@ -115,7 +115,7 @@ export const KamarView = () => {
       type: room.type || 'Deluxe Taman (AC + KM Dalam)',
       category: room.category || 'Bulanan',
       dailyPrice: room.dailyPrice || (room.type?.includes('Executive') ? 275000 : 250000),
-      price: room.price || 1750000,
+      price: room.price || 1600000,
       status: room.status || 'Kosong',
       currentTenant: room.currentTenant || '',
       electricityToken: room.electricityToken || generateRandomToken(),
@@ -136,7 +136,7 @@ export const KamarView = () => {
       return;
     }
 
-    handleSaveRoom({
+    const result = handleSaveRoom({
       ...(editingRoom ? { id: editingRoom.id } : {}),
       number: formData.number.trim(),
       floor: Number(formData.floor),
@@ -151,7 +151,9 @@ export const KamarView = () => {
       facilities: formData.facilities
     });
 
-    setViewMode('list');
+    if (result !== false) {
+      setViewMode('list');
+    }
   };
 
   const handleDelete = (roomId) => {
@@ -288,7 +290,7 @@ export const KamarView = () => {
                         defaultPrice = 1500000;
                         defaultDailyPrice = 200000;
                       } else {
-                        defaultPrice = 1750000;
+                        defaultPrice = 1600000;
                         defaultDailyPrice = 250000;
                       }
                       setFormData({ ...formData, type: newType, price: defaultPrice, dailyPrice: defaultDailyPrice });

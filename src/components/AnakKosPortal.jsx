@@ -126,7 +126,7 @@ export const AnakKosPortal = () => {
   const tenantData = tenants.find((t) => t.phone === currentUser.phone) || {
     name: currentUser.name,
     roomNumber: currentUser.roomNumber || '102',
-    monthlyRent: 1750000,
+    monthlyRent: 1600000,
     roomType: 'Deluxe Taman'
   };
 
@@ -142,7 +142,7 @@ export const AnakKosPortal = () => {
   // This month bills (Oktober 2026)
   const currentRentBill = tenantRentBills.find((p) => p.month.includes('Oktober')) || {
     month: 'Oktober 2026',
-    amount: tenantData.monthlyRent || 1750000,
+    amount: tenantData.monthlyRent || 1600000,
     status: 'Tervalidasi'
   };
 

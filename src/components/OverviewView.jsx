@@ -27,7 +27,8 @@ export const OverviewView = () => {
     handleUpdateDailyBookingPayment,
     setActiveTab,
     userLocation,
-    addToast
+    addToast,
+    showInvalidPopup
   } = useApp();
 
   const [activeChartPoint, setActiveChartPoint] = useState(null);
@@ -89,12 +90,15 @@ export const OverviewView = () => {
     return parts.length === 3 ? parseInt(parts[2], 10) : null;
   };
 
-  // Filtered daily bookings (KHUSUS kamar yang disewakan per hari sesuai instruksi user)
+  // Total unit kamar kategori Harian aktif
+  const totalDailyRooms = rooms.filter((r) => r.category === 'Harian').length;
+
+  // Filtered daily bookings (KHUSUS kamar yang disewakan per hari sesuai kategori kamar aktual)
   const filteredDailyBookings = useMemo(() => {
     return (dailyBookings || []).filter((b) => {
-      // KONEKSI UTAMA: Kamar harus benar-benar ada di master rooms (halaman kamar)
-      const roomExists = rooms.some((r) => String(r.number) === String(b.roomNumber));
-      if (!roomExists) return false;
+      // KONEKSI UTAMA: Kamar harus ada di master rooms DAN berstatus kategori 'Harian'
+      const matchedRoom = rooms.find((r) => String(r.number) === String(b.roomNumber));
+      if (!matchedRoom || matchedRoom.category !== 'Harian') return false;
 
       const matchPayment = schedulePaymentFilter === 'all' || b.paymentStatus === schedulePaymentFilter;
       const matchStay = scheduleStayFilter === 'all' || b.stayStatus === scheduleStayFilter;
@@ -118,11 +122,18 @@ export const OverviewView = () => {
     return filteredDailyBookings.slice(start, start + pageSize);
   }, [filteredDailyBookings, schedulePage, showAllSchedule]);
 
-  const activeDailyStay = (dailyBookings || []).filter((b) => b.stayStatus === 'Sedang Menginap').length;
-  const upcomingDailyBookings = (dailyBookings || []).filter((b) => b.stayStatus === 'Terkonfirmasi').length;
-  const totalDailyRooms = rooms.filter((r) => r.category === 'Harian').length;
+  // Status booking harian yang aktif hanya dihitung jika kamarnya berstatus Harian
+  const validDailyBookings = useMemo(() => {
+    return (dailyBookings || []).filter((b) => {
+      const matchedRoom = rooms.find((r) => String(r.number) === String(b.roomNumber));
+      return matchedRoom && matchedRoom.category === 'Harian';
+    });
+  }, [dailyBookings, rooms]);
 
-  // Line chart coordinates for "Pembayaran Kos" (Okt 2024)
+  const activeDailyStay = validDailyBookings.filter((b) => b.stayStatus === 'Sedang Menginap').length;
+  const upcomingDailyBookings = validDailyBookings.filter((b) => b.stayStatus === 'Terkonfirmasi').length;
+
+  // Line chart coordinates for "Pembayaran Kos" (Okt 2026)
   const lineChartPoints = [
     { label: '01 Okt', value: 0.8, x: 40, y: 190, displayVal: 'Rp 800rb' },
     { label: '05 Okt', value: 4.5, x: 120, y: 155, displayVal: 'Rp 4,5jt' },
@@ -205,7 +216,7 @@ export const OverviewView = () => {
           </div>
           <div className="stat-delta-row green">
             <span className="delta-arrow">▲</span>
-            <span>+12% vs Sep 2024</span>
+            <span>+12% vs Sep 2026</span>
           </div>
         </div>
 
@@ -238,7 +249,7 @@ export const OverviewView = () => {
               <h3 className="card-headline">Pembayaran Kos</h3>
               <p className="card-subheadline">Berdasarkan Tanggal Bayar</p>
             </div>
-            <span className="badge-pill-outline">Okt 2024</span>
+            <span className="badge-pill-outline">Okt 2026</span>
           </div>
 
           <div className="spline-chart-wrapper">
@@ -348,7 +359,7 @@ export const OverviewView = () => {
           <div className="dashboard-card">
             <div className="chart-card-header">
               <h3 className="card-headline">Pembayaran Listrik Bulanan</h3>
-              <span className="badge-pill-outline">2024</span>
+              <span className="badge-pill-outline">2026</span>
             </div>
 
             <div className="bar-chart-container">
@@ -484,7 +495,21 @@ export const OverviewView = () => {
             <button
               type="button"
               className="btn-primary-sm"
-              onClick={() => setActiveTab('pembayaran')}
+              onClick={() => {
+                if (totalDailyRooms === 0) {
+                  showInvalidPopup(
+                    'Tidak Ada Kamar Kategori Harian',
+                    'Saat ini tidak ada unit kamar yang dialokasikan sebagai kamar Harian (Sewa Transit).',
+                    [
+                      'Seluruh unit kamar saat ini berstatus Kos Bulanan.',
+                      'Booking harian tidak dapat dibuat tanpa ada kamar yang berkategori Harian.',
+                      'Solusi: Masuk ke menu "Kamar", pilih salah satu kamar (yang tidak memiliki anak kos aktif), lalu ubah kategorinya menjadi "Harian".'
+                    ]
+                  );
+                  return;
+                }
+                setActiveTab('pembayaran');
+              }}
               title="Buka halaman pembayaran untuk membuat booking kamar harian baru"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}
             >
@@ -813,7 +838,7 @@ export const OverviewView = () => {
         <div className="google-maps-embed-wrapper">
           <iframe
             title="Lokasi Gladiola Guest House Google Maps"
-            src="https://maps.google.com/maps?q=-7.9584011,112.6059591&hl=id&z=17&output=embed"
+            src={GLADIOLA_COORDS.embedUrl}
             width="100%"
             height="280"
             style={{ border: 0, borderRadius: '12px' }}
@@ -836,7 +861,7 @@ export const OverviewView = () => {
             </span>
           </div>
           <span className="maps-coordinates-chip">
-            Lat: -7.9584011 | Lng: 112.6059591
+            Lat: {GLADIOLA_COORDS.lat} | Lng: {GLADIOLA_COORDS.lng}
           </span>
         </div>
       </div>

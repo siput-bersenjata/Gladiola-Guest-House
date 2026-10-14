@@ -97,7 +97,7 @@ export const LocationEnforcerModal = () => {
             className="btn-secondary-location"
             onClick={() => simulateLocationDefault("Verifikasi Area Gladiola Malang")}
           >
-            Verifikasi Cepat (Sekitar Jl. Gladiol No. 1)
+            Verifikasi Cepat (Sekitar Jl. Bend. Palasari No.1)
           </button>
         </div>
 

@@ -42,9 +42,9 @@ Sistem monitoring pembayaran kos dan tagihan listrik bulanan dengan desain botan
 ---
 
 ## 📍 Data Lokasi Gladiola Guest House
-- **Alamat**: Jl. Gladiol No. 1, Lowokwaru, Kota Malang, Jawa Timur 65141
-- **Koordinat**: `Latitude: -7.9584011, Longitude: 112.6059591`
-- **Google Maps**: [Gladiola Guest House - Google Maps](https://www.google.com/maps/place/Gladiola+Guest+House/@-7.9581898,112.6059383,19.75z/data=!4m9!3m8!1s0x2e7882636fac0ba1:0x35903e0a08234e14!5m2!4m1!1i2!8m2!3d-7.9584011!4d112.6059591!16s%2Fg%2F11b6j70yv9)
+- **Alamat**: Jl. Bend. Palasari No.1, Karangbesuki, Kec. Sukun, Kota Malang, Jawa Timur 65145
+- **Koordinat**: `Latitude: -7.9586216, Longitude: 112.6057794`
+- **Google Maps**: [Gladiola Guest House - Google Maps](https://www.google.com/maps/search/?api=1&query=Jl.+Bend.+Palasari+No.1,+Karangbesuki,+Kec.+Sukun,+Kota+Malang,+Jawa+Timur+65145)
 
 ---
 

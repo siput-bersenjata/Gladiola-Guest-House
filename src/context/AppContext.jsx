@@ -19,6 +19,7 @@ import {
   deduplicateElectricityBills,
   getNextMonthName
 } from '../data/initialData';
+import { PERSISTED_DATABASE } from '../data/persistedDatabase';
 import {
   getStoredFirebaseConfig,
   saveStoredFirebaseConfig,
@@ -158,6 +159,29 @@ export const AppProvider = ({ children }) => {
   );
   const [isLocationEnforcedModalOpen, setIsLocationEnforcedModalOpen] = useState(false);
 
+  // System Validation / Invalid Data Popup Modal State
+  const [invalidModalConfig, setInvalidModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    reasons: [],
+    actionLabel: 'Tutup & Perbaiki'
+  });
+
+  const showInvalidPopup = (title, message, reasons = []) => {
+    setInvalidModalConfig({
+      isOpen: true,
+      title: title || 'Peringatan: Data Tidak Sesuai',
+      message: message || 'Ditemukan ketidaksesuaian data dalam sistem.',
+      reasons: Array.isArray(reasons) ? reasons : [reasons],
+      actionLabel: 'Tutup & Perbaiki'
+    });
+  };
+
+  const closeInvalidPopup = () => {
+    setInvalidModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
+
   // Default Cloud Storage Bin ID (Clean seeded bin 'afebcbe')
   const DEFAULT_CLOUD_BIN = 'afebcbe';
   const [cloudBinId, setCloudBinId] = useState(() => {
@@ -179,7 +203,8 @@ export const AppProvider = ({ children }) => {
   // Guard refs to prevent circular sync loops
   const isApplyingRemoteRef = useRef(false);
   const lastUploadedTimestampRef = useRef(0);
-  const latestKnownRemoteVersionRef = useRef(0);
+  const latestKnownRemoteVersionRef = useRef(Number(PERSISTED_DATABASE?.version || 552));
+  const hasFetchedRemoteRef = useRef(false);
   const isInitialMountRef = useRef(true);
   const debounceTimerRef = useRef(null);
   const syncChannelRef = useRef(null);
@@ -188,7 +213,8 @@ export const AppProvider = ({ children }) => {
   const isFirstLoadRef = useRef(true);
 
   // Self-heal and reconcile tenant references across all collections
-  const reconcileTenantReferences = (tList, rList, pList, eList) => {
+  // Self-heal and reconcile tenant references and room categories across all collections
+  const reconcileTenantReferences = (tList, rList, pList, eList, bList = []) => {
     const tenantById = new Map();
     const tenantByRoom = new Map();
     (tList || []).forEach((t) => {
@@ -205,8 +231,7 @@ export const AppProvider = ({ children }) => {
     const newRooms = validRoomsList.map((r) => {
       if (!r) return r;
       const roomNumStr = String(r.number);
-      const isDailyDefault = ["201", "202", "203", "204"].includes(roomNumStr);
-      const category = r.category || (isDailyDefault ? 'Harian' : 'Bulanan');
+      const category = r.category || 'Bulanan';
       const dailyPrice = r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000);
       let updatedRoom = { ...r, category, dailyPrice };
 
@@ -220,7 +245,7 @@ export const AppProvider = ({ children }) => {
           roomsChanged = true;
           return { ...updatedRoom, currentTenant: matchTenant.name, status: 'Terisi' };
         }
-      } else if (!isDailyDefault) {
+      } else {
         if (r.status === 'Terisi' && (!r.currentTenant || !matchTenant)) {
           roomsChanged = true;
           return { ...updatedRoom, currentTenant: null, status: 'Kosong' };
@@ -228,6 +253,15 @@ export const AppProvider = ({ children }) => {
       }
       return updatedRoom;
     });
+
+    // Auto-sync daily bookings: ONLY keep bookings on rooms where category === 'Harian'
+    const harianRoomNumSet = new Set(
+      newRooms.filter((r) => r.category === 'Harian').map((r) => String(r.number))
+    );
+    const validBookings = (bList || []).filter(
+      (b) => b && validRoomNumSet.has(String(b.roomNumber)) && harianRoomNumSet.has(String(b.roomNumber))
+    );
+    const bookingsChanged = validBookings.length !== (bList || []).length;
 
     let paymentsChanged = false;
     const mappedPayments = (pList || [])
@@ -296,7 +330,8 @@ export const AppProvider = ({ children }) => {
       rooms: newRooms,
       payments: newPayments,
       electricityBills: dedupedBills,
-      hasAnyChange: roomsChanged || paymentsChanged || billsChanged
+      dailyBookings: validBookings,
+      hasAnyChange: roomsChanged || paymentsChanged || billsChanged || bookingsChanged
     };
   };
 
@@ -316,11 +351,10 @@ export const AppProvider = ({ children }) => {
     const sourceRooms = purged.length === 10 ? purged : INITIAL_ROOMS;
     return sourceRooms.map((r, idx) => {
       const initialMatch = INITIAL_ROOMS.find((ir) => ir.number === r.number) || INITIAL_ROOMS[idx];
-      const isDailyDefault = ["201", "202", "203", "204"].includes(String(r.number));
       return {
         ...r,
         floor: r.floor || (String(r.number).startsWith('1') ? 1 : 2),
-        category: r.category || (isDailyDefault ? 'Harian' : 'Bulanan'),
+        category: r.category || 'Bulanan',
         dailyPrice: r.dailyPrice || (r.type?.includes('Executive') ? 275000 : 250000),
         electricityToken: r.electricityToken || initialMatch?.electricityToken || `3819-2041-${String(8800 + (idx + 1) * 3).padStart(4, "0")}-9014-${String(5520 + (idx + 1)).padStart(4, "0")}`,
         meterId: r.meterId || initialMatch?.meterId || `PLN-14${String(28000000 + (idx + 1) * 137).slice(-8)}`
@@ -329,11 +363,8 @@ export const AppProvider = ({ children }) => {
   });
   const [dailyBookings, setDailyBookings] = useState(() => {
     const saved = loadState('dailyBookings', null);
-    if (!saved || !Array.isArray(saved) || saved.length === 0) {
-      return INITIAL_DAILY_BOOKINGS;
-    }
-    const filtered = saved.filter((b) => b && ALLOWED_ROOM_NUMBERS.includes(String(b.roomNumber)));
-    return filtered.length > 0 ? filtered : INITIAL_DAILY_BOOKINGS;
+    const source = (saved && Array.isArray(saved)) ? saved : (INITIAL_DAILY_BOOKINGS || []);
+    return source.filter((b) => b && ALLOWED_ROOM_NUMBERS.includes(String(b.roomNumber)));
   });
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
@@ -381,10 +412,11 @@ export const AppProvider = ({ children }) => {
   useEffect(() => saveState('operators', operators), [operators]);
   useEffect(() => saveState('logs', activityLogs), [activityLogs]);
   useEffect(() => saveState('cloudBinId', cloudBinId), [cloudBinId]);
+  useEffect(() => saveState('dailyBookings', dailyBookings), [dailyBookings]);
 
   // Self-heal initial data if rooms/payments are desynchronized with tenants
   useEffect(() => {
-    const reconciled = reconcileTenantReferences(tenants, rooms, payments, electricityBills);
+    const reconciled = reconcileTenantReferences(tenants, rooms, payments, electricityBills, dailyBookings);
     if (reconciled.hasAnyChange) {
       setRooms(reconciled.rooms);
       saveState('rooms', reconciled.rooms);
@@ -392,6 +424,10 @@ export const AppProvider = ({ children }) => {
       saveState('payments', reconciled.payments);
       setElectricityBills(reconciled.electricityBills);
       saveState('electricity', reconciled.electricityBills);
+      if (Array.isArray(reconciled.dailyBookings)) {
+        setDailyBookings(reconciled.dailyBookings);
+        saveState('dailyBookings', reconciled.dailyBookings);
+      }
     }
   }, []);
 
@@ -523,17 +559,21 @@ const decompressPayload = async (base64Str) => {
         (b) => b && validRoomNumbers.has(String(b.roomNumber))
       );
 
-      // 5. Strict Daily Bookings Sanitization: booking's room MUST exist in sanitizedRooms!
+      // 5. Strict Daily Bookings Sanitization: booking's room MUST exist in sanitizedRooms and be category Harian!
       const incomingBookings = Array.isArray(cloudData.dailyBookings) ? cloudData.dailyBookings : dailyBookings;
+      const harianRoomNums = new Set(
+        sanitizedRooms.filter((r) => r && r.category === 'Harian').map((r) => String(r.number))
+      );
       const sanitizedBookings = incomingBookings.filter(
-        (b) => b && validRoomNumbers.has(String(b.roomNumber))
+        (b) => b && validRoomNumbers.has(String(b.roomNumber)) && harianRoomNums.has(String(b.roomNumber))
       );
 
       const reconciled = reconcileTenantReferences(
         sanitizedTenants,
         sanitizedRooms,
         sanitizedPayments,
-        sanitizedBills
+        sanitizedBills,
+        sanitizedBookings
       );
 
       setTenants(sanitizedTenants);
@@ -548,8 +588,9 @@ const decompressPayload = async (base64Str) => {
       setElectricityBills(reconciled.electricityBills);
       saveState('electricity', reconciled.electricityBills);
 
-      setDailyBookings(sanitizedBookings);
-      saveState('dailyBookings', sanitizedBookings);
+      const finalDailyBookings = Array.isArray(reconciled.dailyBookings) ? reconciled.dailyBookings : sanitizedBookings;
+      setDailyBookings(finalDailyBookings);
+      saveState('dailyBookings', finalDailyBookings);
 
       if (Array.isArray(cloudData.staffList)) {
         setStaffList(cloudData.staffList);
@@ -643,6 +684,7 @@ const decompressPayload = async (base64Str) => {
       }
 
       if (cloudData && Array.isArray(cloudData.tenants) && cloudData.tenants.length > 0) {
+        hasFetchedRemoteRef.current = true;
         await applyRemoteData(cloudData);
         setCloudSyncStatus('synced');
       }
@@ -656,13 +698,21 @@ const decompressPayload = async (base64Str) => {
 
   const pushToCloud = async (overrideData = null) => {
     if (isApplyingRemoteRef.current) return;
+    const payloadTenants = overrideData?.tenants || tenants;
+    const payloadRooms = overrideData?.rooms || rooms;
+    if (!Array.isArray(payloadTenants) || payloadTenants.length < 3 || !Array.isArray(payloadRooms) || payloadRooms.length === 0) {
+      console.warn('pushToCloud prevented: tenants or rooms payload is insufficient');
+      return;
+    }
+
     try {
       setIsCloudSyncing(true);
       setCloudSyncStatus('syncing');
       const now = Date.now();
       lastLocalUserEditRef.current = now;
 
-      const currentVer = Math.max(loadState('lastLocalVersion', 0), latestKnownRemoteVersionRef.current);
+      const baseVer = Number(PERSISTED_DATABASE?.version || 552);
+      const currentVer = Math.max(Number(loadState('lastLocalVersion', 0)), latestKnownRemoteVersionRef.current, baseVer);
       const nextVer = currentVer + 1;
       latestKnownRemoteVersionRef.current = nextVer;
 
@@ -930,7 +980,7 @@ const decompressPayload = async (base64Str) => {
         lat: userLocation.lat || GLADIOLA_COORDS.lat,
         lng: userLocation.lng || GLADIOLA_COORDS.lng
       },
-      locationName: userLocation.address || 'Gladiola Guest House, Jl. Gladiol No. 1 Malang',
+      locationName: userLocation.address || 'Gladiola Guest House, Jl. Bend. Palasari No.1, Sukun, Malang',
       distanceMeters,
       distanceText,
       isInsideKos,
@@ -989,7 +1039,7 @@ const decompressPayload = async (base64Str) => {
       lng,
       accuracy: 8,
       status: 'granted',
-      address: `Jl. Gladiol No. 1, Lowokwaru, Malang (${note})`,
+      address: `Jl. Bend. Palasari No.1, Karangbesuki, Sukun, Malang (${note})`,
       distanceKm: dist
     };
     setUserLocation(locState);
@@ -1249,7 +1299,7 @@ const decompressPayload = async (base64Str) => {
             tenantPhone: tenant.phone,
             roomNumber: tenant.roomNumber,
             month: targetMonth,
-            amount: tenant.monthlyRent || 1750000,
+            amount: tenant.monthlyRent || 1600000,
             paidAt: null,
             paymentMethod: 'Belum Transfer',
             status: 'Belum Bayar',
@@ -1351,7 +1401,7 @@ const decompressPayload = async (base64Str) => {
             tenantPhone: target.tenantPhone,
             roomNumber: target.roomNumber,
             month: m,
-            amount: target.amount || 1750000,
+            amount: target.amount || 1600000,
             paidAt: nowStr,
             paymentMethod: customMethod,
             status: 'Tervalidasi',
@@ -1476,16 +1526,73 @@ const decompressPayload = async (base64Str) => {
   const handleSaveTenant = (tenantData) => {
     if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan menambah atau mengubah data anak kos!', 'error');
-      return;
+      return false;
     }
-
-    const now = Date.now();
-    saveState('lastLocalEditTime', now);
 
     const newName = (tenantData.name || '').trim();
     const newPhone = (tenantData.phone || '').trim();
     const newRoom = (tenantData.roomNumber || '').trim();
-    const newRent = Number(tenantData.monthlyRent) || 1750000;
+    const newRent = Number(tenantData.monthlyRent) || 1600000;
+
+    // VALIDASI 1: Kamar tidak boleh berkategori 'Harian'
+    const targetRoom = rooms.find((r) => String(r.number).trim() === newRoom);
+    if (targetRoom && targetRoom.category === 'Harian') {
+      showInvalidPopup(
+        'Kamar Kategori Harian Tidak Bisa Dihuni Anak Kos',
+        `Kamar ${newRoom} saat ini diatur sebagai kamar Harian (Sewa Transit).`,
+        [
+          `Kategori peruntukan Kamar ${newRoom}: Harian (Sewa Transit).`,
+          'Anak kos bulanan hanya dapat ditempatkan di kamar berkategori Kos Bulanan.',
+          `Solusi: Ubah kategori Kamar ${newRoom} menjadi "Bulanan" di menu Kamar, atau pilih nomor kamar kos bulanan lainnya.`
+        ]
+      );
+      return false;
+    }
+
+    // VALIDASI 2: Tidak boleh ada duplikat anak kos aktif di kamar yang sama
+    const existingTenantInRoom = tenants.find(
+      (t) =>
+        String(t.roomNumber).trim() === newRoom &&
+        t.status === 'Aktif' &&
+        (!tenantData.id || t.id !== tenantData.id)
+    );
+    if (existingTenantInRoom) {
+      showInvalidPopup(
+        'Kamar Sudah Terisi Penghuni Aktif',
+        `Kamar ${newRoom} saat ini sudah dihuni oleh anak kos aktif (${existingTenantInRoom.name}).`,
+        [
+          'Satu unit kamar hanya boleh dihuni oleh 1 (satu) anak kos aktif.',
+          `Sistem mendeteksi bahwa ${existingTenantInRoom.name} masih terdaftar aktif di Kamar ${newRoom}.`,
+          'Solusi: Pilih kamar lain yang berstatus Kosong, atau perbarui/selesaikan status sewa penghuni sebelumnya terlebih dahulu.'
+        ]
+      );
+      return false;
+    }
+
+    // VALIDASI 3: Tidak boleh ada duplikat nomor telepon / kontak
+    if (newPhone) {
+      const existingPhoneTenant = tenants.find(
+        (t) =>
+          t.phone &&
+          t.phone.trim() === newPhone &&
+          (!tenantData.id || t.id !== tenantData.id)
+      );
+      if (existingPhoneTenant) {
+        showInvalidPopup(
+          'Nomor Telepon Sudah Digunakan',
+          `Nomor telepon/WhatsApp ${newPhone} sudah terdaftar atas nama ${existingPhoneTenant.name} (Kamar ${existingPhoneTenant.roomNumber}).`,
+          [
+            'Nomor telepon anak kos digunakan sebagai identifikasi akun dan login portal.',
+            'Tidak boleh ada data ganda (duplikat) nomor kontak antar sesama penghuni kos.',
+            'Solusi: Pastikan nomor telepon yang dimasukkan adalah nomor unik milik penghuni baru.'
+          ]
+        );
+        return false;
+      }
+    }
+
+    const now = Date.now();
+    saveState('lastLocalEditTime', now);
 
     if (tenantData.id) {
       // Edit
@@ -1662,7 +1769,7 @@ const decompressPayload = async (base64Str) => {
           tenantPhone: newTenant.phone,
           roomNumber: newTenant.roomNumber,
           month: targetMonth,
-          amount: newTenant.monthlyRent || 1750000,
+          amount: newTenant.monthlyRent || 1600000,
           paidAt: null,
           paymentMethod: 'Belum Transfer',
           status: 'Belum Bayar',
@@ -1733,7 +1840,43 @@ const decompressPayload = async (base64Str) => {
   const handleSaveRoom = (roomData) => {
     if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan menambah atau mengubah data kamar!', 'error');
-      return;
+      return false;
+    }
+
+    const roomNumStr = String(roomData.number || '').trim();
+
+    // VALIDASI 1: Duplikasi nomor kamar
+    const duplicateRoom = rooms.find(
+      (r) => String(r.number).trim() === roomNumStr && (!roomData.id || r.id !== roomData.id)
+    );
+    if (duplicateRoom) {
+      showInvalidPopup(
+        'Nomor Kamar Sudah Digunakan',
+        `Nomor Kamar ${roomNumStr} sudah terdaftar di sistem Gladiola.`,
+        [
+          'Setiap unit kamar di Gladiola Guest House wajib memiliki nomor identifikasi yang unik.',
+          'Dilarang membuat kamar dengan nomor duplikat agar data tagihan dan penghuni tidak tertukar.',
+          'Solusi: Gunakan nomor kamar lain atau perbarui data kamar yang sudah terdaftar.'
+        ]
+      );
+      return false;
+    }
+
+    // VALIDASI 2: Kamar dengan anak kos aktif tidak boleh diubah ke Harian
+    const activeTenant = tenants.find(
+      (t) => String(t.roomNumber).trim() === roomNumStr && t.status === 'Aktif'
+    );
+    if (roomData.category === 'Harian' && activeTenant) {
+      showInvalidPopup(
+        'Tidak Dapat Mengubah Menjadi Kamar Harian',
+        `Kamar ${roomNumStr} saat ini sedang dihuni oleh anak kos aktif (${activeTenant.name}).`,
+        [
+          `Penghuni kos bulanan (${activeTenant.name}) masih tercatat aktif menghuni kamar ini.`,
+          'Kamar yang dihuni anak kos bulanan tidak dapat diubah kategorinya menjadi Sewa Harian agar tidak terjadi bentrok hunian.',
+          'Solusi: Pindahkan atau nonaktifkan status tinggal penghuni di menu Penyewa terlebih dahulu sebelum mengalihkan fungsi kamar ke Sewa Harian.'
+        ]
+      );
+      return false;
     }
 
     const now = Date.now();
@@ -1786,9 +1929,27 @@ const decompressPayload = async (base64Str) => {
         saveState('tenants', newTenants);
       }
 
-      pushToCloud({ rooms: newRooms, electricityBills: newBills, tenants: newTenants, payments: newPayments });
-      logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Token Listrik: ${roomData.electricityToken || '-'})`);
-      addToast(`Data Kamar ${roomData.number} & Token PLN berhasil diperbarui`, 'success');
+      // Auto-sync daily bookings: if room category is 'Bulanan', clear daily bookings for this room
+      let newDailyBookings = dailyBookings;
+      if (roomData.category === 'Bulanan') {
+        newDailyBookings = (dailyBookings || []).filter(
+          (b) => String(b.roomNumber).trim() !== String(roomData.number).trim()
+        );
+        if (newDailyBookings.length !== (dailyBookings || []).length) {
+          setDailyBookings(newDailyBookings);
+          saveState('dailyBookings', newDailyBookings);
+        }
+      }
+
+      pushToCloud({
+        rooms: newRooms,
+        electricityBills: newBills,
+        tenants: newTenants,
+        payments: newPayments,
+        dailyBookings: newDailyBookings
+      });
+      logActivity('Ubah Data Kamar', `Memperbarui data Kamar ${roomData.number} (Kategori: ${roomData.category || 'Bulanan'})`);
+      addToast(`Data Kamar ${roomData.number} berhasil diperbarui & disinkronkan`, 'success');
     } else {
       // Add room
       const newRoom = {
@@ -1810,6 +1971,36 @@ const decompressPayload = async (base64Str) => {
   const handleSaveDailyBooking = (bookingData) => {
     if (currentUser?.role === 'owner') {
       addToast('Owner tidak memiliki izin membuat reservasi kamar!', 'error');
+      return null;
+    }
+
+    const targetRoom = rooms.find((r) => String(r.number).trim() === String(bookingData.roomNumber).trim());
+    if (targetRoom && targetRoom.category !== 'Harian') {
+      showInvalidPopup(
+        'Reservasi Harian Tidak Valid',
+        `Kamar ${bookingData.roomNumber} saat ini berstatus Kos Bulanan, bukan Sewa Harian.`,
+        [
+          `Kategori peruntukan Kamar ${bookingData.roomNumber}: Kos Bulanan.`,
+          'Reservasi harian tamu per malam hanya dapat ditempatkan pada unit kamar berkategori Sewa Harian.',
+          'Solusi: Ubah kategori kamar menjadi Sewa Harian pada menu Katalog Kamar terlebih dahulu.'
+        ]
+      );
+      return null;
+    }
+
+    const activeTenant = tenants.find(
+      (t) => String(t.roomNumber).trim() === String(bookingData.roomNumber).trim() && t.status === 'Aktif'
+    );
+    if (activeTenant) {
+      showInvalidPopup(
+        'Kamar Masih Dihuni Anak Kos',
+        `Kamar ${bookingData.roomNumber} saat ini masih dihuni aktif oleh anak kos (${activeTenant.name}).`,
+        [
+          `Kamar ${bookingData.roomNumber} tercatat memiliki penghuni kos bulanan aktif (${activeTenant.name}).`,
+          'Reservasi harian tidak dapat diproses pada kamar yang sedang berpenghuni bulanan.',
+          'Solusi: Pilih kamar lain yang berstatus Harian dan Kosong.'
+        ]
+      );
       return null;
     }
 
@@ -2476,7 +2667,10 @@ const decompressPayload = async (base64Str) => {
         firebaseConfig,
         firebaseConnected,
         handleUpdateFirebaseConfig,
-        testFirebaseConnection
+        testFirebaseConnection,
+        invalidModalConfig,
+        showInvalidPopup,
+        closeInvalidPopup
       }}
     >
       {children}

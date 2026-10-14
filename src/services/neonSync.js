@@ -80,7 +80,10 @@ export const fetchFromNeon = async () => {
 
 // Push database snapshot to Neon
 export const pushToNeon = async (payload) => {
-  if (!payload) return false;
+  if (!payload || !Array.isArray(payload.tenants) || payload.tenants.length < 3 || !Array.isArray(payload.rooms)) {
+    console.warn('pushToNeon rejected: payload invalid or insufficient');
+    return false;
+  }
   const version = Number(payload.version || Date.now());
   const now = new Date();
 
@@ -100,7 +103,7 @@ export const pushToNeon = async (payload) => {
     }
   }
 
-  // 2. Direct HTTP SQL upsert using Neon Serverless Driver
+  // 2. Direct HTTP SQL upsert using Neon Serverless Driver with version safety guard
   try {
     const sql = getSqlClient();
     if (!sql) return false;
@@ -111,6 +114,7 @@ export const pushToNeon = async (payload) => {
         version = EXCLUDED.version,
         data = EXCLUDED.data,
         updated_at = EXCLUDED.updated_at
+      WHERE EXCLUDED.version >= gladiola_sync.version
     `;
     return true;
   } catch (err) {

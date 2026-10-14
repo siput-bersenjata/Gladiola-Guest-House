@@ -39,7 +39,7 @@ export const PenyewaView = () => {
     phone: '',
     roomNumber: '101',
     roomType: 'Deluxe Taman (AC + KM Dalam)',
-    monthlyRent: 1750000,
+    monthlyRent: 1600000,
     startDate: new Date().toISOString().split('T')[0],
     emergencyContact: '',
     notes: ''
@@ -54,7 +54,7 @@ export const PenyewaView = () => {
       phone: '',
       roomNumber: '101',
       roomType: 'Deluxe Taman (AC + KM Dalam)',
-      monthlyRent: 1750000,
+      monthlyRent: 1600000,
       startDate: new Date().toISOString().split('T')[0],
       emergencyContact: '',
       notes: ''
@@ -69,7 +69,7 @@ export const PenyewaView = () => {
       phone: tenant.phone,
       roomNumber: tenant.roomNumber,
       roomType: tenant.roomType || 'Deluxe Taman (AC + KM Dalam)',
-      monthlyRent: tenant.monthlyRent || 1750000,
+      monthlyRent: tenant.monthlyRent || 1600000,
       startDate: tenant.startDate || '',
       emergencyContact: tenant.emergencyContact || '',
       notes: tenant.notes || ''
@@ -79,14 +79,16 @@ export const PenyewaView = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    handleSaveTenant({
+    const result = handleSaveTenant({
       ...(editingTenant ? { id: editingTenant.id } : {}),
       ...formData
     });
-    setViewMode('list');
+    if (result !== false) {
+      setViewMode('list');
+    }
   };
 
-  // Format tanggal Indonesia e.g. "2024-01-10" -> "10 Jan 2024"
+  // Format tanggal Indonesia e.g. "2026-01-10" -> "10 Jan 2026"
   const formatDateIndo = (dateStr) => {
     if (!dateStr) return '-';
     try {
@@ -274,7 +276,7 @@ export const PenyewaView = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, monthlyRent: parseInt(e.target.value) || 0 })
                     }
-                    placeholder="Contoh: 1750000"
+                    placeholder="Contoh: 1600000"
                     required
                   />
                   <span className="field-hint">Nominal tagihan sewa kamar yang akan divalidasi setiap bulan</span>

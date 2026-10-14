@@ -489,7 +489,7 @@ export const KelolaAkunView = () => {
                     </td>
 
                     <td className="text-sm text-gray-500 font-mono">
-                      {acc.createdAt || '2024-01-01'}
+                      {acc.createdAt || '2026-01-01'}
                     </td>
 
                     <td>

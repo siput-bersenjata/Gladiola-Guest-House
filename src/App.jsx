@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { LocationEnforcerModal } from './components/LocationEnforcerModal';
+import { InvalidDataModal } from './components/InvalidDataModal';
 import { OverviewView } from './components/OverviewView';
 import { PenyewaView } from './components/PenyewaView';
 import { PembayaranView } from './components/PembayaranView';
@@ -26,6 +27,7 @@ const MainLayout = () => {
     return (
       <div className="login-root-container">
         <LocationEnforcerModal />
+        <InvalidDataModal />
         <LoginPage />
         <div className="toast-container" aria-live="polite">
           {notifications.map((toast) => (
@@ -77,6 +79,7 @@ const MainLayout = () => {
     <div className="app-shell">
       {/* Mandatory Location Tracker Modal */}
       <LocationEnforcerModal />
+      <InvalidDataModal />
 
       {/* Botanical Sidebar */}
       <Sidebar />
