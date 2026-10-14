@@ -25,8 +25,6 @@ export const UtilitasView = () => {
   const [filterMonth, setFilterMonth] = useState('Oktober 2026');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingTokenIds, setEditingTokenIds] = useState({});
-  const [tokenInputMap, setTokenInputMap] = useState({});
   const [editingMeterId, setEditingMeterId] = useState(null);
   const [meterEndInput, setMeterEndInput] = useState('');
   const [editingRateId, setEditingRateId] = useState(null);
@@ -160,24 +158,6 @@ export const UtilitasView = () => {
       }
       return { key, direction: 'asc' };
     });
-  };
-
-  // Save single token inline
-  const handleSaveTokenInline = (bill) => {
-    const inputVal = tokenInputMap[bill.id] !== undefined ? tokenInputMap[bill.id] : bill.token;
-    if (!inputVal || !inputVal.trim()) {
-      addToast('Silakan ketik atau isi nomor token terlebih dahulu!', 'warning');
-      return;
-    }
-    handleUpdateElectricityToken(bill.id, inputVal.trim(), 'Lunas');
-    setEditingTokenIds((prev) => ({ ...prev, [bill.id]: false }));
-  };
-
-  // Auto-fill realistic 20-digit token for a single row (prioritize room fixed token)
-  const handleAutoFillToken = (billId, roomNumber) => {
-    const roomObj = rooms.find((r) => r.number === roomNumber);
-    const generated = roomObj?.electricityToken || generateRandomPlnToken();
-    setTokenInputMap((prev) => ({ ...prev, [billId]: generated }));
   };
 
   // Save quick meter end edit
@@ -582,10 +562,6 @@ export const UtilitasView = () => {
             <tbody>
               {sortedBills.length > 0 ? (
                 sortedBills.map((b) => {
-                  const isEditingToken = editingTokenIds[b.id] || !b.token;
-                  const currentTokenVal =
-                    tokenInputMap[b.id] !== undefined ? tokenInputMap[b.id] : (b.token || '');
-
                   const roomObj = (rooms || []).find((r) => String(r.number).trim() === String(b.roomNumber).trim());
                   const displayName = b.tenantName || roomObj?.currentTenant || 'Penghuni';
 
