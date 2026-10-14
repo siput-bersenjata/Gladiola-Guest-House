@@ -1551,6 +1551,23 @@ const decompressPayload = async (base64Str) => {
   }, [tenants.length]);
 
   const handleAddStaffRating = (staffId, rating, comment) => {
+    if (currentUser?.role === 'anak_kos') {
+      const myBills = (payments || []).filter(
+        (p) => p.tenantPhone === currentUser.phone || p.roomNumber === currentUser.roomNumber
+      );
+      const curBill = myBills.find((p) => p.month && p.month.includes('Oktober'));
+      const isCleared = curBill && (
+        curBill.status === 'Tervalidasi' ||
+        curBill.status === 'Lunas' ||
+        String(curBill.status).includes('Tervalidasi') ||
+        String(curBill.status).includes('Lunas')
+      );
+      if (!isCleared) {
+        addToast('Anda hanya bisa memberikan rating ketika pembayaran pada bulan ini sudah lunas atau tervalidasi!', 'error');
+        return false;
+      }
+    }
+
     if (!comment || comment.trim().length < 5) {
       addToast('Wajib mengisi kalimat ulasan minimal 5 karakter!', 'error');
       return false;

@@ -18,8 +18,52 @@ export const PetugasView = () => {
     staffRatings,
     handleSaveStaff,
     handleDeleteStaff,
-    currentUser
+    currentUser,
+    payments,
+    handleAddStaffRating,
+    addToast
   } = useApp();
+
+  const isAnakKos = currentUser?.role === 'anak_kos';
+  const tenantRentBills = isAnakKos
+    ? (payments || []).filter(
+        (p) => p.tenantPhone === currentUser.phone || p.roomNumber === currentUser.roomNumber
+      )
+    : [];
+  const currentRentBill = tenantRentBills.find((p) => p.month && p.month.includes('Oktober'));
+  const isPaymentCleared = Boolean(
+    currentRentBill &&
+      (currentRentBill.status === 'Tervalidasi' ||
+        currentRentBill.status === 'Lunas' ||
+        String(currentRentBill.status).includes('Tervalidasi') ||
+        String(currentRentBill.status).includes('Lunas'))
+  );
+
+  const [selectedStaffToRate, setSelectedStaffToRate] = useState('all');
+  const [ratingStars, setRatingStars] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
+  const [isSubmittingRate, setIsSubmittingRate] = useState(false);
+
+  const handleRateSubmit = (e) => {
+    e.preventDefault();
+    if (!isPaymentCleared) {
+      addToast('Anda hanya bisa memberikan rating ketika pembayaran pada bulan ini sudah lunas atau tervalidasi!', 'error');
+      return;
+    }
+    if (!ratingComment || ratingComment.trim().length < 5) {
+      addToast('Wajib mengisi kalimat ulasan minimal 5 karakter!', 'error');
+      return;
+    }
+    setIsSubmittingRate(true);
+    if (selectedStaffToRate === 'all') {
+      staffList.forEach((s) => handleAddStaffRating(s.id, ratingStars, ratingComment));
+      addToast('Ulasan dan rating berhasil dikirim untuk semua petugas!', 'success');
+    } else {
+      handleAddStaffRating(selectedStaffToRate, ratingStars, ratingComment);
+    }
+    setRatingComment('');
+    setIsSubmittingRate(false);
+  };
 
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'form'
   const [editingStaff, setEditingStaff] = useState(null);
@@ -33,7 +77,7 @@ export const PetugasView = () => {
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
   });
 
-  const canManageStaff = currentUser.role === 'operator' || currentUser.role === 'super_admin';
+  const canManageStaff = currentUser?.role === 'operator' || currentUser?.role === 'super_admin';
 
   const openAddForm = () => {
     setEditingStaff(null);
@@ -292,6 +336,109 @@ export const PetugasView = () => {
           </div>
         ))}
       </div>
+
+      {/* Khusus Anak Kos: Form Rating Petugas (Hanya Aktif Jika Pembayaran Lunas/Tervalidasi) */}
+      {isAnakKos && (
+        <div className="dashboard-card mb-8" style={{ background: '#ffffff', borderRadius: '16px', border: '1.5px solid #d1fae5', padding: '24px', boxShadow: '0 4px 16px rgba(22, 101, 52, 0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ background: isPaymentCleared ? '#ecfdf5' : '#fef3c7', padding: '10px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <IconStar size={24} filled={isPaymentCleared} className={isPaymentCleared ? "text-forest-gold" : "text-amber-500"} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#166534', margin: 0 }}>
+                Beri Rating & Ulasan Kinerja Petugas
+              </h3>
+              <p style={{ fontSize: '0.84rem', color: '#6b7280', margin: '4px 0 0 0' }}>
+                {isPaymentCleared
+                  ? "Pembayaran bulan ini telah tervalidasi. Silakan berikan penilaian pelayanan staf kami."
+                  : "Penilaian petugas hanya dapat diberikan setelah tagihan sewa kos bulan ini berstatus Lunas / Tervalidasi."}
+              </p>
+            </div>
+          </div>
+
+          {!isPaymentCleared ? (
+            <div style={{
+              padding: '14px 18px',
+              background: '#fef3c7',
+              borderRadius: '10px',
+              border: '1px solid #fde68a',
+              color: '#92400e',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '0.88rem'
+            }}>
+              <IconClock size={20} className="text-amber-600" style={{ flexShrink: 0 }} />
+              <div>
+                <strong>Form Rating Terkunci:</strong> Tagihan sewa kamar Anda untuk bulan Oktober 2026 berstatus <em>"{currentRentBill?.status || 'Belum Bayar'}"</em>. Formulir rating akan otomatis aktif setelah pembayaran divalidasi oleh pengelola.
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleRateSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label className="form-label font-medium">Pilih Petugas yang Dinilai:</label>
+                  <select
+                    className="form-select"
+                    value={selectedStaffToRate}
+                    onChange={(e) => setSelectedStaffToRate(e.target.value)}
+                  >
+                    <option value="all">⭐ Nilai SEMUA Petugas Sekaligus</option>
+                    {staffList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — {s.role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label font-medium">Bintang Penilaian:</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '4px' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRatingStars(star)}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px' }}
+                        title={`${star} Bintang`}
+                      >
+                        <IconStar size={24} filled={star <= ratingStars} className={star <= ratingStars ? "star-gold" : "star-muted"} />
+                      </button>
+                    ))}
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#166534', marginLeft: '6px' }}>
+                      {ratingStars} / 5 Bintang
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label className="form-label font-medium">
+                  Ulasan / Catatan Pelayanan <span className="text-red-500">* (Wajib)</span>:
+                </label>
+                <textarea
+                  rows="2"
+                  className="form-textarea"
+                  placeholder="Tuliskan pengalaman pelayanan petugas (kebersihan, keramahan, ketepatan waktu...)"
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={isSubmittingRate}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 22px' }}
+              >
+                <IconCheck size={18} />
+                <span>Kirim Rating & Ulasan</span>
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* Reviews & Ratings Section */}
       <div className="dashboard-card reviews-card-wrapper">

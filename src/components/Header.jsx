@@ -197,51 +197,55 @@ export const Header = () => {
           </button>
         )}
 
-        {/* Search input (Hidden on very narrow mobile screens) */}
-        <div className="header-search-box">
-          <IconSearch size={16} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Cari kamar, penyewa..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-        </div>
+        {/* Search input - Hanya tampil untuk akun Admin */}
+        {currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin') && (
+          <div className="header-search-box">
+            <IconSearch size={16} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Cari kamar, penyewa..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        )}
 
-        {/* Notifications */}
-        <div className="header-notif-wrapper" ref={notifRef}>
-          <button
-            type="button"
-            className="notif-btn"
-            onClick={() => setIsNotifOpen(!isNotifOpen)}
-            aria-label="Notifikasi"
-          >
-            <IconBell size={20} />
-            <span className="notif-indicator"></span>
-          </button>
+        {/* Notifications - Hanya tampil untuk akun Admin */}
+        {currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin') && (
+          <div className="header-notif-wrapper" ref={notifRef}>
+            <button
+              type="button"
+              className="notif-btn"
+              onClick={() => setIsNotifOpen(!isNotifOpen)}
+              aria-label="Notifikasi"
+            >
+              <IconBell size={20} />
+              <span className="notif-indicator"></span>
+            </button>
 
-          {isNotifOpen && (
-            <div className="notif-dropdown-card">
-              <div className="notif-dropdown-header">
-                <span className="font-semibold text-gray-800">Notifikasi Terbaru</span>
-                <span className="text-xs text-primary-green font-medium">Gladiola Live</span>
-              </div>
-              <div className="notif-list">
-                {activityLogs.slice(0, 4).map((log) => (
-                  <div key={log.id} className="notif-item">
-                    <div className="notif-dot"></div>
-                    <div className="notif-content">
-                      <p className="notif-action">{log.action}</p>
-                      <p className="notif-user">{log.user} • {log.locationName}</p>
-                      <span className="notif-time">{log.timestamp}</span>
+            {isNotifOpen && (
+              <div className="notif-dropdown-card">
+                <div className="notif-dropdown-header">
+                  <span className="font-semibold text-gray-800">Notifikasi Terbaru</span>
+                  <span className="text-xs text-primary-green font-medium">Gladiola Live</span>
+                </div>
+                <div className="notif-list">
+                  {activityLogs.slice(0, 4).map((log) => (
+                    <div key={log.id} className="notif-item">
+                      <div className="notif-dot"></div>
+                      <div className="notif-content">
+                        <p className="notif-action">{log.action}</p>
+                        <p className="notif-user">{log.user} • {log.locationName}</p>
+                        <span className="notif-time">{log.timestamp}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* User Profile Pill & Role Switcher */}
         <div className="profile-pill-wrapper" ref={profileRef}>

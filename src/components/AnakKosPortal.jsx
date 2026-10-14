@@ -143,15 +143,23 @@ export const AnakKosPortal = () => {
   const currentRentBill = tenantRentBills.find((p) => p.month.includes('Oktober')) || {
     month: 'Oktober 2026',
     amount: tenantData.monthlyRent || 1600000,
-    status: 'Tervalidasi'
+    status: 'Belum Bayar'
   };
+
+  const isPaymentCleared = Boolean(
+    currentRentBill &&
+    (currentRentBill.status === 'Tervalidasi' ||
+      currentRentBill.status === 'Lunas' ||
+      String(currentRentBill.status || '').includes('Tervalidasi') ||
+      String(currentRentBill.status || '').includes('Lunas'))
+  );
 
   const currentElecBill = tenantElecBills.find((b) => b.month.includes('Oktober')) || {
     month: 'Oktober 2026',
     kwhUsage: 0,
     ratePerKwh: 1750,
     totalBill: 0,
-    status: 'Lunas'
+    status: 'Belum Bayar'
   };
 
   // Previous months bills (past records)
@@ -177,6 +185,11 @@ export const AnakKosPortal = () => {
   // Handle submit rating & review
   const handleReviewSubmit = (e) => {
     e.preventDefault();
+    if (!isPaymentCleared) {
+      addToast('Anda hanya bisa memberikan rating setelah pembayaran bulan ini lunas atau tervalidasi!', 'error');
+      return;
+    }
+
     if (!reviewComment || reviewComment.trim().length < 5) {
       addToast('Wajib mengisi kalimat ulasan minimal 5 karakter!', 'error');
       return;
@@ -220,50 +233,8 @@ export const AnakKosPortal = () => {
         </div>
       </div>
 
-      {/* Grid: Wi-Fi Card & Current Month Bill */}
+      {/* Current Month Bill */}
       <div className="tenant-top-grid">
-        {/* Card: Wi-Fi Fasilitas Bulan Ini */}
-        <div className="dashboard-card wifi-card">
-          <div className="wifi-card-header">
-            <div className="icon-badge-box bg-green-tint">
-              <IconWifi size={24} className="text-primary-green" />
-            </div>
-            <div>
-              <h3 className="card-headline">Wi-Fi Kos Gladiola</h3>
-              <p className="card-subheadline">Fasilitas Internet Bulan Ini</p>
-            </div>
-          </div>
-
-          <div className="wifi-details-box">
-            <div className="wifi-field">
-              <span className="wifi-field-label">Nama Jaringan (SSID):</span>
-              <strong className="wifi-field-val">{wifiInfo.ssid}</strong>
-            </div>
-
-            <div className="wifi-field password-row">
-              <div className="wifi-field-text">
-                <span className="wifi-field-label">Password:</span>
-                <code className="wifi-field-code">{wifiInfo.password}</code>
-              </div>
-              <button
-                type="button"
-                className="btn-copy-wifi"
-                onClick={handleCopyWifi}
-                title="Salin Password"
-              >
-                {copiedWifiPass ? <IconCheck size={16} /> : <IconCopy size={16} />}
-                <span>{copiedWifiPass ? 'Tersalin' : 'Salin'}</span>
-              </button>
-            </div>
-
-            <div className="wifi-speed-badge">
-              <span>🚀 Kecepatan: {wifiInfo.speed}</span>
-            </div>
-          </div>
-          <p className="wifi-note-text">
-            {wifiInfo.note || 'Koneksi khusus penghuni aktif Gladiola Guest House'}
-          </p>
-        </div>
 
         {/* Card: Tagihan Bulan Ini (Kos & Listrik) */}
         <div className="dashboard-card current-bill-card">
@@ -406,21 +377,42 @@ export const AnakKosPortal = () => {
         </div>
       </div>
 
-      {/* Mandatory Staff Rating & Review Form (Setiap Selesai Pembayaran Tervalidasi) */}
+      {/* Mandatory Staff Rating & Review Form (Hanya saat Pembayaran Tervalidasi / Lunas) */}
       <div className="dashboard-card rating-form-card">
         <div className="rating-form-header">
           <div className="icon-badge-box bg-warm-tint">
-            <IconStar size={24} filled={true} className="text-forest-gold" />
+            <IconStar size={24} filled={isPaymentCleared} className={isPaymentCleared ? "text-forest-gold" : "text-gray-400"} />
           </div>
           <div>
             <h3 className="card-headline">Rating & Ulasan Petugas Gladiola</h3>
             <p className="card-subheadline">
-              Pembayaran Anda telah tervalidasi. Silakan berikan rating dan <strong>wajib mengisi kalimat ulasan</strong> untuk petugas kami.
+              {isPaymentCleared
+                ? "Pembayaran Anda telah tervalidasi / lunas. Silakan berikan rating dan wajib mengisi kalimat ulasan untuk petugas kami."
+                : "Fitur rating petugas hanya dapat diisi setelah pembayaran sewa kos bulan ini lunas atau tervalidasi."}
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleReviewSubmit} className="rating-form-content">
+        {!isPaymentCleared ? (
+          <div style={{
+            padding: '16px 20px',
+            background: '#fef3c7',
+            borderRadius: '10px',
+            border: '1px solid #fde68a',
+            color: '#92400e',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginTop: '16px',
+            fontSize: '0.88rem'
+          }}>
+            <IconClock size={22} className="text-amber-600" style={{ flexShrink: 0 }} />
+            <div>
+              <strong>Rating Belum Terbuka:</strong> Tagihan sewa kamar Anda untuk {currentRentBill.month} berstatus <em>"{currentRentBill.status}"</em>. Anda hanya dapat memberikan rating dan ulasan kepada petugas setelah pembayaran divalidasi oleh pengelola kos.
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleReviewSubmit} className="rating-form-content">
           <div className="rating-form-grid">
             {/* Select Petugas: 1 atau Semua */}
             <div className="form-group">
@@ -496,6 +488,7 @@ export const AnakKosPortal = () => {
             </button>
           </div>
         </form>
+        )}
 
         {/* Existing Reviews List for this room */}
         <div className="tenant-reviews-history">
