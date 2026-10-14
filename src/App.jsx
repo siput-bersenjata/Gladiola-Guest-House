@@ -44,7 +44,7 @@ const MainLayout = () => {
   const renderActiveView = () => {
     // If user is currently in anak_kos tab or role
     if (currentUser.role === 'anak_kos') {
-      const allowedTabs = ['anak_kos', 'pembayaran', 'petugas', 'kamar'];
+      const allowedTabs = ['anak_kos', 'pembayaran', 'petugas'];
       if (!allowedTabs.includes(activeTab) || activeTab === 'anak_kos') {
         return <AnakKosPortal />;
       }

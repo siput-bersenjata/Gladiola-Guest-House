@@ -95,14 +95,6 @@ export const MobileNav = () => {
             <span className="mobile-nav-label">Rating</span>
           </button>
 
-          <button
-            type="button"
-            className={`mobile-nav-btn ${activeTab === 'kamar' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kamar')}
-          >
-            <IconRoom size={20} />
-            <span className="mobile-nav-label">Fasilitas</span>
-          </button>
 
           <button
             type="button"

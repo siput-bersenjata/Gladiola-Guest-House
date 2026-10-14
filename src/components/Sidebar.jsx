@@ -212,15 +212,6 @@ export const Sidebar = () => {
                 <IconStar size={19} />
                 <span>Rating Petugas</span>
               </button>
-
-              <button
-                type="button"
-                className={`nav-item ${activeTab === 'kamar' ? 'active' : ''}`}
-                onClick={() => handleNavClick('kamar')}
-              >
-                <IconRoom size={19} />
-                <span>Fasilitas Kos</span>
-              </button>
             </>
           )}
 
