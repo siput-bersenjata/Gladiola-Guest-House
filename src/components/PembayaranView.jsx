@@ -60,7 +60,6 @@ export const PembayaranView = () => {
   const [dailyPaymentFilter, setDailyPaymentFilter] = useState('all'); // 'all' | 'DP Lunas' | 'Lunas Penuh'
   const [filterMonth, setFilterMonth] = useState('Oktober 2026');
   const [searchQuery, setSearchQuery] = useState('');
-  const [previewProof, setPreviewProof] = useState(null);
   const [isCustomMonthModalOpen, setIsCustomMonthModalOpen] = useState(false);
   const [customMonthInput, setCustomMonthInput] = useState('');
 
@@ -251,11 +250,6 @@ export const PembayaranView = () => {
         if (!a.paidAt && b.paidAt) return 1 * modifier;
         if (a.paidAt && !b.paidAt) return -1 * modifier;
         return (a.paidAt || '').localeCompare(b.paidAt || '') * modifier;
-      }
-      if (key === 'proofUrl') {
-        const hasA = a.proofUrl ? 1 : 0;
-        const hasB = b.proofUrl ? 1 : 0;
-        return (hasA - hasB) * modifier;
       }
       if (key === 'status') {
         const score = { Tervalidasi: 1, 'Menunggu Validasi': 2, 'Belum Bayar': 3 };
@@ -1300,7 +1294,7 @@ export const PembayaranView = () => {
 
         <div className="pembayaran-stat-card card-warning">
           <span className="stat-metric-label">Menunggu Validasi</span>
-          <span className="stat-metric-value">{metrics.pendingCount} Bukti</span>
+          <span className="stat-metric-value">{metrics.pendingCount} Tagihan</span>
           <span className="stat-metric-subtext">Rp {metrics.pendingAmount.toLocaleString('id-ID')}</span>
         </div>
 
@@ -1448,21 +1442,7 @@ export const PembayaranView = () => {
                   </div>
                 </th>
 
-                {/* 6. Bukti Transfer */}
-                <th
-                  onClick={() => handleSort('proofUrl')}
-                  className={`sortable-th ${sortConfig.key === 'proofUrl' ? 'active-sort' : ''}`}
-                  title="Klik untuk sortir Bukti Transfer (ASC / DESC)"
-                >
-                  <div className="th-sort-wrapper">
-                    <span>Bukti Transfer</span>
-                    <span className="sort-indicator">
-                      {sortConfig.key === 'proofUrl' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
-                    </span>
-                  </div>
-                </th>
-
-                {/* 7. Status */}
+                {/* 6. Status */}
                 <th
                   onClick={() => handleSort('status')}
                   className={`sortable-th ${sortConfig.key === 'status' ? 'active-sort' : ''}`}
@@ -1536,19 +1516,6 @@ export const PembayaranView = () => {
                     </td>
                     <td>{pay.paymentMethod || 'Belum Transfer'}</td>
                     <td className="text-sm text-gray-600 font-mono">{pay.paidAt || '-'}</td>
-                    <td>
-                      {pay.proofUrl ? (
-                        <button
-                          type="button"
-                          className="btn-view-proof"
-                          onClick={() => setPreviewProof(pay)}
-                        >
-                          Lihat Bukti
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">Tidak ada</span>
-                      )}
-                    </td>
                     <td>
                       <span
                         className={`badge-status ${
@@ -1632,7 +1599,7 @@ export const PembayaranView = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={canValidate ? 9 : 8} className="text-center py-8 text-gray-500">
+                  <td colSpan={canValidate ? 8 : 7} className="text-center py-8 text-gray-500">
                     Tidak ada data tagihan sewa untuk kamar berpenghuni pada filter ini.
                   </td>
                 </tr>
@@ -1795,49 +1762,6 @@ export const PembayaranView = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Proof Preview Modal */}
-      {previewProof && (
-        <div className="modal-overlay" onClick={() => setPreviewProof(null)}>
-          <div className="modal-content-card proof-card" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">Bukti Transfer Pembayaran Kos</h3>
-            <p className="modal-subtitle">
-              {previewProof.tenantName} — Kamar {previewProof.roomNumber} ({previewProof.month})
-            </p>
-
-            <div className="proof-img-wrapper">
-              <img
-                src={previewProof.proofUrl}
-                alt="Bukti Transfer"
-                className="proof-img-modal"
-              />
-            </div>
-
-            <div className="modal-actions-row">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setPreviewProof(null)}
-              >
-                Tutup
-              </button>
-              {canValidate && previewProof.status !== 'Tervalidasi' && (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => {
-                    handleValidatePayment(previewProof.id, 'Tervalidasi');
-                    setPreviewProof(null);
-                  }}
-                >
-                  <IconCheck size={16} />
-                  <span>Validasi & Setujui Sekarang</span>
-                </button>
-              )}
-            </div>
           </div>
         </div>
       )}
