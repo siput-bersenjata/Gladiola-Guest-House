@@ -130,21 +130,6 @@ export const Header = () => {
 
   const { title, subtitle } = getHeaderInfo();
 
-  // Role display label
-  const getRoleLabel = () => {
-    switch (currentUser.role) {
-      case 'super_admin':
-        return 'Super Admin';
-      case 'owner':
-        return 'Owner Kos';
-      case 'operator':
-        return 'Admin Taman';
-      case 'anak_kos':
-        return `Anak Kos (${currentUser.roomNumber || '102'})`;
-      default:
-        return 'User';
-    }
-  };
 
   return (
     <header className="main-header">
@@ -263,7 +248,6 @@ export const Header = () => {
             onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
           >
             <span className="profile-name">{currentUser.name}</span>
-            <span className="profile-role-tag">{getRoleLabel()}</span>
             <span className="profile-caret">▾</span>
             <img
               src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
@@ -276,7 +260,6 @@ export const Header = () => {
             <div className="profile-dropdown-menu">
               <div className="profile-dropdown-header">
                 <p className="dropdown-user-name">{currentUser.name}</p>
-                <p className="dropdown-user-role">Role: <strong>{getRoleLabel()}</strong></p>
                 {currentUser.roomNumber && (
                   <p className="dropdown-user-room">Penghuni Kamar {currentUser.roomNumber}</p>
                 )}
