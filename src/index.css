@@ -2266,15 +2266,16 @@ html, body {
   font-weight: 900;
 }
 
+.btn-half-month,
 .btn-multi-month {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
   border-radius: var(--radius-sm);
-  padding: 5px 9px;
+  padding: 5px 10px;
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
@@ -2282,10 +2283,11 @@ html, body {
   white-space: nowrap;
 }
 
+.btn-half-month:hover,
 .btn-multi-month:hover {
-  background: #dcfce7;
-  border-color: #86efac;
-  color: #166534;
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
   transform: translateY(-1px);
 }
 

@@ -30,6 +30,7 @@ export const PembayaranView = () => {
     setActiveTab,
     handleValidatePayment,
     handleValidateMultiMonthPayment,
+    handleValidateHalfMonthPayment,
     generateMonthlyBills,
     handleBulkValidateMonth,
     currentUser,
@@ -63,12 +64,13 @@ export const PembayaranView = () => {
   const [isCustomMonthModalOpen, setIsCustomMonthModalOpen] = useState(false);
   const [customMonthInput, setCustomMonthInput] = useState('');
 
-  // Multi-Month Validation Modal State
-  const [multiMonthModal, setMultiMonthModal] = useState({
+  // Half-Month (Bayar Setengah Bulan) Validation Modal State
+  const [halfMonthModal, setHalfMonthModal] = useState({
     isOpen: false,
     payment: null,
-    monthsCount: 3,
-    method: 'Transfer Bank BCA'
+    halfAmount: 800000,
+    method: 'Transfer Bank BCA',
+    periodNote: 'Setengah Bulan Penuh (15 Hari)'
   });
 
   // Table Sorting State (ASC / DESC on column headers)
@@ -360,26 +362,36 @@ export const PembayaranView = () => {
     }
   };
 
-  // Open Multi-Month Modal for a room
-  const handleOpenMultiMonthModal = (payment) => {
-    setMultiMonthModal({
+  // Open Half-Month (Bayar Setengah Bulan) Modal for a room
+  const handleOpenHalfMonthModal = (payment) => {
+    const fullRate = payment.originalAmount || payment.amount || 1600000;
+    const half = Math.round(fullRate * 0.5);
+    setHalfMonthModal({
       isOpen: true,
       payment,
-      monthsCount: 3,
-      method: payment.paymentMethod && payment.paymentMethod !== 'Belum Transfer' ? payment.paymentMethod : 'Transfer Bank BCA'
+      halfAmount: half,
+      method: payment.paymentMethod && payment.paymentMethod !== 'Belum Transfer' ? payment.paymentMethod : 'Transfer Bank BCA',
+      periodNote: 'Setengah Bulan Penuh (15 Hari)'
     });
   };
 
-  // Compute preview list of consecutive months for multi-month payment
-  const multiMonthPreviewList = useMemo(() => {
-    if (!multiMonthModal.payment) return [];
-    const startM = multiMonthModal.payment.month || filterMonth || 'Oktober 2026';
-    const list = [startM];
-    for (let i = 1; i < multiMonthModal.monthsCount; i++) {
-      list.push(getNextMonthName(list[i - 1]));
-    }
-    return list;
-  }, [multiMonthModal.payment, multiMonthModal.monthsCount, filterMonth]);
+  const handleConfirmHalfMonth = (e) => {
+    e.preventDefault();
+    if (!halfMonthModal.payment) return;
+    handleValidateHalfMonthPayment(
+      halfMonthModal.payment.id,
+      halfMonthModal.halfAmount,
+      halfMonthModal.method,
+      halfMonthModal.periodNote
+    );
+    setHalfMonthModal({
+      isOpen: false,
+      payment: null,
+      halfAmount: 800000,
+      method: 'Transfer Bank BCA',
+      periodNote: 'Setengah Bulan Penuh (15 Hari)'
+    });
+  };
 
   // =========================================================================
   // LOGIKA RESERVASI KAMAR HARIAN & CEK KETERSEDIAAN JADWAL
@@ -1502,7 +1514,25 @@ export const PembayaranView = () => {
                       </div>
                     </td>
                     <td className="font-bold text-gray-900">
-                      Rp {pay.amount.toLocaleString('id-ID')}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>Rp {pay.amount.toLocaleString('id-ID')}</span>
+                        {pay.isHalfMonth && (
+                          <span
+                            title="Sewa Setengah Bulan (15 Hari)"
+                            style={{
+                              fontSize: '0.68rem',
+                              background: '#dbeafe',
+                              color: '#1d4ed8',
+                              border: '1px solid #bfdbfe',
+                              padding: '1px 6px',
+                              borderRadius: '8px',
+                              fontWeight: 700
+                            }}
+                          >
+                            ½ Bln
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>{pay.paymentMethod || 'Belum Transfer'}</td>
                     <td className="text-sm text-gray-600 font-mono">{pay.paidAt || '-'}</td>
@@ -1531,6 +1561,7 @@ export const PembayaranView = () => {
                       >
                         {pay.status === 'Tervalidasi' && '✓ '}
                         {pay.status}
+                        {pay.isHalfMonth && ' (½ Bln)'}
                       </span>
                     </td>
                     <td className="text-xs text-gray-600">
@@ -1560,11 +1591,11 @@ export const PembayaranView = () => {
 
                               <button
                                 type="button"
-                                className="btn-multi-month"
-                                onClick={() => handleOpenMultiMonthModal(pay)}
-                                title="Penghuni bayar beberapa bulan sekaligus (otomatis lunas di tiap bulan terkait)"
+                                className="btn-half-month"
+                                onClick={() => handleOpenHalfMonthModal(pay)}
+                                title="Penghuni bayar sewa setengah bulan (15 hari) sebesar 50% dari tarif kamar"
                               >
-                                <span>+ Multi-Bulan</span>
+                                <span>½ Bulan</span>
                               </button>
                             </>
                           )}
@@ -1613,54 +1644,83 @@ export const PembayaranView = () => {
     </>
   )}
 
-      {/* Multi-Month Validation Modal */}
-      {multiMonthModal.isOpen && multiMonthModal.payment && (
+      {/* Half-Month (Bayar Setengah Bulan) Validation Modal */}
+      {halfMonthModal.isOpen && halfMonthModal.payment && (
         <div
           className="modal-overlay"
-          onClick={() => setMultiMonthModal({ isOpen: false, payment: null, monthsCount: 3, method: 'Transfer Bank BCA' })}
+          onClick={() => setHalfMonthModal({ isOpen: false, payment: null, halfAmount: 800000, method: 'Transfer Bank BCA', periodNote: 'Setengah Bulan Penuh (15 Hari)' })}
         >
           <div className="modal-content-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div className="form-section-header">
-              <IconCalendar size={22} className="text-primary-green" />
+              <div style={{ background: '#dbeafe', color: '#1d4ed8', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconPayment size={22} />
+              </div>
               <div>
-                <h3 className="modal-title">Pelunasan Pembayaran Multi-Bulan</h3>
-                <p className="modal-subtitle">
-                  Penghuni bayar sewa langsung beberapa bulan ke depan (1 kamar terekam per 1 bulan).
+                <h3 className="modal-title" style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--forest-900)' }}>
+                  Pembayaran Sewa ½ Bulan (15 Hari)
+                </h3>
+                <p className="modal-subtitle" style={{ margin: '3px 0 0 0', fontSize: '0.80rem', color: 'var(--text-muted)' }}>
+                  Validasi pembayaran untuk penghuni yang tinggal atau membayar setengah bulan sewa.
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleConfirmMultiMonth}>
+            <form onSubmit={handleConfirmHalfMonth} style={{ marginTop: '16px' }}>
               <div style={{ background: 'var(--forest-50)', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', border: '1px solid var(--border-card)' }}>
-                <div style={{ fontWeight: 800, color: 'var(--forest-900)', fontSize: '0.95rem' }}>
-                  Kamar {multiMonthModal.payment.roomNumber} — {multiMonthModal.payment.tenantName}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--forest-900)', fontSize: '0.95rem' }}>
+                    Kamar {halfMonthModal.payment.roomNumber} — {halfMonthModal.payment.tenantName}
+                  </div>
+                  <span style={{ fontSize: '0.72rem', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                    ½ Bulan
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Mulai dari Bulan: <strong>{multiMonthModal.payment.month}</strong> • Tarif: Rp {multiMonthModal.payment.amount?.toLocaleString('id-ID')}/bulan
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Bulan Penagihan: <strong>{halfMonthModal.payment.month}</strong> • Tarif Normal: Rp {(halfMonthModal.payment.originalAmount || halfMonthModal.payment.amount || 1600000).toLocaleString('id-ID')}/bulan
                 </div>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Pilih Jumlah Bulan yang Dibayarkan</label>
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.84rem' }}>
+                  Nominal Sewa Setengah Bulan (Rp) *
+                </label>
+                <div className="input-with-prefix">
+                  <span className="phone-prefix">Rp</span>
+                  <input
+                    type="number"
+                    className="form-input-phone"
+                    value={halfMonthModal.halfAmount}
+                    onChange={(e) => setHalfMonthModal({ ...halfMonthModal, halfAmount: parseInt(e.target.value) || 0 })}
+                    step="50000"
+                    min="100000"
+                    required
+                    style={{ fontWeight: 800, color: '#15803d', fontSize: '1rem' }}
+                  />
+                </div>
+                <span className="field-hint">Default 50% dari harga sewa normal (Rp {Math.round((halfMonthModal.payment.originalAmount || halfMonthModal.payment.amount || 1600000) * 0.5).toLocaleString('id-ID')})</span>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.84rem' }}>Keterangan Periode</label>
                 <select
                   className="form-select"
-                  value={multiMonthModal.monthsCount}
-                  onChange={(e) => setMultiMonthModal({ ...multiMonthModal, monthsCount: parseInt(e.target.value) || 1 })}
+                  value={halfMonthModal.periodNote}
+                  onChange={(e) => setHalfMonthModal({ ...halfMonthModal, periodNote: e.target.value })}
                 >
-                  <option value={2}>2 Bulan Sekaligus</option>
-                  <option value={3}>3 Bulan Sekaligus (1 Triwulan)</option>
-                  <option value={4}>4 Bulan Sekaligus</option>
-                  <option value={6}>6 Bulan Sekaligus (1 Semester)</option>
-                  <option value={12}>12 Bulan Sekaligus (1 Tahun Penuh)</option>
+                  <option value="Setengah Bulan Penuh (15 Hari)">Setengah Bulan Penuh (15 Hari)</option>
+                  <option value="Setengah Bulan Pertama (Tgl 1 - 15)">Setengah Bulan Pertama (Tgl 1 - 15)</option>
+                  <option value="Setengah Bulan Kedua (Tgl 16 - Akhir)">Setengah Bulan Kedua (Tgl 16 - Akhir)</option>
+                  <option value="Transit Masuk Tengah Bulan">Transit Masuk Tengah Bulan</option>
+                  <option value="Pindah Keluar Pertengahan Bulan">Pindah Keluar Pertengahan Bulan</option>
                 </select>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Metode Pembayaran</label>
+              <div className="form-group" style={{ marginBottom: '18px' }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.84rem' }}>Metode Pembayaran</label>
                 <select
                   className="form-select"
-                  value={multiMonthModal.method}
-                  onChange={(e) => setMultiMonthModal({ ...multiMonthModal, method: e.target.value })}
+                  value={halfMonthModal.method}
+                  onChange={(e) => setHalfMonthModal({ ...halfMonthModal, method: e.target.value })}
                 >
                   <option value="Transfer Bank BCA">Transfer Bank BCA</option>
                   <option value="Transfer Bank Mandiri">Transfer Bank Mandiri</option>
@@ -1669,46 +1729,21 @@ export const PembayaranView = () => {
                 </select>
               </div>
 
-              {/* Preview of Affected Months */}
-              <div style={{ marginBottom: '20px' }}>
-                <label className="form-label">Bulan yang Akan Otomatis Dilunaskan:</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                  {multiMonthPreviewList.map((m, idx) => (
-                    <span
-                      key={idx}
-                      style={{
-                        background: '#dcfce7',
-                        color: '#166534',
-                        border: '1px solid #86efac',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '0.76rem',
-                        fontWeight: 700
-                      }}
-                    >
-                      ✓ {m}
-                    </span>
-                  ))}
-                </div>
-                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-                  Total Diterima:{' '}
-                  <strong style={{ color: 'var(--forest-900)' }}>
-                    Rp {(multiMonthModal.payment.amount * multiMonthModal.monthsCount).toLocaleString('id-ID')}
-                  </strong>
-                </div>
-              </div>
-
               <div className="modal-actions-row">
                 <button
                   type="button"
                   className="btn-secondary-action"
-                  onClick={() => setMultiMonthModal({ isOpen: false, payment: null, monthsCount: 3, method: 'Transfer Bank BCA' })}
+                  onClick={() => setHalfMonthModal({ isOpen: false, payment: null, halfAmount: 800000, method: 'Transfer Bank BCA', periodNote: 'Setengah Bulan Penuh (15 Hari)' })}
                 >
                   Batal
                 </button>
-                <button type="submit" className="btn-primary-action">
+                <button
+                  type="submit"
+                  className="btn-primary-action"
+                  style={{ background: '#2563eb', borderColor: '#1d4ed8' }}
+                >
                   <IconCheck size={16} />
-                  <span>Validasi Lunas {multiMonthModal.monthsCount} Bulan</span>
+                  <span>Validasi Lunas ½ Bulan (Rp {halfMonthModal.halfAmount.toLocaleString('id-ID')})</span>
                 </button>
               </div>
             </form>

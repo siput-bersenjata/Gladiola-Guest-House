@@ -1429,6 +1429,48 @@ const decompressPayload = async (base64Str) => {
     );
   };
 
+  // Validasi pembayaran sewa setengah bulan (½ bulan)
+  const handleValidateHalfMonthPayment = (paymentId, halfAmount, customMethod = 'Transfer Bank BCA', periodNote = '') => {
+    const target = payments.find((p) => p.id === paymentId);
+    if (!target) return;
+    const nowStr = formatValidationDateTime();
+    const finalAmount = parseInt(halfAmount) > 0 ? parseInt(halfAmount) : Math.round((target.amount || 1600000) * 0.5);
+
+    setPayments((prev) => {
+      const updated = prev.map((p) => {
+        if (p.id === paymentId) {
+          return {
+            ...p,
+            originalAmount: p.originalAmount || p.amount || 1600000,
+            amount: finalAmount,
+            status: 'Tervalidasi',
+            paymentMethod: customMethod,
+            paidAt: nowStr,
+            validatedBy: currentUser?.name || 'Operator Taman',
+            validatedAt: nowStr,
+            isHalfMonth: true,
+            notes: periodNote ? `Bayar ½ Bulan: ${periodNote}` : 'Bayar Sewa Setengah Bulan (15 Hari)'
+          };
+        }
+        return p;
+      });
+
+      const finalPayments = deduplicatePayments(updated);
+      saveState('payments', finalPayments);
+      pushToCloud({ payments: finalPayments });
+      return finalPayments;
+    });
+
+    logActivity(
+      `Validasi Bayar ½ Bulan: Kamar ${target.roomNumber}`,
+      `Pembayaran sewa ½ bulan Kamar ${target.roomNumber} (${target.tenantName}) sebesar Rp ${finalAmount.toLocaleString('id-ID')} divalidasi oleh ${currentUser?.name || 'Petugas'}`
+    );
+    addToast(
+      `Sewa ½ bulan Kamar ${target.roomNumber} (Rp ${finalAmount.toLocaleString('id-ID')}) berhasil divalidasi!`,
+      'success'
+    );
+  };
+
   // Bulk validate all bills for a specific month (memudahkan petugas dalam 1 klik)
   const handleBulkValidateMonth = (targetMonth) => {
     if (!targetMonth || targetMonth === 'all') return;
@@ -2676,6 +2718,7 @@ const decompressPayload = async (base64Str) => {
         logout,
         handleValidatePayment,
         handleValidateMultiMonthPayment,
+        handleValidateHalfMonthPayment,
         handleDeletePayment,
         generateMonthlyBills,
         handleBulkValidateMonth,
