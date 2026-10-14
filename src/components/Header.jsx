@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { cleanAccountName } from '../data/initialData';
 import {
   IconSearch,
   IconBell,
@@ -247,7 +248,7 @@ export const Header = () => {
             className="profile-pill-btn"
             onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
           >
-            <span className="profile-name">{currentUser.name}</span>
+            <span className="profile-name">{cleanAccountName(currentUser.name)}</span>
             <span className="profile-caret">▾</span>
             <img
               src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
@@ -259,7 +260,7 @@ export const Header = () => {
           {isProfileMenuOpen && (
             <div className="profile-dropdown-menu">
               <div className="profile-dropdown-header">
-                <p className="dropdown-user-name">{currentUser.name}</p>
+                <p className="dropdown-user-name">{cleanAccountName(currentUser.name)}</p>
                 {currentUser.roomNumber && (
                   <p className="dropdown-user-room">Penghuni Kamar {currentUser.roomNumber}</p>
                 )}

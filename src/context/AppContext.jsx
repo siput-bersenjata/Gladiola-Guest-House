@@ -17,7 +17,8 @@ import {
   INITIAL_SESSION_HISTORY,
   deduplicatePayments,
   deduplicateElectricityBills,
-  getNextMonthName
+  getNextMonthName,
+  cleanAccountName
 } from '../data/initialData';
 import { PERSISTED_DATABASE } from '../data/persistedDatabase';
 import {
@@ -136,12 +137,21 @@ export const AppProvider = ({ children }) => {
       localStorage.removeItem('gladiola_currentUser');
       return null;
     }
+    if (saved.name) {
+      saved.name = cleanAccountName(saved.name);
+      saveState('currentUser', saved);
+    }
     return saved;
   });
 
-  const [systemAccounts, setSystemAccounts] = useState(() =>
-    loadState('systemAccounts', SYSTEM_ACCOUNTS)
-  );
+  const [systemAccounts, setSystemAccounts] = useState(() => {
+    const raw = loadState('systemAccounts', SYSTEM_ACCOUNTS);
+    const list = Array.isArray(raw) ? raw : SYSTEM_ACCOUNTS;
+    return list.map((acc) => ({
+      ...acc,
+      name: cleanAccountName(acc.name)
+    }));
+  });
 
   const [activeTab, setActiveTabState] = useState(() =>
     loadState('activeTab', 'overview')
@@ -386,8 +396,15 @@ export const AppProvider = ({ children }) => {
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));
   const [bankInfo, setBankInfo] = useState(() => loadState('bankInfo', INITIAL_BANK_INFO));
-  const [wifiInfo, setWifiInfo] = useState(() => loadState('wifiInfo', INITIAL_WIFI_INFO));
-  const [operators, setOperators] = useState(() => loadState('operators', INITIAL_OPERATORS));
+  const [operators, setOperators] = useState(() => {
+    const raw = loadState('operators', INITIAL_OPERATORS);
+    const list = Array.isArray(raw) ? raw : INITIAL_OPERATORS;
+    return list.map((op) => ({
+      ...op,
+      fullName: cleanAccountName(op.fullName || op.name),
+      name: cleanAccountName(op.name || op.fullName)
+    }));
+  });
   const [activityLogs, setActivityLogs] = useState(() => loadState('logs', INITIAL_ACTIVITY_LOGS));
   const [activeSessions, setActiveSessions] = useState(() => {
     const saved = loadState('activeSessions', INITIAL_ACTIVE_SESSIONS);
@@ -1066,29 +1083,29 @@ const decompressPayload = async (base64Str) => {
   // Quick switch role
   const switchRole = (newRole, tenantPhone = null) => {
     if (newRole === 'super_admin') {
-      const user = { role: 'super_admin', name: 'Super Admin Gladiola', phone: '081122334455', roomNumber: null };
+      const user = { role: 'super_admin', name: 'Amalia', phone: '081122334455', roomNumber: null };
       setCurrentUser(user);
       setActiveTab('overview');
       logActivity('Beralih Role ke Super Admin', 'Akses penuh seluruh kontrol & log aktivitas', user);
-      addToast('Masuk sebagai Super Admin Gladiola', 'info');
+      addToast('Masuk sebagai Amalia', 'info');
     } else if (newRole === 'owner') {
-      const user = { role: 'owner', name: 'Owner Kos Gladiola', phone: '081233441122', roomNumber: null };
+      const user = { role: 'owner', name: 'Bpk. Pemilik', phone: '081233441122', roomNumber: null };
       setCurrentUser(user);
       setActiveTab('overview');
       logActivity('Beralih Role ke Owner', 'Melihat laporan dan keuangan (tanpa tambah/ubah anak kos)', user);
-      addToast('Masuk sebagai Owner Kos', 'info');
+      addToast('Masuk sebagai Bpk. Pemilik', 'info');
     } else if (newRole === 'operator') {
-      const user = { role: 'operator', name: 'Admin Taman (Operator)', phone: '081234998877', roomNumber: null };
+      const user = { role: 'operator', name: 'Andre', phone: '081234998877', roomNumber: null };
       setCurrentUser(user);
       setActiveTab('overview');
       logActivity('Beralih Role ke Operator', 'Akses operasional penghuni, kasir, dan meteran', user);
-      addToast('Masuk sebagai Pengelola / Operator', 'info');
+      addToast('Masuk sebagai Andre', 'info');
     } else if (newRole === 'anak_kos') {
       const targetPhone = tenantPhone || '081233445566';
       const targetTenant = tenants.find((t) => t.phone === targetPhone) || tenants[0];
       const user = {
         role: 'anak_kos',
-        name: targetTenant.name,
+        name: cleanAccountName(targetTenant.name),
         phone: targetTenant.phone,
         roomNumber: targetTenant.roomNumber,
         tenantId: targetTenant.id
@@ -1096,7 +1113,7 @@ const decompressPayload = async (base64Str) => {
       setCurrentUser(user);
       setActiveTab('anak_kos');
       logActivity('Anak Kos Login (No HP)', `Login no HP ${targetTenant.phone} kamar ${targetTenant.roomNumber}`, user);
-      addToast(`Selamat datang, ${targetTenant.name}!`, 'success');
+      addToast(`Selamat datang, ${cleanAccountName(targetTenant.name)}!`, 'success');
     }
     setIsMobileMenuOpen(false);
   };
@@ -1118,10 +1135,11 @@ const decompressPayload = async (base64Str) => {
 
     if (foundSystem) {
       const expiresAt = rememberMe ? Date.now() + 30 * 24 * 60 * 60 * 1000 : null;
+      const cleanName = cleanAccountName(foundSystem.name);
       const user = {
         id: foundSystem.id || `acc-${foundSystem.username}`,
         role: foundSystem.role,
-        name: foundSystem.name,
+        name: cleanName,
         username: foundSystem.username,
         phone: foundSystem.phone,
         email: foundSystem.email,
@@ -1136,7 +1154,7 @@ const decompressPayload = async (base64Str) => {
         `User ${foundSystem.username} berhasil login sebagai ${foundSystem.role} (Remember Me: ${rememberMe ? '30 Hari' : 'Sesi'})`,
         user
       );
-      addToast(`Selamat datang, ${foundSystem.name}!`, 'success');
+      addToast(`Selamat datang, ${cleanName}!`, 'success');
       return { success: true, user };
     }
 
@@ -1149,10 +1167,11 @@ const decompressPayload = async (base64Str) => {
 
     if (foundOp) {
       const expiresAt = rememberMe ? Date.now() + 30 * 24 * 60 * 60 * 1000 : null;
+      const cleanName = cleanAccountName(foundOp.fullName || foundOp.name);
       const user = {
         id: foundOp.id,
         role: 'operator',
-        name: foundOp.fullName,
+        name: cleanName,
         username: foundOp.username,
         phone: foundOp.phone,
         email: foundOp.email,
@@ -1167,7 +1186,7 @@ const decompressPayload = async (base64Str) => {
         `Operator ${foundOp.username} berhasil login ke sistem`,
         user
       );
-      addToast(`Selamat datang, ${foundOp.fullName}!`, 'success');
+      addToast(`Selamat datang, ${cleanName}!`, 'success');
       return { success: true, user };
     }
 
@@ -1199,10 +1218,11 @@ const decompressPayload = async (base64Str) => {
 
     if (found) {
       const expiresAt = rememberMe ? Date.now() + 30 * 24 * 60 * 60 * 1000 : null;
+      const cleanName = cleanAccountName(found.name);
       const user = {
         id: found.id,
         role: 'anak_kos',
-        name: found.name,
+        name: cleanName,
         phone: found.phone,
         roomNumber: found.roomNumber,
         tenantId: found.id,
@@ -1213,10 +1233,10 @@ const decompressPayload = async (base64Str) => {
       setActiveTab('anak_kos');
       logActivity(
         'Anak Kos Login (No HP & GPS Valid)',
-        `Penghuni ${found.name} login via nomor HP ${found.phone} (Kamar ${found.roomNumber})`,
+        `Penghuni ${cleanName} login via nomor HP ${found.phone} (Kamar ${found.roomNumber})`,
         user
       );
-      addToast(`Selamat datang, ${found.name}!`, 'success');
+      addToast(`Selamat datang, ${cleanName}!`, 'success');
       return { success: true, tenant: found };
     }
 
@@ -2590,9 +2610,12 @@ const decompressPayload = async (base64Str) => {
       }
     }
 
+    const cleanedName = cleanAccountName(accData.name);
+    const cleanedAccData = { ...accData, name: cleanedName };
+
     let newAccounts;
     if (accData.id) {
-      newAccounts = systemAccounts.map((a) => (a.id === accData.id ? { ...a, ...accData } : a));
+      newAccounts = systemAccounts.map((a) => (a.id === accData.id ? { ...a, ...cleanedAccData } : a));
       setSystemAccounts(newAccounts);
       saveState('systemAccounts', newAccounts);
       pushToCloud({ systemAccounts: newAccounts });
@@ -2600,7 +2623,7 @@ const decompressPayload = async (base64Str) => {
       if (currentUser && currentUser.username === accData.username) {
         setCurrentUser((prev) => ({
           ...prev,
-          name: accData.name,
+          name: cleanedName,
           phone: accData.phone,
           email: accData.email,
           role: accData.role
@@ -2610,7 +2633,7 @@ const decompressPayload = async (base64Str) => {
       addToast(`Akun @${accData.username} berhasil diperbarui`, 'success');
     } else {
       const newAcc = {
-        ...accData,
+        ...cleanedAccData,
         id: `acc-${Date.now()}`,
         status: accData.status || 'Aktif',
         createdAt: new Date().toISOString().split('T')[0]

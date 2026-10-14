@@ -374,7 +374,7 @@ export const PERSISTED_DATABASE = {
         "ratingGiven": true,
         "tenantPhone": "081342255948",
         "validatedAt": "2026-10-14 21:31",
-        "validatedBy": "Andre (Pengelola Kos)",
+        "validatedBy": "Andre",
         "paymentMethod": "Transfer Bank BCA"
       },
       {
@@ -390,7 +390,7 @@ export const PERSISTED_DATABASE = {
         "ratingGiven": true,
         "tenantPhone": "085190847649",
         "validatedAt": "2026-10-14 21:32",
-        "validatedBy": "Andre (Pengelola Kos)",
+        "validatedBy": "Andre",
         "paymentMethod": "Transfer Bank BCA"
       },
       {
@@ -519,7 +519,7 @@ export const PERSISTED_DATABASE = {
         "email": "andre@gladiolaguesthouse.id",
         "phone": "081234998877",
         "status": "Aktif",
-        "fullName": "Andre (Pengelola Kos)",
+        "fullName": "Andre",
         "username": "andre",
         "createdAt": "2026-01-10"
       },
@@ -529,7 +529,7 @@ export const PERSISTED_DATABASE = {
         "email": "dewi@gladiolaguesthouse.id",
         "phone": "081255667788",
         "status": "Aktif",
-        "fullName": "Dewi Lestari (Staf Kasir)",
+        "fullName": "Dewi Lestari",
         "username": "operator_keuangan",
         "createdAt": "2026-03-15"
       }
@@ -586,7 +586,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791988208273-lsex",
         "role": "super_admin",
         "time": "21:30:08 WIB",
-        "user": "Amalia (Super Admin)",
+        "user": "Amalia",
         "action": "Tambah Anak Kos Baru",
         "coords": {
           "lat": -7.892186001463191,
@@ -607,7 +607,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791987996296-m796",
         "role": "super_admin",
         "time": "21:26:36 WIB",
-        "user": "Amalia (Super Admin)",
+        "user": "Amalia",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.892186001463191,
@@ -628,7 +628,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791987990031-uxw2",
         "role": "super_admin",
         "time": "21:26:30 WIB",
-        "user": "Amalia (Super Admin)",
+        "user": "Amalia",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.892186001463191,
@@ -649,14 +649,14 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791960100386-o876",
         "role": "operator",
         "time": "13:41:40 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Validasi Pembayaran: Belum Bayar",
         "coords": {
           "lat": -7.9584641,
           "lng": 112.6059689
         },
         "userId": "acc-2",
-        "details": "Tagihan sewa Kamar 102 (Rizky Ramadhan) diubah menjadi Belum Bayar oleh Andre (Pengelola Kos)",
+        "details": "Tagihan sewa Kamar 102 (Rizky Ramadhan) diubah menjadi Belum Bayar oleh Andre",
         "ipAddress": "103.145.22.84",
         "timestamp": "2026-10-14 13:41:40",
         "deviceModel": "Smartphone (Mobile) (Android Mobile)",
@@ -670,14 +670,14 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791960096459-1kd5",
         "role": "operator",
         "time": "13:41:36 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Validasi Pembayaran: Belum Bayar",
         "coords": {
           "lat": -7.9584641,
           "lng": 112.6059689
         },
         "userId": "acc-2",
-        "details": "Tagihan sewa Kamar 101 (Andi Pratama) diubah menjadi Belum Bayar oleh Andre (Pengelola Kos)",
+        "details": "Tagihan sewa Kamar 101 (Andi Pratama) diubah menjadi Belum Bayar oleh Andre",
         "ipAddress": "103.145.22.84",
         "timestamp": "2026-10-14 13:41:36",
         "deviceModel": "Smartphone (Mobile) (Android Mobile)",
@@ -691,7 +691,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955360146-id34",
         "role": "operator",
         "time": "12:22:40 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -712,7 +712,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955358303-r4be",
         "role": "operator",
         "time": "12:22:38 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -733,7 +733,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955356627-i6os",
         "role": "operator",
         "time": "12:22:36 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -754,7 +754,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955354290-bld4",
         "role": "operator",
         "time": "12:22:34 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -775,7 +775,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955346402-0ruk",
         "role": "operator",
         "time": "12:22:26 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -796,7 +796,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955344590-cl4o",
         "role": "operator",
         "time": "12:22:24 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -817,7 +817,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955342648-fgpy",
         "role": "operator",
         "time": "12:22:22 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -838,7 +838,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955339993-y5y4",
         "role": "operator",
         "time": "12:22:19 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -859,7 +859,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791955336005-tq02",
         "role": "operator",
         "time": "12:22:16 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Hapus Kamar & Sinkronisasi Semua Halaman",
         "coords": {
           "lat": -7.9584641,
@@ -880,14 +880,14 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791954985217-f9fz",
         "role": "operator",
         "time": "12:16:25 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Validasi Pembayaran: Tervalidasi",
         "coords": {
           "lat": -7.9584641,
           "lng": 112.6059689
         },
         "userId": "acc-2",
-        "details": "Tagihan sewa Kamar 203 (Zakiya) diubah menjadi Tervalidasi oleh Andre (Pengelola Kos)",
+        "details": "Tagihan sewa Kamar 203 (Zakiya) diubah menjadi Tervalidasi oleh Andre",
         "ipAddress": "103.145.22.84",
         "timestamp": "2026-10-14 12:16:25",
         "deviceModel": "Smartphone (Mobile) (Android Mobile)",
@@ -901,14 +901,14 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791954983519-k86w",
         "role": "operator",
         "time": "12:16:23 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Validasi Pembayaran: Tervalidasi",
         "coords": {
           "lat": -7.9584641,
           "lng": 112.6059689
         },
         "userId": "acc-2",
-        "details": "Tagihan sewa Kamar 201 (Anara) diubah menjadi Tervalidasi oleh Andre (Pengelola Kos)",
+        "details": "Tagihan sewa Kamar 201 (Anara) diubah menjadi Tervalidasi oleh Andre",
         "ipAddress": "103.145.22.84",
         "timestamp": "2026-10-14 12:16:23",
         "deviceModel": "Smartphone (Mobile) (Android Mobile)",
@@ -922,14 +922,14 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791954979670-q9vf",
         "role": "operator",
         "time": "12:16:19 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Validasi Pembayaran: Tervalidasi",
         "coords": {
           "lat": -7.9584641,
           "lng": 112.6059689
         },
         "userId": "acc-2",
-        "details": "Tagihan sewa Kamar 105 (Sri arum) diubah menjadi Tervalidasi oleh Andre (Pengelola Kos)",
+        "details": "Tagihan sewa Kamar 105 (Sri arum) diubah menjadi Tervalidasi oleh Andre",
         "ipAddress": "103.145.22.84",
         "timestamp": "2026-10-14 12:16:19",
         "deviceModel": "Smartphone (Mobile) (Android Mobile)",
@@ -943,7 +943,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791954938362-lhq6",
         "role": "operator",
         "time": "12:15:38 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Tambah Anak Kos Baru",
         "coords": {
           "lat": -7.9584641,
@@ -964,7 +964,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-1791899876719-r1ip",
         "role": "super_admin",
         "time": "20:57:56 WIB",
-        "user": "Amalia (Super Admin)",
+        "user": "Amalia",
         "action": "Login Berhasil (GPS Terverifikasi)",
         "coords": {
           "lat": -7.892186001463191,
@@ -985,7 +985,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-adm-1",
         "role": "super_admin",
         "time": "00:15:42 WIB",
-        "user": "Amalia (Super Admin)",
+        "user": "Amalia",
         "action": "Pembaruan Master Data Penyewa",
         "coords": {
           "lat": -7.95839,
@@ -1006,7 +1006,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-adm-2",
         "role": "super_admin",
         "time": "23:45:10 WIB",
-        "user": "Amalia (Super Admin)",
+        "user": "Amalia",
         "action": "Sinkronisasi Realtime Cloud Database",
         "coords": {
           "lat": -7.958395,
@@ -1027,7 +1027,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-adm-3",
         "role": "super_admin",
         "time": "22:30:15 WIB",
-        "user": "Amalia (Super Admin)",
+        "user": "Amalia",
         "action": "Audit Monitoring User & Sesi Aktif",
         "coords": {
           "lat": -7.9586216,
@@ -1048,7 +1048,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-op-1",
         "role": "operator",
         "time": "00:05:18 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Validasi Pembayaran Sewa Kamar 102",
         "coords": {
           "lat": -7.95841,
@@ -1069,7 +1069,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-op-2",
         "role": "operator",
         "time": "21:15:30 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Pencatatan Meteran Listrik Kamar 205",
         "coords": {
           "lat": -7.958405,
@@ -1090,7 +1090,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-op-3",
         "role": "operator",
         "time": "17:40:05 WIB",
-        "user": "Andre (Pengelola Kos)",
+        "user": "Andre",
         "action": "Pembaruan Status Kamar 201",
         "coords": {
           "lat": -7.95842,
@@ -1237,7 +1237,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-ow-1",
         "role": "owner",
         "time": "21:10:50 WIB",
-        "user": "Bpk. Pemilik (Owner Kos)",
+        "user": "Bpk. Pemilik",
         "action": "Monitoring Laporan Okupansi & Keuangan",
         "coords": {
           "lat": -7.9625,
@@ -1258,7 +1258,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-ow-2",
         "role": "owner",
         "time": "15:35:10 WIB",
-        "user": "Bpk. Pemilik (Owner Kos)",
+        "user": "Bpk. Pemilik",
         "action": "Cek Arus Kas Pembayaran Sewa",
         "coords": {
           "lat": -7.9625,
@@ -1384,7 +1384,7 @@ export const PERSISTED_DATABASE = {
         "id": "log-dw-1",
         "role": "operator",
         "time": "11:20:30 WIB",
-        "user": "Dewi Lestari (Staf Kasir)",
+        "user": "Dewi Lestari",
         "action": "Rekap Penerimaan Sewa",
         "coords": {
           "lat": -7.958395,
@@ -1587,7 +1587,7 @@ export const PERSISTED_DATABASE = {
       },
       {
         "id": "hist-5",
-        "name": "Dewi Lestari (Staf Kasir)",
+        "name": "Dewi Lestari",
         "role": "operator",
         "room": null,
         "phone": "081255667788",
@@ -1622,7 +1622,7 @@ export const PERSISTED_DATABASE = {
       },
       {
         "id": "hist-6",
-        "name": "Andre (Pengelola Kos)",
+        "name": "Andre",
         "role": "operator",
         "room": null,
         "phone": "081234998877",
@@ -1692,7 +1692,7 @@ export const PERSISTED_DATABASE = {
       },
       {
         "id": "hist-8",
-        "name": "Bpk. Pemilik (Owner Kos)",
+        "name": "Bpk. Pemilik",
         "role": "owner",
         "room": null,
         "phone": "081233441122",
@@ -1729,7 +1729,7 @@ export const PERSISTED_DATABASE = {
     "systemAccounts": [
       {
         "id": "acc-1",
-        "name": "Amalia (Super Admin)",
+        "name": "Amalia",
         "role": "super_admin",
         "email": "admin@gladiolaguesthouse.id",
         "phone": "081122334455",
@@ -1740,7 +1740,7 @@ export const PERSISTED_DATABASE = {
       },
       {
         "id": "acc-2",
-        "name": "Andre (Pengelola Kos)",
+        "name": "Andre",
         "role": "operator",
         "email": "andre@gladiolaguesthouse.id",
         "phone": "081234998877",
@@ -1751,7 +1751,7 @@ export const PERSISTED_DATABASE = {
       },
       {
         "id": "acc-3",
-        "name": "Bpk. Pemilik (Owner Kos)",
+        "name": "Bpk. Pemilik",
         "role": "owner",
         "email": "owner@gladiolaguesthouse.id",
         "phone": "081233441122",

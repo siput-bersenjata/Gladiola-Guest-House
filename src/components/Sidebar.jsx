@@ -160,9 +160,6 @@ export const Sidebar = () => {
                 >
                   <IconKey size={19} />
                   <span>Kelola Akun</span>
-                  {currentUser.role === 'operator' && (
-                    <span className="nav-badge-pill">Pengelola</span>
-                  )}
                 </button>
               )}
 

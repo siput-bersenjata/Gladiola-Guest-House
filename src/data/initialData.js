@@ -10,14 +10,23 @@ export const GLADIOLA_COORDS = {
   embedUrl: "https://maps.google.com/maps?q=Jl.+Bend.+Palasari+No.1,+Karangbesuki,+Kec.+Sukun,+Kota+Malang,+Jawa+Timur+65145&hl=id&z=17&output=embed"
 };
 
+// Utility to sanitize account names: remove any role or position suffixes
+export const cleanAccountName = (str) => {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .replace(/\s*\([^)]*(?:pengelola|operator|super\s*admin|admin|owner|pemilik|kasir|anak\s*kos|penghuni|staf|staff|petugas)[^)]*\)/gi, '')
+    .replace(/\s*[-–—:]\s*(?:pengelola|operator|super\s*admin|admin|owner|pemilik|kasir|anak\s*kos|penghuni|staf|staff|petugas).*/gi, '')
+    .trim();
+};
+
 // System Authentication Accounts (Super Admin, Pengelola / Operator, Owner)
-export const SYSTEM_ACCOUNTS = PERSISTED_DATABASE.systemAccounts || [
+const rawSystemAccounts = PERSISTED_DATABASE.systemAccounts || [
   {
     id: "acc-1",
     username: "admin",
     password: "Amalia2125",
     role: "super_admin",
-    name: "Amalia (Super Admin)",
+    name: "Amalia",
     phone: "081122334455",
     email: "admin@gladiolaguesthouse.id",
     status: "Aktif",
@@ -28,7 +37,7 @@ export const SYSTEM_ACCOUNTS = PERSISTED_DATABASE.systemAccounts || [
     username: "andre",
     password: "andre123",
     role: "operator",
-    name: "Andre (Pengelola Kos)",
+    name: "Andre",
     phone: "081234998877",
     email: "andre@gladiolaguesthouse.id",
     status: "Aktif",
@@ -39,13 +48,18 @@ export const SYSTEM_ACCOUNTS = PERSISTED_DATABASE.systemAccounts || [
     username: "owner",
     password: "owner123",
     role: "owner",
-    name: "Bpk. Pemilik (Owner Kos)",
+    name: "Bpk. Pemilik",
     phone: "081233441122",
     email: "owner@gladiolaguesthouse.id",
     status: "Aktif",
     createdAt: "2026-01-05"
   }
 ];
+
+export const SYSTEM_ACCOUNTS = rawSystemAccounts.map(acc => ({
+  ...acc,
+  name: cleanAccountName(acc.name)
+}));
 
 // Active Sessions
 export const INITIAL_ACTIVE_SESSIONS = [];
@@ -86,7 +100,11 @@ export const INITIAL_ROOMS = PERSISTED_DATABASE.rooms || [];
 export const INITIAL_DAILY_BOOKINGS = PERSISTED_DATABASE.dailyBookings || [];
 
 // Operators
-export const INITIAL_OPERATORS = PERSISTED_DATABASE.operators || [];
+export const INITIAL_OPERATORS = (PERSISTED_DATABASE.operators || []).map(op => ({
+  ...op,
+  fullName: cleanAccountName(op.fullName || op.name),
+  name: cleanAccountName(op.name || op.fullName)
+}));
 
 // Month formatting and helpers
 export const INDONESIAN_MONTH_NAMES = [

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { cleanAccountName } from '../data/initialData';
 import {
   IconShield,
   IconPlus,
@@ -68,7 +69,7 @@ export const KelolaAkunView = () => {
     setFormData({
       username: acc.username,
       password: acc.password || '',
-      name: acc.name,
+      name: cleanAccountName(acc.name),
       role: isOperator ? 'operator' : acc.role,
       phone: acc.phone || '',
       email: acc.email || '',
@@ -84,14 +85,16 @@ export const KelolaAkunView = () => {
     handleSaveAccount({
       ...(editingAccount ? { id: editingAccount.id } : {}),
       ...formData,
+      name: cleanAccountName(formData.name),
       role: finalRole
     });
     setViewMode('list');
   };
 
   const filteredAccounts = systemAccounts.filter((acc) => {
+    const cleanName = cleanAccountName(acc.name);
     const matchesSearch =
-      acc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cleanName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       acc.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (acc.email && acc.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (acc.phone && acc.phone.includes(searchTerm));
@@ -126,7 +129,7 @@ export const KelolaAkunView = () => {
             </h2>
             <p className="form-page-subheading">
               {editingAccount
-                ? `Perbarui kata sandi, nama lengkap, hak akses (role), dan kontak akun ${editingAccount.name}`
+                ? `Perbarui kata sandi, nama lengkap, hak akses (role), dan kontak akun ${cleanAccountName(editingAccount.name)}`
                 : 'Daftarkan kredensial baru untuk Super Admin, Pengelola Kos, atau Pemilik (Owner)'}
             </p>
           </div>
@@ -249,7 +252,7 @@ export const KelolaAkunView = () => {
                     className="form-input"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Contoh: Siti Amalia (Admin)"
+                    placeholder="Contoh: Siti Amalia"
                     required
                   />
                   <span className="field-hint">Nama yang akan tampil pada header sistem dan audit log</span>
@@ -449,7 +452,7 @@ export const KelolaAkunView = () => {
                     </td>
 
                     <td>
-                      <span className="font-semibold text-gray-900">{acc.name}</span>
+                      <span className="font-semibold text-gray-900">{cleanAccountName(acc.name)}</span>
                     </td>
 
                     <td>
