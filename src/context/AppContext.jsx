@@ -35,8 +35,9 @@ import {
   testNeonConnection
 } from '../services/neonSync';
 
-export const ALLOWED_ROOM_NUMBERS = ["101", "102", "103", "104", "105", "201", "202", "203", "204", "205"];
+export const ALLOWED_ROOM_NUMBERS = ["101", "102", "103", "104", "105", "106", "201", "202", "203", "204", "205"];
 export const ALLOWED_5_ROOMS = ALLOWED_ROOM_NUMBERS;
+export const isValidRoom = (r) => r && r.number != null && String(r.number).trim() !== '';
 
 const AppContext = createContext(null);
 
@@ -241,7 +242,7 @@ export const AppProvider = ({ children }) => {
       }
     });
 
-    const validRoomsList = (rList || []).filter((r) => r && ALLOWED_ROOM_NUMBERS.includes(String(r.number)));
+    const validRoomsList = (rList || []).filter((r) => isValidRoom(r));
     const validRoomNumSet = new Set(validRoomsList.map((r) => String(r.number)));
 
     let roomsChanged = validRoomsList.length !== (rList || []).length;
@@ -358,16 +359,16 @@ export const AppProvider = ({ children }) => {
     if (!saved || !Array.isArray(saved) || saved.length < 3) {
       return INITIAL_TENANTS;
     }
-    const filtered = saved.filter((t) => t && ALLOWED_ROOM_NUMBERS.includes(String(t.roomNumber)));
+    const filtered = saved.filter((t) => t && t.roomNumber);
     return filtered.length >= 3 ? filtered : INITIAL_TENANTS;
   });
   const [rooms, setRooms] = useState(() => {
     const saved = loadState('rooms', INITIAL_ROOMS);
     if (!saved || !Array.isArray(saved) || saved.length === 0) return INITIAL_ROOMS;
-    const purged = saved.filter((r) => r && ALLOWED_ROOM_NUMBERS.includes(String(r.number)));
-    const sourceRooms = purged.length === 10 ? purged : INITIAL_ROOMS;
+    const validRooms = saved.filter((r) => isValidRoom(r));
+    const sourceRooms = validRooms.length > 0 ? validRooms : INITIAL_ROOMS;
     return sourceRooms.map((r, idx) => {
-      const initialMatch = INITIAL_ROOMS.find((ir) => ir.number === r.number) || INITIAL_ROOMS[idx];
+      const initialMatch = INITIAL_ROOMS.find((ir) => String(ir.number) === String(r.number));
       return {
         ...r,
         floor: r.floor || (String(r.number).startsWith('1') ? 1 : 2),
@@ -381,17 +382,17 @@ export const AppProvider = ({ children }) => {
   const [dailyBookings, setDailyBookings] = useState(() => {
     const saved = loadState('dailyBookings', null);
     const source = (saved && Array.isArray(saved)) ? saved : (INITIAL_DAILY_BOOKINGS || []);
-    return source.filter((b) => b && ALLOWED_ROOM_NUMBERS.includes(String(b.roomNumber)));
+    return source.filter((b) => b && b.roomNumber);
   });
   const [payments, setPayments] = useState(() => {
     const saved = loadState('payments', null);
     const base = (!saved || !Array.isArray(saved) || saved.length < 3) ? INITIAL_RENT_PAYMENTS : saved;
-    return deduplicatePayments(base.filter((p) => p && ALLOWED_ROOM_NUMBERS.includes(String(p.roomNumber))));
+    return deduplicatePayments(base.filter((p) => p && p.roomNumber));
   });
   const [electricityBills, setElectricityBills] = useState(() => {
     const saved = loadState('electricity', null);
     const base = (!saved || !Array.isArray(saved) || saved.length < 3) ? INITIAL_ELECTRICITY_BILLS : saved;
-    return deduplicateElectricityBills(base.filter((b) => b && ALLOWED_ROOM_NUMBERS.includes(String(b.roomNumber))));
+    return deduplicateElectricityBills(base.filter((b) => b && b.roomNumber));
   });
   const [staffList, setStaffList] = useState(() => loadState('staff', INITIAL_STAFF));
   const [staffRatings, setStaffRatings] = useState(() => loadState('ratings', INITIAL_STAFF_RATINGS));
@@ -559,10 +560,9 @@ const decompressPayload = async (base64Str) => {
       saveState('lastLocalVersion', remoteVersion);
       saveState('lastLocalEditTime', remoteTime || Date.now());
 
-      // 1. Strict Room Sanitization: only valid ALLOWED_ROOM_NUMBERS
-      const allowedSet = new Set(ALLOWED_ROOM_NUMBERS);
+      // 1. Room Sanitization: allow all valid room entities from cloud
       const incomingRooms = Array.isArray(cloudData.rooms) && cloudData.rooms.length > 0 ? cloudData.rooms : rooms;
-      const sanitizedRooms = incomingRooms.filter((r) => r && allowedSet.has(String(r.number)));
+      const sanitizedRooms = incomingRooms.filter((r) => isValidRoom(r));
       const validRoomNumbers = new Set(sanitizedRooms.map((r) => String(r.number)));
 
       // 2. Strict Tenant Sanitization: tenant's room MUST exist in sanitizedRooms!

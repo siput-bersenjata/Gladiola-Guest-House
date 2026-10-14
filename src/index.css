@@ -2312,6 +2312,19 @@ html, body {
   background-color: #e2ede5 !important;
 }
 
+/* Penanda khusus: Pembayaran Setengah Bulan (1/2 Bulan) Full Biru */
+.data-table tbody tr.row-half-month td,
+.data-table tbody tr.row-half-month:nth-child(even) td,
+.data-table tbody tr.row-half-month:nth-child(odd) td {
+  background-color: #dbeafe !important;
+  border-bottom: 1px solid #bfdbfe !important;
+}
+
+.data-table tbody tr.row-half-month:hover td {
+  background-color: #bfdbfe !important;
+}
+
+
 .tenant-cell-info {
   display: flex;
   align-items: center;

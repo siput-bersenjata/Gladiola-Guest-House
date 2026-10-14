@@ -492,30 +492,6 @@ export const OverviewView = () => {
             <span className="jadwal-chip vacant-chip">
               ● {totalDailyRooms} Unit Kamar Harian
             </span>
-            <button
-              type="button"
-              className="btn-primary-sm"
-              onClick={() => {
-                if (totalDailyRooms === 0) {
-                  showInvalidPopup(
-                    'Tidak Ada Kamar Kategori Harian',
-                    'Saat ini tidak ada unit kamar yang dialokasikan sebagai kamar Harian (Sewa Transit).',
-                    [
-                      'Seluruh unit kamar saat ini berstatus Kos Bulanan.',
-                      'Booking harian tidak dapat dibuat tanpa ada kamar yang berkategori Harian.',
-                      'Solusi: Masuk ke menu "Kamar", pilih salah satu kamar (yang tidak memiliki anak kos aktif), lalu ubah kategorinya menjadi "Harian".'
-                    ]
-                  );
-                  return;
-                }
-                setActiveTab('pembayaran');
-              }}
-              title="Buka halaman pembayaran untuk membuat booking kamar harian baru"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}
-            >
-              <IconPlus size={14} />
-              <span>Booking Kamar Baru</span>
-            </button>
           </div>
         </div>
 
@@ -741,17 +717,8 @@ export const OverviewView = () => {
               ) : (
                 <tr>
                   <td colSpan="9" className="text-center py-8 text-gray-500">
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                      <span>Belum ada jadwal kamar yang disewakan per harinya pada filter ini.</span>
-                      <button
-                        type="button"
-                        className="btn-primary-sm"
-                        onClick={() => setActiveTab('pembayaran')}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        <IconPlus size={14} />
-                        <span>Buat Booking Kamar Harian Sekarang</span>
-                      </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                      <span className="text-gray-500">Belum ada jadwal kamar yang disewakan per harinya pada filter ini.</span>
                     </div>
                   </td>
                 </tr>

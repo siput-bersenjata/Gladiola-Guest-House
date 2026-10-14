@@ -519,35 +519,9 @@ export const KamarView = () => {
                       </p>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => {
-                      if (!formData.number.trim()) {
-                        addToast('Harap tentukan nomor kamar terlebih dahulu!', 'warning');
-                        return;
-                      }
-                      setIsBookingModalOpen(true);
-                    }}
-                    style={{
-                      background: '#7c3aed',
-                      borderColor: '#6d28d9',
-                      color: '#ffffff',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '10px 18px',
-                      fontWeight: 700,
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 10px rgba(124, 58, 237, 0.35)',
-                      cursor: 'pointer',
-                      fontSize: '0.88rem'
-                    }}
-                  >
-                    <IconCalendar size={18} />
-                    <span>Pilih Tanggal Booking</span>
-                  </button>
+                  <div style={{ fontSize: '0.82rem', color: '#6b21a8', background: '#f5f3ff', border: '1px solid #e9d5ff', padding: '8px 14px', borderRadius: '8px', fontWeight: 600 }}>
+                    ⚡ Reservasi booking kamar harian dilakukan terpusat melalui tombol <strong>Buat Booking Kamar</strong> di menu Pembayaran.
+                  </div>
                 </div>
 
                 {/* Info reservasi aktif kamar ini */}
@@ -823,8 +797,8 @@ export const KamarView = () => {
           </form>
         </div>
 
-        {/* MODAL PILIH TANGGAL BOOKING KAMAR HARIAN */}
-        {isBookingModalOpen && (
+        {/* MODAL PILIH TANGGAL BOOKING KAMAR HARIAN DINONAKTIFKAN (TERPUSAT DI MENU PEMBAYARAN) */}
+        {false && (
           <div
             className="modal-overlay"
             onClick={() => setIsBookingModalOpen(false)}

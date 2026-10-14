@@ -234,6 +234,29 @@ export const PERSISTED_DATABASE = {
         "currentTenant": "Silva",
         "electricityRate": 1750,
         "electricityToken": "4358-5666-9262-7244-9694"
+      },
+      {
+        "id": "rm-1791997469342",
+        "type": "Deluxe Taman (AC + KM Dalam)",
+        "floor": 1,
+        "price": 1600000,
+        "number": "106",
+        "status": "Kosong",
+        "meterId": "PLN-14981124",
+        "category": "Harian",
+        "dailyPrice": 200000,
+        "facilities": [
+          "AC Split",
+          "Spring Bed Queen",
+          "Kamar Mandi Dalam",
+          "Water Heater",
+          "Lemari Jati",
+          "Meja Belajar",
+          "Smart Lock"
+        ],
+        "currentTenant": null,
+        "electricityRate": 1750,
+        "electricityToken": "4521-8890-1234-7762"
       }
     ],
     "source": "client_push",

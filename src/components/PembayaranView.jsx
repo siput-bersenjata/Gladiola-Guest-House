@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { deduplicatePayments, deduplicateElectricityBills, getNextMonthName } from '../data/initialData';
+import { deduplicatePayments, deduplicateElectricityBills, getNextMonthName, cleanAccountName } from '../data/initialData';
 import {
   IconPayment,
   IconCheck,
@@ -496,10 +496,21 @@ export const PembayaranView = () => {
 
   // Kamar yang dialokasikan khusus untuk Sewa Harian
   const dailyRooms = useMemo(() => {
+    // 1. Prioritaskan kamar yang secara spesifik didaftarkan / diatur 'Harian' oleh user
     const directDaily = rooms.filter((r) => r.category === 'Harian');
     if (directDaily.length > 0) return directDaily;
-    return rooms.filter((r) => ['201', '202', '203', '204'].includes(r.number));
+    // 2. Fallback: kamar berstatus Kosong yang tidak berpenghuni bulanan aktif
+    const vacantRooms = rooms.filter((r) => r.status === 'Kosong');
+    if (vacantRooms.length > 0) return vacantRooms;
+    return rooms;
   }, [rooms]);
+
+  // Pastikan kamar default terpilih adalah salah satu kamar harian yang aktif
+  useEffect(() => {
+    if (dailyRooms.length > 0 && !dailyRooms.some((r) => r.number === bookingForm.roomNumber)) {
+      setBookingForm((prev) => ({ ...prev, roomNumber: dailyRooms[0].number }));
+    }
+  }, [dailyRooms]);
 
   // Pemeriksaan bentrok jadwal reservasi pada kamar tertentu
   const getConflictingBooking = (roomNumber, checkIn, checkOut) => {
@@ -1022,29 +1033,6 @@ export const PembayaranView = () => {
           </div>
         </div>
         <div className="bank-summary-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setViewMode('booking_form')}
-            style={{
-              background: '#15803d',
-              color: '#ffffff',
-              fontWeight: 800,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '9px 16px',
-              borderRadius: 'var(--radius-pill)',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(21, 128, 61, 0.25)'
-            }}
-            title="Buka Formulir Booking Kamar Sewa Harian & Cek Ketersediaan"
-          >
-            <IconPlus size={16} />
-            <span>Booking Kamar (Harian)</span>
-          </button>
-
           <button
             type="button"
             className="btn-secondary-sm"
@@ -1720,8 +1708,16 @@ export const PembayaranView = () => {
             </thead>
             <tbody>
               {sortedPayments.length > 0 ? (
-                sortedPayments.map((pay) => (
-                  <tr key={pay.id}>
+                sortedPayments.map((pay) => {
+                  const isHalfMonthRow =
+                    pay.isHalfMonth ||
+                    pay.status === 'Tervalidasi (½ Bln)' ||
+                    String(pay.status || '').includes('½') ||
+                    String(pay.periodNote || '').includes('Setengah') ||
+                    (pay.amount && pay.amount === 800000 && pay.status === 'Tervalidasi');
+
+                  return (
+                    <tr key={pay.id} className={isHalfMonthRow ? 'row-half-month' : ''}>
                     <td>
                       <div>
                         <strong className="text-gray-900">{pay.month}</strong>
@@ -1778,7 +1774,7 @@ export const PembayaranView = () => {
                     <td className="text-xs text-gray-600">
                       {pay.validatedBy ? (
                         <div>
-                          <strong>{pay.validatedBy}</strong>
+                          <strong>{cleanAccountName(pay.validatedBy)}</strong>
                           <div className="text-gray-400 font-mono">{pay.validatedAt}</div>
                         </div>
                       ) : (
@@ -1840,8 +1836,9 @@ export const PembayaranView = () => {
                       </td>
                     )}
                   </tr>
-                ))
-              ) : (
+                );
+              })
+            ) : (
                 <tr>
                   <td colSpan={canValidate ? 8 : 7} className="text-center py-8 text-gray-500">
                     Tidak ada data tagihan sewa untuk kamar berpenghuni pada filter ini.
