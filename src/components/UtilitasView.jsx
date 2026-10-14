@@ -29,6 +29,8 @@ export const UtilitasView = () => {
   const [tokenInputMap, setTokenInputMap] = useState({});
   const [editingMeterId, setEditingMeterId] = useState(null);
   const [meterEndInput, setMeterEndInput] = useState('');
+  const [editingRateId, setEditingRateId] = useState(null);
+  const [rateInput, setRateInput] = useState('');
   const [isCustomMonthModalOpen, setIsCustomMonthModalOpen] = useState(false);
   const [customMonthInput, setCustomMonthInput] = useState('');
 
@@ -190,6 +192,18 @@ export const UtilitasView = () => {
     setMeterEndInput('');
   };
 
+  // Save quick rate per kWh edit per room
+  const handleSaveRate = (bill) => {
+    const rateVal = parseInt(rateInput);
+    if (isNaN(rateVal) || rateVal <= 0) {
+      addToast('Tarif per kWh harus berupa nominal lebih besar dari 0!', 'error');
+      return;
+    }
+    handleQuickUpdateElectricity(bill.id, { ratePerKwh: rateVal });
+    setEditingRateId(null);
+    setRateInput('');
+  };
+
   // Validasi tagihan listrik per baris (persis seperti Pembayaran Kos)
   const handleValidateBill = (bill) => {
     const roomObj = (rooms || []).find((r) => String(r.number).trim() === String(bill.roomNumber).trim());
@@ -266,6 +280,9 @@ export const UtilitasView = () => {
       }
       if (key === 'kwhUsage') {
         return ((a.kwhUsage || 0) - (b.kwhUsage || 0)) * modifier;
+      }
+      if (key === 'ratePerKwh') {
+        return ((a.ratePerKwh || 1650) - (b.ratePerKwh || 1650)) * modifier;
       }
       if (key === 'totalBill') {
         return ((a.totalBill || 0) - (b.totalBill || 0)) * modifier;
@@ -528,8 +545,19 @@ export const UtilitasView = () => {
                   </div>
                 </th>
 
-                {/* 7. Tarif/kWh */}
-                <th>Tarif/kWh</th>
+                {/* 7. Tarif/kWh (Bisa Diedit Per Kamar) */}
+                <th
+                  onClick={() => handleSort('ratePerKwh')}
+                  className={`sortable-th ${sortConfig.key === 'ratePerKwh' ? 'active-sort' : ''}`}
+                  title="Klik untuk sortir Tarif/kWh (ASC / DESC)"
+                >
+                  <div className="th-sort-wrapper">
+                    <span>Tarif/kWh</span>
+                    <span className="sort-indicator">
+                      {sortConfig.key === 'ratePerKwh' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
+                    </span>
+                  </div>
+                </th>
 
                 {/* 8. Total Tagihan */}
                 <th
@@ -712,8 +740,91 @@ export const UtilitasView = () => {
                         <span className="badge-pill-outline">{b.kwhUsage} kWh</span>
                       </td>
 
-                      {/* Tarif */}
-                      <td>Rp {b.ratePerKwh.toLocaleString('id-ID')}</td>
+                      {/* Tarif / kWh (Dapat Diedit Per Kamar) */}
+                      <td>
+                        {editingRateId === b.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                background: '#ffffff',
+                                border: '1px solid #10b981',
+                                borderRadius: '6px',
+                                padding: '2px 6px',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#059669', marginRight: '3px' }}>Rp</span>
+                              <input
+                                type="number"
+                                className="form-input"
+                                style={{
+                                  width: '75px',
+                                  padding: '2px 4px',
+                                  fontSize: '0.82rem',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  outline: 'none',
+                                  fontWeight: 600
+                                }}
+                                value={rateInput}
+                                onChange={(e) => setRateInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveRate(b);
+                                  if (e.key === 'Escape') setEditingRateId(null);
+                                }}
+                                autoFocus
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              className="btn-save-token-inline"
+                              onClick={() => handleSaveRate(b)}
+                              title="Simpan tarif per kWh kamar ini"
+                              style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                            >
+                              ✓
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingRateId(null)}
+                              title="Batal edit"
+                              style={{
+                                background: '#f3f4f6',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                color: '#6b7280',
+                                fontSize: '0.8rem',
+                                padding: '4px 6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontWeight: 600, color: '#111827' }}>
+                              Rp {(b.ratePerKwh || 1650).toLocaleString('id-ID')}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-edit-token-icon"
+                              onClick={() => {
+                                setEditingRateId(b.id);
+                                setRateInput(String(b.ratePerKwh || 1650));
+                              }}
+                              title={`Ubah harga per kWh untuk Kamar ${b.roomNumber}`}
+                            >
+                              <IconEdit size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
 
                       {/* Total Tagihan */}
                       <td className="font-bold text-gray-900">

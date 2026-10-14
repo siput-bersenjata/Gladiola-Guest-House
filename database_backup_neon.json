@@ -1,8 +1,8 @@
 {
   "backupDate": "2026-10-14T15:24:14.236Z",
   "id": "gladiola_main",
-  "version": "560",
-  "updatedAt": "2026-10-14T15:24:06.296Z",
+  "version": 561,
+  "updatedAt": "2026-10-14T15:46:12.129Z",
   "data": {
     "rooms": [
       {
@@ -25,7 +25,8 @@
           "Smart Lock"
         ],
         "currentTenant": "Amalia",
-        "electricityToken": "3819-2007-8811-9017-5521"
+        "electricityToken": "3819-2007-8811-9017-5521",
+        "electricityRate": 1650
       },
       {
         "id": "rm-2",
@@ -47,7 +48,8 @@
           "Smart Lock"
         ],
         "currentTenant": "Salma",
-        "electricityToken": "3819-2014-8822-9020-5522"
+        "electricityToken": "3819-2014-8822-9020-5522",
+        "electricityRate": 1650
       },
       {
         "id": "rm-3",
@@ -69,7 +71,8 @@
           "Smart Lock"
         ],
         "currentTenant": "Vanesa",
-        "electricityToken": "3819-2021-8833-9023-5523"
+        "electricityToken": "3819-2021-8833-9023-5523",
+        "electricityRate": 1650
       },
       {
         "id": "rm-4",
@@ -91,7 +94,8 @@
           "Smart Lock"
         ],
         "currentTenant": null,
-        "electricityToken": "3819-2028-8844-9026-5524"
+        "electricityToken": "3819-2028-8844-9026-5524",
+        "electricityRate": 1650
       },
       {
         "id": "rm-5",
@@ -113,7 +117,8 @@
           "Smart Lock"
         ],
         "currentTenant": "Sri Arum",
-        "electricityToken": "3819-2035-8855-9029-5525"
+        "electricityToken": "3819-2035-8855-9029-5525",
+        "electricityRate": 1650
       },
       {
         "id": "rm-6",
@@ -135,7 +140,8 @@
           "Smart Lock"
         ],
         "currentTenant": "Anara",
-        "electricityToken": "3819-2042-8866-9032-5526"
+        "electricityToken": "3819-2042-8866-9032-5526",
+        "electricityRate": 1650
       },
       {
         "id": "rm-10",
@@ -157,7 +163,8 @@
           "Smart Lock"
         ],
         "currentTenant": null,
-        "electricityToken": "3819-2070-8910-9044-5530"
+        "electricityToken": "3819-2070-8910-9044-5530",
+        "electricityRate": 1650
       },
       {
         "id": "rm-1791988030594",
@@ -179,7 +186,8 @@
           "Smart Lock"
         ],
         "currentTenant": null,
-        "electricityToken": "1206-2753-4708-6727-2458"
+        "electricityToken": "1206-2753-4708-6727-2458",
+        "electricityRate": 1650
       },
       {
         "id": "rm-1791988049197",
@@ -201,7 +209,8 @@
           "Smart Lock"
         ],
         "currentTenant": "Zakiah",
-        "electricityToken": "9663-3377-5816-6697-5940"
+        "electricityToken": "9663-3377-5816-6697-5940",
+        "electricityRate": 1650
       },
       {
         "id": "rm-1791988062162",
@@ -223,7 +232,8 @@
           "Smart Lock"
         ],
         "currentTenant": "Alva",
-        "electricityToken": "4358-5666-9262-7244-9694"
+        "electricityToken": "4358-5666-9262-7244-9694",
+        "electricityRate": 1650
       }
     ],
     "source": "client_push",

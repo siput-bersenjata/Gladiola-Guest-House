@@ -1889,11 +1889,22 @@ const decompressPayload = async (base64Str) => {
       setRooms(newRooms);
       saveState('rooms', newRooms);
 
-      // Auto-sync electricity bills for this room with the fixed token
+      // Auto-sync electricity bills for this room with the fixed token & rate
       let newBills = electricityBills;
-      if (roomData.electricityToken) {
+      if (roomData.electricityToken || roomData.electricityRate) {
         newBills = electricityBills.map((b) =>
-          b.roomNumber === roomData.number ? { ...b, token: roomData.electricityToken } : b
+          b.roomNumber === roomData.number
+            ? {
+                ...b,
+                ...(roomData.electricityToken ? { token: roomData.electricityToken } : {}),
+                ...(roomData.electricityRate && b.status !== 'Lunas'
+                  ? {
+                      ratePerKwh: Number(roomData.electricityRate),
+                      totalBill: (b.kwhUsage || 0) * Number(roomData.electricityRate)
+                    }
+                  : {})
+              }
+            : b
         );
         setElectricityBills(newBills);
         saveState('electricity', newBills);
@@ -2266,7 +2277,7 @@ const decompressPayload = async (base64Str) => {
             meterStart: baseStart,
             meterEnd: baseStart, // Stand awal sama dengan stand akhir sebelumnya
             kwhUsage: 0,
-            ratePerKwh: 1650,
+            ratePerKwh: matchRoom?.electricityRate || 1650,
             totalBill: 0,
             token: defaultFixedToken, // Otomatis terisi nomor token tetap dari CRUD kamar!
             status: 'Belum Bayar',
@@ -2362,17 +2373,25 @@ const decompressPayload = async (base64Str) => {
     addToast(`Token listrik ${roomStr} berhasil disimpan!`, 'success');
   };
 
-  // Quick update any meter readings directly
+  // Quick update any meter readings directly (stand meter, token, status, atau tarif per kWh)
   const handleQuickUpdateElectricity = (billId, updates) => {
-    setElectricityBills((prev) =>
-      prev.map((b) => {
+    let affectedRoomNumber = null;
+    let newRate = null;
+
+    setElectricityBills((prev) => {
+      const updated = prev.map((b) => {
         if (b.id === billId) {
           const merged = { ...b, ...updates };
           const meterStart = parseInt(merged.meterStart) || 0;
-          const meterEnd = parseInt(merged.meterEnd) || meterStart;
+          const meterEnd = parseInt(merged.meterEnd) !== undefined ? parseInt(merged.meterEnd) : meterStart;
           const kwhUsage = Math.max(0, meterEnd - meterStart);
-          const ratePerKwh = parseInt(merged.ratePerKwh) || 1650;
+          const ratePerKwh = parseInt(merged.ratePerKwh) > 0 ? parseInt(merged.ratePerKwh) : (b.ratePerKwh || 1650);
           const totalBill = kwhUsage * ratePerKwh;
+
+          if (updates.ratePerKwh !== undefined) {
+            affectedRoomNumber = b.roomNumber;
+            newRate = ratePerKwh;
+          }
 
           return {
             ...merged,
@@ -2386,9 +2405,33 @@ const decompressPayload = async (base64Str) => {
           };
         }
         return b;
-      })
-    );
-    addToast('Data meteran listrik berhasil diperbarui!', 'success');
+      });
+
+      saveState('electricity', updated);
+      pushToCloud({ electricityBills: updated });
+      return updated;
+    });
+
+    // Jika tarif per kWh diubah, simpan juga sebagai tarif default kamar tersebut di master rooms
+    if (affectedRoomNumber && newRate) {
+      setRooms((prevRooms) => {
+        const nextRooms = prevRooms.map((r) =>
+          String(r.number).trim() === String(affectedRoomNumber).trim()
+            ? { ...r, electricityRate: newRate }
+            : r
+        );
+        saveState('rooms', nextRooms);
+        pushToCloud({ rooms: nextRooms });
+        return nextRooms;
+      });
+      logActivity(
+        'Ubah Tarif Listrik Kamar',
+        `Memperbarui tarif listrik Kamar ${affectedRoomNumber} menjadi Rp ${newRate.toLocaleString('id-ID')}/kWh`
+      );
+      addToast(`Tarif listrik Kamar ${affectedRoomNumber} diubah ke Rp ${newRate.toLocaleString('id-ID')}/kWh!`, 'success');
+    } else {
+      addToast('Data utilitas listrik berhasil diperbarui!', 'success');
+    }
   };
 
   // Auto-generate current month electricity bills (Oktober 2026) for all active tenants on load if missing
