@@ -143,7 +143,14 @@ export const AppProvider = ({ children }) => {
     loadState('systemAccounts', SYSTEM_ACCOUNTS)
   );
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTabState] = useState(() =>
+    loadState('activeTab', 'overview')
+  );
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    saveState('activeTab', tab);
+  };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Mandatory Geolocation State
