@@ -148,9 +148,9 @@ export const AnakKosPortal = () => {
 
   const currentElecBill = tenantElecBills.find((b) => b.month.includes('Oktober')) || {
     month: 'Oktober 2026',
-    kwhUsage: 80,
-    ratePerKwh: 1650,
-    totalBill: 132000,
+    kwhUsage: 0,
+    ratePerKwh: 1750,
+    totalBill: 0,
     status: 'Lunas'
   };
 

@@ -282,7 +282,7 @@ export const UtilitasView = () => {
         return ((a.kwhUsage || 0) - (b.kwhUsage || 0)) * modifier;
       }
       if (key === 'ratePerKwh') {
-        return ((a.ratePerKwh || 1650) - (b.ratePerKwh || 1650)) * modifier;
+        return ((a.ratePerKwh || 1750) - (b.ratePerKwh || 1750)) * modifier;
       }
       if (key === 'totalBill') {
         return ((a.totalBill || 0) - (b.totalBill || 0)) * modifier;
@@ -388,9 +388,9 @@ export const UtilitasView = () => {
         </div>
 
         <div className="pembayaran-stat-card card-warning">
-          <span className="stat-metric-label">Status Token Listrik PLN</span>
-          <span className="stat-metric-value">{metrics.filledTokenCount} Terisi</span>
-          <span className="stat-metric-subtext">{metrics.emptyTokenCount} kamar menunggu token • Rp 1.650/kWh</span>
+          <span className="stat-metric-label">Tarif Standar Listrik</span>
+          <span className="stat-metric-value">Rp 1.750 / kWh</span>
+          <span className="stat-metric-subtext">Tarif meteran PLN flat per unit kamar</span>
         </div>
       </div>
 
@@ -402,7 +402,7 @@ export const UtilitasView = () => {
             <IconSearch size={16} className="text-gray-400" />
             <input
               type="text"
-              placeholder="Cari kamar / nama / nomor HP / token..."
+              placeholder="Cari kamar / nama penghuni / nomor HP..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -488,22 +488,7 @@ export const UtilitasView = () => {
                   </div>
                 </th>
 
-                {/* 3. Token Listrik (PLN) */}
-                <th
-                  onClick={() => handleSort('token')}
-                  className={`sortable-th ${sortConfig.key === 'token' ? 'active-sort' : ''}`}
-                  style={{ minWidth: '240px' }}
-                  title="Klik untuk sortir Token Listrik (ASC / DESC)"
-                >
-                  <div className="th-sort-wrapper">
-                    <span>⚡ Token Listrik (PLN)</span>
-                    <span className="sort-indicator">
-                      {sortConfig.key === 'token' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '↕'}
-                    </span>
-                  </div>
-                </th>
-
-                {/* 4. Meter Awal */}
+                {/* 3. Meter Awal */}
                 <th
                   onClick={() => handleSort('meterStart')}
                   className={`sortable-th ${sortConfig.key === 'meterStart' ? 'active-sort' : ''}`}
@@ -625,75 +610,6 @@ export const UtilitasView = () => {
                         </div>
                       </td>
 
-                      {/* Kolom Token Listrik */}
-                      <td>
-                        {isEditingToken ? (
-                          <div className="token-cell-wrapper">
-                            <div className="token-input-group">
-                              <input
-                                type="text"
-                                className="token-input-field"
-                                placeholder={roomObj?.electricityToken ? `Tetap: ${roomObj.electricityToken.slice(0, 14)}...` : 'Ketik 20 digit token...'}
-                                value={currentTokenVal}
-                                onChange={(e) =>
-                                  setTokenInputMap({ ...tokenInputMap, [b.id]: e.target.value })
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleSaveTokenInline(b);
-                                }}
-                              />
-                              <button
-                                type="button"
-                                className="btn-auto-token-gen"
-                                onClick={() => handleAutoFillToken(b.id, b.roomNumber)}
-                                title="Ambil nomor token PLN tetap kamar ini"
-                              >
-                                ⚡ Auto
-                              </button>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn-save-token-inline"
-                              onClick={() => handleSaveTokenInline(b)}
-                              title="Simpan Token"
-                            >
-                              <IconCheck size={14} />
-                              <span>Simpan</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="token-cell-wrapper">
-                            <span className="token-display-pill" title="Token Listrik PLN">
-                              <IconLightning size={14} />
-                              <span>{b.token}</span>
-                            </span>
-                            <button
-                              type="button"
-                              className="btn-copy-token"
-                              onClick={() => {
-                                navigator.clipboard.writeText(b.token);
-                                addToast(`Token Kamar ${b.roomNumber} disalin!`, 'info');
-                              }}
-                              title="Salin Token"
-                            >
-                              <IconCopy size={13} />
-                              <span>Salin</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-edit-token-icon"
-                              onClick={() => {
-                                setEditingTokenIds({ ...editingTokenIds, [b.id]: true });
-                                setTokenInputMap({ ...tokenInputMap, [b.id]: b.token });
-                              }}
-                              title="Edit Token"
-                            >
-                              <IconEdit size={14} />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-
                       {/* Meter Awal */}
                       <td>{b.meterStart} kWh</td>
 
@@ -809,14 +725,14 @@ export const UtilitasView = () => {
                         ) : (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ fontWeight: 600, color: '#111827' }}>
-                              Rp {(b.ratePerKwh || 1650).toLocaleString('id-ID')}
+                              Rp {(b.ratePerKwh || 1750).toLocaleString('id-ID')}
                             </span>
                             <button
                               type="button"
                               className="btn-edit-token-icon"
                               onClick={() => {
                                 setEditingRateId(b.id);
-                                setRateInput(String(b.ratePerKwh || 1650));
+                                setRateInput(String(b.ratePerKwh || 1750));
                               }}
                               title={`Ubah harga per kWh untuk Kamar ${b.roomNumber}`}
                             >

@@ -2277,7 +2277,7 @@ const decompressPayload = async (base64Str) => {
             meterStart: baseStart,
             meterEnd: baseStart, // Stand awal sama dengan stand akhir sebelumnya
             kwhUsage: 0,
-            ratePerKwh: matchRoom?.electricityRate || 1650,
+            ratePerKwh: matchRoom?.electricityRate || 1750,
             totalBill: 0,
             token: defaultFixedToken, // Otomatis terisi nomor token tetap dari CRUD kamar!
             status: 'Belum Bayar',
@@ -2385,7 +2385,7 @@ const decompressPayload = async (base64Str) => {
           const meterStart = parseInt(merged.meterStart) || 0;
           const meterEnd = parseInt(merged.meterEnd) !== undefined ? parseInt(merged.meterEnd) : meterStart;
           const kwhUsage = Math.max(0, meterEnd - meterStart);
-          const ratePerKwh = parseInt(merged.ratePerKwh) > 0 ? parseInt(merged.ratePerKwh) : (b.ratePerKwh || 1650);
+          const ratePerKwh = parseInt(merged.ratePerKwh) > 0 ? parseInt(merged.ratePerKwh) : (b.ratePerKwh || 1750);
           const totalBill = kwhUsage * ratePerKwh;
 
           if (updates.ratePerKwh !== undefined) {

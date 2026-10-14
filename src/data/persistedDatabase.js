@@ -1,8 +1,8 @@
 export const PERSISTED_DATABASE = {
-  "backupDate": "2026-10-14T15:24:14.236Z",
+  "backupDate": "2026-10-14T16:08:32.053Z",
   "id": "gladiola_main",
-  "version": 561,
-  "updatedAt": "2026-10-14T15:46:12.129Z",
+  "version": 563,
+  "updatedAt": "2026-10-14T16:08:32.054Z",
   "data": {
     "rooms": [
       {
@@ -25,8 +25,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": "Amalia",
-        "electricityToken": "3819-2007-8811-9017-5521",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "3819-2007-8811-9017-5521"
       },
       {
         "id": "rm-2",
@@ -48,8 +48,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": "Salma",
-        "electricityToken": "3819-2014-8822-9020-5522",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "3819-2014-8822-9020-5522"
       },
       {
         "id": "rm-3",
@@ -71,8 +71,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": "Vanesa",
-        "electricityToken": "3819-2021-8833-9023-5523",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "3819-2021-8833-9023-5523"
       },
       {
         "id": "rm-4",
@@ -80,7 +80,7 @@ export const PERSISTED_DATABASE = {
         "floor": 1,
         "price": 1600000,
         "number": "104",
-        "status": "Kosong",
+        "status": "Terisi",
         "meterId": "PLN-1428000548",
         "category": "Bulanan",
         "dailyPrice": 250000,
@@ -93,9 +93,9 @@ export const PERSISTED_DATABASE = {
           "Meja Belajar",
           "Smart Lock"
         ],
-        "currentTenant": null,
-        "electricityToken": "3819-2028-8844-9026-5524",
-        "electricityRate": 1650
+        "currentTenant": "Tita",
+        "electricityRate": 1750,
+        "electricityToken": "3819-2028-8844-9026-5524"
       },
       {
         "id": "rm-5",
@@ -117,8 +117,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": "Sri Arum",
-        "electricityToken": "3819-2035-8855-9029-5525",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "3819-2035-8855-9029-5525"
       },
       {
         "id": "rm-6",
@@ -140,8 +140,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": "Anara",
-        "electricityToken": "3819-2042-8866-9032-5526",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "3819-2042-8866-9032-5526"
       },
       {
         "id": "rm-10",
@@ -163,8 +163,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": null,
-        "electricityToken": "3819-2070-8910-9044-5530",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "3819-2070-8910-9044-5530"
       },
       {
         "id": "rm-1791988030594",
@@ -186,8 +186,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": null,
-        "electricityToken": "1206-2753-4708-6727-2458",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "1206-2753-4708-6727-2458"
       },
       {
         "id": "rm-1791988049197",
@@ -209,8 +209,8 @@ export const PERSISTED_DATABASE = {
           "Smart Lock"
         ],
         "currentTenant": "Zakiah",
-        "electricityToken": "9663-3377-5816-6697-5940",
-        "electricityRate": 1650
+        "electricityRate": 1750,
+        "electricityToken": "9663-3377-5816-6697-5940"
       },
       {
         "id": "rm-1791988062162",
@@ -231,9 +231,9 @@ export const PERSISTED_DATABASE = {
           "Meja Belajar",
           "Smart Lock"
         ],
-        "currentTenant": "Alva",
-        "electricityToken": "4358-5666-9262-7244-9694",
-        "electricityRate": 1650
+        "currentTenant": "Silva",
+        "electricityRate": 1750,
+        "electricityToken": "4358-5666-9262-7244-9694"
       }
     ],
     "source": "client_push",
@@ -312,7 +312,7 @@ export const PERSISTED_DATABASE = {
       },
       {
         "id": "t-1791988208272",
-        "name": "Alva",
+        "name": "Silva",
         "notes": "Mahasiswi UB",
         "phone": "082132650570",
         "status": "Aktif",
@@ -321,9 +321,22 @@ export const PERSISTED_DATABASE = {
         "roomNumber": "204",
         "monthlyRent": 1600000,
         "emergencyContact": ""
+      },
+      {
+        "id": "t-104",
+        "name": "Tita",
+        "roomNumber": "104",
+        "phone": "081299881310",
+        "email": "tita@gmail.com",
+        "entryDate": "2026-09-01",
+        "deposit": 500000,
+        "emergencyContact": "081299881311",
+        "job": "Mahasiswi",
+        "status": "Aktif",
+        "idCard": "3573010409260001"
       }
     ],
-    "version": 559,
+    "version": 562,
     "bankInfo": {
       "bankName": "BCA (Bank Central Asia)",
       "qrisImage": "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=GLADIOLA-KOS-PAYMENT-MOCK",
@@ -567,7 +580,7 @@ export const PERSISTED_DATABASE = {
         "totalReviews": 24
       }
     ],
-    "updatedAt": 1791990268980,
+    "updatedAt": 1791993571167,
     "activityLogs": [
       {
         "id": "log-1791988208273-lsex",
@@ -1750,89 +1763,259 @@ export const PERSISTED_DATABASE = {
     ],
     "electricityBills": [
       {
-        "id": "elec-101",
+        "id": "elec-oktober2026-101",
         "month": "Oktober 2026",
-        "token": "3819-2041-8849-2194-0012",
-        "paidAt": "2026-10-02 09:15",
-        "status": "Lunas",
-        "kwhUsage": 80,
-        "meterEnd": 1320,
-        "tenantId": "t-1",
-        "totalBill": 132000,
-        "meterStart": 1240,
-        "ratePerKwh": 1650,
-        "recordedBy": "Operator Taman",
         "roomNumber": "101",
+        "tenantId": "t-1",
         "tenantName": "Amalia",
-        "tenantPhone": "081342255948"
-      },
-      {
-        "id": "elec-102",
-        "month": "Oktober 2026",
-        "token": "5109-3382-7714-9023-4410",
-        "paidAt": "2026-10-03 08:30",
-        "status": "Lunas",
-        "kwhUsage": 105,
-        "meterEnd": 2215,
-        "tenantId": "t-2",
-        "totalBill": 173250,
-        "meterStart": 2110,
-        "ratePerKwh": 1650,
-        "recordedBy": "Operator Taman",
-        "roomNumber": "102",
-        "tenantName": "Salma",
-        "tenantPhone": "085190847649"
-      },
-      {
-        "id": "elec-103",
-        "month": "Oktober 2026",
-        "token": "1940-8821-6632-1104-9852",
-        "paidAt": "2026-10-04 14:20",
-        "status": "Lunas",
-        "kwhUsage": 65,
-        "meterEnd": 955,
-        "tenantId": "t-3",
-        "totalBill": 107250,
-        "meterStart": 890,
-        "ratePerKwh": 1650,
-        "recordedBy": "Operator Taman",
-        "roomNumber": "103",
-        "tenantName": "Vanesa",
-        "tenantPhone": "082289066935"
-      },
-      {
-        "id": "elec-104",
-        "month": "Oktober 2026",
+        "tenantPhone": "081342255948",
+        "meterStart": 1719,
+        "meterEnd": 1719,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
         "token": "",
-        "paidAt": null,
-        "status": "Belum Bayar",
-        "kwhUsage": 78,
-        "meterEnd": 1618,
-        "tenantId": "t-4",
-        "totalBill": 128700,
-        "meterStart": 1540,
-        "ratePerKwh": 1650,
-        "recordedBy": "Operator Taman",
-        "roomNumber": "105",
-        "tenantName": "Sri Arum",
-        "tenantPhone": "089661979874"
+        "status": "Lunas",
+        "paidAt": "2026-10-02 09:15",
+        "recordedBy": "Operator Gladiola"
       },
       {
-        "id": "elec-91",
-        "month": "September 2026",
-        "token": "8821-4401-9923-1120-7734",
-        "paidAt": "2026-09-02 10:00",
+        "id": "elec-oktober2026-102",
+        "month": "Oktober 2026",
+        "roomNumber": "102",
+        "tenantId": "t-2",
+        "tenantName": "Salma",
+        "tenantPhone": "085190847649",
+        "meterStart": 2110,
+        "meterEnd": 2215,
+        "kwhUsage": 105,
+        "ratePerKwh": 1750,
+        "totalBill": 183750,
+        "token": "",
         "status": "Lunas",
-        "kwhUsage": 75,
-        "meterEnd": 1240,
-        "tenantId": "t-1",
-        "totalBill": 123750,
-        "meterStart": 1165,
-        "ratePerKwh": 1650,
-        "recordedBy": "Operator Taman",
+        "paidAt": "2026-10-03 08:30",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-oktober2026-103",
+        "month": "Oktober 2026",
+        "roomNumber": "103",
+        "tenantId": "t-3",
+        "tenantName": "Vanesa",
+        "tenantPhone": "082289066935",
+        "meterStart": 1152,
+        "meterEnd": 1152,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-04 14:20",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-oktober2026-104",
+        "month": "Oktober 2026",
+        "roomNumber": "104",
+        "tenantId": "t-104",
+        "tenantName": "Tita",
+        "tenantPhone": "081299881310",
+        "meterStart": 1310,
+        "meterEnd": 1310,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-02 10:00",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-oktober2026-105",
+        "month": "Oktober 2026",
+        "roomNumber": "105",
+        "tenantId": "t-4",
+        "tenantName": "Sri Arum",
+        "tenantPhone": "089661979874",
+        "meterStart": 4301,
+        "meterEnd": 4301,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-02 11:00",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-oktober2026-201",
+        "month": "Oktober 2026",
+        "roomNumber": "201",
+        "tenantId": "t-5",
+        "tenantName": "Anara",
+        "tenantPhone": "087780488383",
+        "meterStart": 7651,
+        "meterEnd": 7651,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-02 11:30",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-oktober2026-203",
+        "month": "Oktober 2026",
+        "roomNumber": "203",
+        "tenantId": "t-6",
+        "tenantName": "Zakiah",
+        "tenantPhone": "081388387009",
+        "meterStart": 3602,
+        "meterEnd": 3602,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-02 12:00",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-oktober2026-204",
+        "month": "Oktober 2026",
+        "roomNumber": "204",
+        "tenantId": "t-1791988208272",
+        "tenantName": "Silva",
+        "tenantPhone": "082132650570",
+        "meterStart": 2822,
+        "meterEnd": 2822,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-02 12:30",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-september2026-101",
+        "month": "September 2026",
         "roomNumber": "101",
+        "tenantId": "t-1",
         "tenantName": "Amalia",
-        "tenantPhone": "081342255948"
+        "tenantPhone": "081342255948",
+        "meterStart": 1719,
+        "meterEnd": 1719,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-01 10:00",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-september2026-103",
+        "month": "September 2026",
+        "roomNumber": "103",
+        "tenantId": "t-3",
+        "tenantName": "Vanesa",
+        "tenantPhone": "082289066935",
+        "meterStart": 1078,
+        "meterEnd": 1152,
+        "kwhUsage": 74,
+        "ratePerKwh": 1750,
+        "totalBill": 129500,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-01 10:15",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-september2026-104",
+        "month": "September 2026",
+        "roomNumber": "104",
+        "tenantId": "t-104",
+        "tenantName": "Tita",
+        "tenantPhone": "081299881310",
+        "meterStart": 1310,
+        "meterEnd": 1310,
+        "kwhUsage": 0,
+        "ratePerKwh": 1750,
+        "totalBill": 0,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-01 10:20",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-september2026-105",
+        "month": "September 2026",
+        "roomNumber": "105",
+        "tenantId": "t-4",
+        "tenantName": "Sri Arum",
+        "tenantPhone": "089661979874",
+        "meterStart": 4196,
+        "meterEnd": 4301,
+        "kwhUsage": 105,
+        "ratePerKwh": 1750,
+        "totalBill": 183750,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-01 10:30",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-september2026-201",
+        "month": "September 2026",
+        "roomNumber": "201",
+        "tenantId": "t-5",
+        "tenantName": "Anara",
+        "tenantPhone": "087780488383",
+        "meterStart": 7521,
+        "meterEnd": 7651,
+        "kwhUsage": 130,
+        "ratePerKwh": 1750,
+        "totalBill": 227500,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-01 10:45",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-september2026-203",
+        "month": "September 2026",
+        "roomNumber": "203",
+        "tenantId": "t-6",
+        "tenantName": "Zakiah",
+        "tenantPhone": "081388387009",
+        "meterStart": 3434,
+        "meterEnd": 3602,
+        "kwhUsage": 168,
+        "ratePerKwh": 1750,
+        "totalBill": 294000,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-01 11:00",
+        "recordedBy": "Operator Gladiola"
+      },
+      {
+        "id": "elec-september2026-204",
+        "month": "September 2026",
+        "roomNumber": "204",
+        "tenantId": "t-1791988208272",
+        "tenantName": "Silva",
+        "tenantPhone": "082132650570",
+        "meterStart": 2739,
+        "meterEnd": 2822,
+        "kwhUsage": 83,
+        "ratePerKwh": 1750,
+        "totalBill": 145250,
+        "token": "",
+        "status": "Lunas",
+        "paidAt": "2026-10-01 11:15",
+        "recordedBy": "Operator Gladiola"
       },
       {
         "id": "elec-81",
@@ -1867,57 +2050,6 @@ export const PERSISTED_DATABASE = {
         "roomNumber": "101",
         "tenantName": "Amalia",
         "tenantPhone": "081342255948"
-      },
-      {
-        "id": "elec-oktober2026-205",
-        "month": "Oktober 2026",
-        "token": "9663-3377-5816-6697-5940",
-        "paidAt": null,
-        "status": "Belum Bayar",
-        "kwhUsage": 0,
-        "meterEnd": 1615,
-        "tenantId": "t-6",
-        "totalBill": 0,
-        "meterStart": 1615,
-        "ratePerKwh": 1650,
-        "recordedBy": "Andre (Pengelola Kos)",
-        "roomNumber": "203",
-        "tenantName": "Zakiah",
-        "tenantPhone": "081388387009"
-      },
-      {
-        "id": "elec-oktober2026-201",
-        "month": "Oktober 2026",
-        "token": "3819-2042-8866-9032-5526",
-        "paidAt": null,
-        "status": "Belum Bayar",
-        "kwhUsage": 0,
-        "meterEnd": 1603,
-        "tenantId": "t-5",
-        "totalBill": 0,
-        "meterStart": 1603,
-        "ratePerKwh": 1650,
-        "recordedBy": "Amalia (Super Admin)",
-        "roomNumber": "201",
-        "tenantName": "Anara",
-        "tenantPhone": "087780488383"
-      },
-      {
-        "id": "elec-oktober2026-204",
-        "month": "Oktober 2026",
-        "token": "4358-5666-9262-7244-9694",
-        "paidAt": null,
-        "status": "Belum Bayar",
-        "kwhUsage": 0,
-        "meterEnd": 1612,
-        "tenantId": "t-1791988208272",
-        "totalBill": 0,
-        "meterStart": 1612,
-        "ratePerKwh": 1650,
-        "recordedBy": "Amalia (Super Admin)",
-        "roomNumber": "204",
-        "tenantName": "Alva",
-        "tenantPhone": "082132650570"
       }
     ]
   }

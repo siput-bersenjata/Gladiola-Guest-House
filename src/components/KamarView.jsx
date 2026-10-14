@@ -70,7 +70,7 @@ export const KamarView = () => {
     currentTenant: '',
     electricityToken: '',
     meterId: '',
-    electricityRate: 1650,
+    electricityRate: 1750,
     facilities: [
       'AC Split',
       'Spring Bed Queen',
@@ -101,7 +101,7 @@ export const KamarView = () => {
       currentTenant: '',
       electricityToken: generateRandomToken(),
       meterId: `PLN-14${Math.floor(10000000 + Math.random() * 90000000)}`,
-      electricityRate: 1650,
+      electricityRate: 1750,
       facilities: [
         'AC Split',
         'Spring Bed Queen',
@@ -128,7 +128,7 @@ export const KamarView = () => {
       currentTenant: room.currentTenant || '',
       electricityToken: room.electricityToken || generateRandomToken(),
       meterId: room.meterId || `PLN-14${Math.floor(10000000 + Math.random() * 90000000)}`,
-      electricityRate: room.electricityRate || 1650,
+      electricityRate: room.electricityRate || 1750,
       facilities: Array.isArray(room.facilities) && room.facilities.length > 0
         ? [...room.facilities]
         : ['AC Split', 'Spring Bed Queen', 'Kamar Mandi Dalam', 'Smart Lock']
@@ -157,7 +157,7 @@ export const KamarView = () => {
       currentTenant: formData.status === 'Kosong' ? null : (formData.currentTenant?.trim() || null),
       electricityToken: formData.electricityToken?.trim() || '',
       meterId: formData.meterId?.trim() || '',
-      electricityRate: Number(formData.electricityRate) || 1650,
+      electricityRate: Number(formData.electricityRate) || 1750,
       facilities: formData.facilities
     });
 
@@ -736,13 +736,13 @@ export const KamarView = () => {
                         className="form-input"
                         value={formData.electricityRate}
                         onChange={(e) => setFormData({ ...formData, electricityRate: e.target.value })}
-                        placeholder="1650"
+                        placeholder="1750"
                         disabled={isOwnerReadOnly}
                         style={{ fontWeight: 600 }}
                       />
                     </div>
                     <span className="field-hint">
-                      Biaya per kWh khusus unit ini (default Rp 1.650). Nilai ini juga dapat diedit sewaktu-waktu langsung di tabel Utilitas.
+                      Biaya per kWh khusus unit ini (default Rp 1.750). Nilai ini juga dapat diedit sewaktu-waktu langsung di tabel Utilitas.
                     </span>
                   </div>
                 </div>
