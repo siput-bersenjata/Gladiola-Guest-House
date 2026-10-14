@@ -1900,6 +1900,10 @@ const decompressPayload = async (base64Str) => {
 
   // Room CRUD
   const handleSaveRoom = (roomData) => {
+    if (!currentUser || ['anak_kos', 'owner'].includes(currentUser.role)) {
+      addToast('Akun Anda tidak memiliki izin mengubah data kamar.', 'error');
+      return false;
+    }
     if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan menambah atau mengubah data kamar!', 'error');
       return false;
@@ -2173,6 +2177,10 @@ const decompressPayload = async (base64Str) => {
   };
 
   const handleDeleteRoom = (roomId) => {
+    if (!currentUser || ['anak_kos', 'owner'].includes(currentUser.role)) {
+      addToast('Akun Anda tidak memiliki izin menghapus kamar.', 'error');
+      return false;
+    }
     if (currentUser?.role === 'owner') {
       addToast('Owner tidak diizinkan menghapus data kamar!', 'error');
       return;

@@ -82,7 +82,8 @@ export const KamarView = () => {
     ]
   });
 
-  const isOwnerReadOnly = currentUser.role === 'owner';
+  const isAnakKos = currentUser?.role === 'anak_kos';
+  const isOwnerReadOnly = currentUser?.role === 'owner' || isAnakKos;
 
   const openAddForm = () => {
     if (isOwnerReadOnly) {
@@ -310,6 +311,37 @@ export const KamarView = () => {
   const vacantCount = rooms.filter((r) => r.status === 'Kosong').length;
   const harianCount = rooms.filter((r) => r.category === 'Harian').length;
   const bulananCount = rooms.filter((r) => r.category !== 'Harian').length;
+
+  // =========================================================================
+  // ANAK KOS: hanya boleh melihat fasilitas kamarnya sendiri (read-only)
+  // =========================================================================
+  if (isAnakKos) {
+    const myRoom = rooms.find((r) => String(r.number) === String(currentUser.roomNumber));
+    return (
+      <div className="kamar-container">
+        <div className="form-section-block">
+          <div className="form-section-header">
+            <IconRoom size={20} className="text-primary-green" />
+            <div>
+              <h3 className="form-section-title">Fasilitas Kamar {myRoom?.number || currentUser.roomNumber || ''}</h3>
+              <p className="form-section-subtitle">{myRoom?.type || 'Data kamar belum tersedia'}</p>
+            </div>
+          </div>
+          {myRoom ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {(myRoom.facilities || []).map((f) => (
+                <span key={f} className="facility-chip" style={{ padding: '6px 12px', borderRadius: '999px', background: '#ecfdf3', color: '#166534', fontSize: '0.85rem', fontWeight: 600 }}>
+                  ✓ {f}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500">Kamar Anda belum terhubung dengan akun ini. Hubungi pengelola kos.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // =========================================================================
   // DEDICATED FULL-PAGE CRUD FORM VIEW (PINDAH HALAMAN)
