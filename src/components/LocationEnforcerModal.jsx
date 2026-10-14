@@ -8,10 +8,19 @@ export const LocationEnforcerModal = () => {
     isLocationEnforcedModalOpen,
     userLocation,
     requestLocation,
-    simulateLocationDefault
+    simulateLocationDefault,
+    currentUser,
+    setIsLocationEnforcedModalOpen
   } = useApp();
 
   const [isRequesting, setIsRequesting] = useState(false);
+
+  const isAdmin = currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin');
+
+  // Hapus keterangan & modal lokasi di semua akun kecuali akun admin
+  if (!isAdmin) {
+    return null;
+  }
 
   if (!isLocationEnforcedModalOpen && userLocation?.status === 'granted') {
     return null;
@@ -26,14 +35,29 @@ export const LocationEnforcerModal = () => {
   return (
     <div className="location-modal-overlay">
       <div className="location-modal-card">
-        {/* Decorative Badge */}
-        <div className="location-icon-wrapper">
-          <IconShield size={36} className="text-forest-gold" />
-        </div>
-
-        <div className="location-badge-pill">
-          <span className="pulsing-radar-dot"></span>
-          Verifikasi Akses Lokasi Wajib
+        {/* Decorative Badge with Close Option */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '10px' }}>
+          <div className="location-badge-pill" style={{ margin: 0 }}>
+            <span className="pulsing-radar-dot"></span>
+            Verifikasi Akses Lokasi Wajib
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsLocationEnforcedModalOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontSize: '1.25rem',
+              lineHeight: 1,
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px 8px',
+              borderRadius: '6px'
+            }}
+            title="Tutup Modal"
+          >
+            ✕
+          </button>
         </div>
 
         <h2 className="location-modal-title">

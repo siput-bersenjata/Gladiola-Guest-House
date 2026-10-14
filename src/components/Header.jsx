@@ -166,21 +166,23 @@ export const Header = () => {
           </span>
         </button>
 
-        {/* Location Status Chip (Clickable to view/enforce) */}
-        <button
-          type="button"
-          className="header-gps-chip"
-          onClick={() => setIsLocationEnforcedModalOpen(true)}
-          title="Status Pemantauan Lokasi"
-        >
-          <span className="gps-live-dot"></span>
-          <IconMapPin size={14} className="text-forest-gold" />
-          <span className="gps-chip-text">
-            {userLocation.status === 'granted'
-              ? `${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km` : 'GPS Aktif'}`
-              : 'Verifikasi GPS'}
-          </span>
-        </button>
+        {/* Location Status Chip - Hanya tampil untuk akun Admin */}
+        {currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin') && (
+          <button
+            type="button"
+            className="header-gps-chip"
+            onClick={() => setIsLocationEnforcedModalOpen(true)}
+            title="Status Pemantauan Lokasi"
+          >
+            <span className="gps-live-dot"></span>
+            <IconMapPin size={14} className="text-forest-gold" />
+            <span className="gps-chip-text">
+              {userLocation.status === 'granted'
+                ? `${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km` : 'GPS Aktif'}`
+                : 'Verifikasi GPS'}
+            </span>
+          </button>
+        )}
 
         {/* Super Admin Quick Monitoring Shortcut */}
         {currentUser && currentUser.role === 'super_admin' && (
@@ -269,16 +271,18 @@ export const Header = () => {
                 )}
               </div>
 
-              <div className="profile-dropdown-info">
-                <div className="dropdown-location-status">
-                  <span className="gps-live-dot"></span>
-                  <span className="text-xs text-gray-600">
-                    {userLocation.status === 'granted'
-                      ? `Terverifikasi GPS (${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km dari kos` : 'Aktif'})`
-                      : 'Menunggu Izin Lokasi'}
-                  </span>
+              {currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin') && (
+                <div className="profile-dropdown-info">
+                  <div className="dropdown-location-status">
+                    <span className="gps-live-dot"></span>
+                    <span className="text-xs text-gray-600">
+                      {userLocation.status === 'granted'
+                        ? `Terverifikasi GPS (${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km dari kos` : 'Aktif'})`
+                        : 'Menunggu Izin Lokasi'}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="profile-dropdown-footer">
                 <button

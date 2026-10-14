@@ -27,6 +27,7 @@ export const OverviewView = () => {
     handleUpdateDailyBookingPayment,
     setActiveTab,
     userLocation,
+    currentUser,
     addToast,
     showInvalidPopup
   } = useApp();
@@ -822,7 +823,9 @@ export const OverviewView = () => {
               Status GPS Perangkat Anda:{' '}
               <strong>
                 {userLocation.status === 'granted'
-                  ? `Aktif (Jarak: ${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km` : 'Terhubung'} ke Kos)`
+                  ? (currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin') && userLocation.distanceKm !== null)
+                    ? `Aktif (Jarak: ${userLocation.distanceKm} km ke Kos)`
+                    : 'Aktif (Terhubung ke Kos)'
                   : 'Menunggu Izin Lokasi Browser'}
               </strong>
             </span>

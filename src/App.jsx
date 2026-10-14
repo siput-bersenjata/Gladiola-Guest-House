@@ -26,7 +26,6 @@ const MainLayout = () => {
   if (!currentUser) {
     return (
       <div className="login-root-container">
-        <LocationEnforcerModal />
         <InvalidDataModal />
         <LoginPage />
         <div className="toast-container" aria-live="polite">

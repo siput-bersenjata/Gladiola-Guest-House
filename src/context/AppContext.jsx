@@ -1037,7 +1037,10 @@ const decompressPayload = async (base64Str) => {
         };
         setUserLocation(locState);
         setIsLocationEnforcedModalOpen(false);
-        addToast(`Akses lokasi terverifikasi! (${dist} km dari Gladiola Guest House)`, 'success');
+        const isAdmin = currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin');
+        if (isAdmin) {
+          addToast(`Akses lokasi terverifikasi! (${dist} km dari Gladiola Guest House)`, 'success');
+        }
         logActivity('Verifikasi Lokasi Berhasil', `Koordinat GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (${dist} km dari kos)`);
       },
       (err) => {
@@ -1046,7 +1049,9 @@ const decompressPayload = async (base64Str) => {
           ...prev,
           status: 'denied'
         }));
-        setIsLocationEnforcedModalOpen(true);
+        if (currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin')) {
+          setIsLocationEnforcedModalOpen(true);
+        }
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -1069,14 +1074,18 @@ const decompressPayload = async (base64Str) => {
     };
     setUserLocation(locState);
     setIsLocationEnforcedModalOpen(false);
-    addToast('Lokasi Gladiola Guest House diaktifkan!', 'success');
+    if (currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin')) {
+      addToast('Lokasi Gladiola Guest House diaktifkan!', 'success');
+    }
     logActivity('Lokasi Diaktifkan', `Koordinat: ${lat.toFixed(6)}, ${lng.toFixed(6)} - ${note}`);
   };
 
   // Check location on initial mount
   useEffect(() => {
     if (userLocation.status !== 'granted') {
-      setIsLocationEnforcedModalOpen(true);
+      if (currentUser && (currentUser.role === 'super_admin' || currentUser.role === 'admin')) {
+        setIsLocationEnforcedModalOpen(true);
+      }
       requestLocation();
     }
   }, []);
