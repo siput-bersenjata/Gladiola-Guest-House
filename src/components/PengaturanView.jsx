@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   IconPayment,
-  IconWifi,
   IconMapPin,
   IconCheck,
   IconExternalLink,
@@ -15,8 +14,6 @@ export const PengaturanView = () => {
   const {
     bankInfo,
     setBankInfo,
-    wifiInfo,
-    setWifiInfo,
     currentUser,
     addToast,
     logActivity,
@@ -29,8 +26,8 @@ export const PengaturanView = () => {
   } = useApp();
 
   const [bankFormData, setBankFormData] = useState({ ...bankInfo });
-  const [wifiFormData, setWifiFormData] = useState({ ...wifiInfo });
 
+  const isSuperAdmin = currentUser && currentUser.role === 'super_admin';
   const canEdit = currentUser.role === 'operator' || currentUser.role === 'super_admin';
 
   const handleSaveBank = (e) => {
@@ -40,158 +37,88 @@ export const PengaturanView = () => {
     addToast('Informasi nomor rekening berhasil diperbarui!', 'success');
   };
 
-  const handleSaveWifi = (e) => {
-    e.preventDefault();
-    setWifiInfo(wifiFormData);
-    logActivity('Perbarui Wi-Fi Kos', `SSID: ${wifiFormData.ssid}`);
-    addToast('Konfigurasi Wi-Fi Gladiola berhasil diperbarui!', 'success');
-  };
-
   return (
     <div className="pengaturan-container">
-      <div className="pengaturan-grid">
-        {/* Card 1: Pengaturan Rekening Pembayaran */}
-        <div className="dashboard-card">
-          <div className="chart-card-header">
-            <div className="icon-badge-box bg-warm-tint">
-              <IconPayment size={22} className="text-warm-gold" />
-            </div>
-            <div>
-              <h3 className="card-headline">Nomor Rekening Pembayaran</h3>
-              <p className="card-subheadline">
-                Rekening tujuan transfer yang ditampilkan kepada seluruh anak kos
-              </p>
-            </div>
+      {/* Card 1: Pengaturan Rekening Pembayaran */}
+      <div className="dashboard-card">
+        <div className="chart-card-header">
+          <div className="icon-badge-box bg-warm-tint">
+            <IconPayment size={22} className="text-warm-gold" />
           </div>
-
-          <form onSubmit={handleSaveBank} className="modal-form-grid mt-4">
-            <div className="form-group full-width">
-              <label className="form-label">Nama Bank</label>
-              <input
-                type="text"
-                className="form-input"
-                value={bankFormData.bankName}
-                onChange={(e) => setBankFormData({ ...bankFormData, bankName: e.target.value })}
-                disabled={!canEdit}
-                required
-              />
-            </div>
-
-            <div className="form-group full-width">
-              <label className="form-label">Nomor Rekening</label>
-              <input
-                type="text"
-                className="form-input"
-                value={bankFormData.accountNumber}
-                onChange={(e) =>
-                  setBankFormData({ ...bankFormData, accountNumber: e.target.value })
-                }
-                disabled={!canEdit}
-                required
-              />
-            </div>
-
-            <div className="form-group full-width">
-              <label className="form-label">Nama Pemilik Rekening (Atas Nama)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={bankFormData.accountHolder}
-                onChange={(e) =>
-                  setBankFormData({ ...bankFormData, accountHolder: e.target.value })
-                }
-                disabled={!canEdit}
-                required
-              />
-            </div>
-
-            <div className="form-group full-width">
-              <label className="form-label">Catatan Transfer Penghuni</label>
-              <textarea
-                rows="2"
-                className="form-textarea"
-                value={bankFormData.paymentNotes}
-                onChange={(e) =>
-                  setBankFormData({ ...bankFormData, paymentNotes: e.target.value })
-                }
-                disabled={!canEdit}
-              ></textarea>
-            </div>
-
-            {canEdit && (
-              <div className="modal-actions-row full-width">
-                <button type="submit" className="btn-primary">
-                  <IconCheck size={16} />
-                  <span>Simpan Rekening</span>
-                </button>
-              </div>
-            )}
-          </form>
+          <div>
+            <h3 className="card-headline">Nomor Rekening Pembayaran</h3>
+            <p className="card-subheadline">
+              Rekening tujuan transfer yang ditampilkan kepada seluruh anak kos
+            </p>
+          </div>
         </div>
 
-        {/* Card 2: Pengaturan Wi-Fi Gladiola */}
-        <div className="dashboard-card">
-          <div className="chart-card-header">
-            <div className="icon-badge-box bg-green-tint">
-              <IconWifi size={22} className="text-primary-green" />
-            </div>
-            <div>
-              <h3 className="card-headline">Konfigurasi Wi-Fi Kos</h3>
-              <p className="card-subheadline">
-                Nama SSID dan password yang otomatis tampil di portal anak kos bulan ini
-              </p>
-            </div>
+        <form onSubmit={handleSaveBank} className="modal-form-grid mt-4">
+          <div className="form-group">
+            <label className="form-label">Nama Bank</label>
+            <input
+              type="text"
+              className="form-input"
+              value={bankFormData.bankName}
+              onChange={(e) => setBankFormData({ ...bankFormData, bankName: e.target.value })}
+              disabled={!canEdit}
+              required
+            />
           </div>
 
-          <form onSubmit={handleSaveWifi} className="modal-form-grid mt-4">
-            <div className="form-group full-width">
-              <label className="form-label">Nama Wi-Fi (SSID)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={wifiFormData.ssid}
-                onChange={(e) => setWifiFormData({ ...wifiFormData, ssid: e.target.value })}
-                disabled={!canEdit}
-                required
-              />
-            </div>
+          <div className="form-group">
+            <label className="form-label">Nomor Rekening</label>
+            <input
+              type="text"
+              className="form-input"
+              value={bankFormData.accountNumber}
+              onChange={(e) =>
+                setBankFormData({ ...bankFormData, accountNumber: e.target.value })
+              }
+              disabled={!canEdit}
+              required
+            />
+          </div>
 
-            <div className="form-group full-width">
-              <label className="form-label">Password Wi-Fi</label>
-              <input
-                type="text"
-                className="form-input"
-                value={wifiFormData.password}
-                onChange={(e) => setWifiFormData({ ...wifiFormData, password: e.target.value })}
-                disabled={!canEdit}
-                required
-              />
-            </div>
+          <div className="form-group full-width">
+            <label className="form-label">Nama Pemilik Rekening (Atas Nama)</label>
+            <input
+              type="text"
+              className="form-input"
+              value={bankFormData.accountHolder}
+              onChange={(e) =>
+                setBankFormData({ ...bankFormData, accountHolder: e.target.value })
+              }
+              disabled={!canEdit}
+              required
+            />
+          </div>
 
-            <div className="form-group full-width">
-              <label className="form-label">Kecepatan Internet</label>
-              <input
-                type="text"
-                className="form-input"
-                value={wifiFormData.speed}
-                onChange={(e) => setWifiFormData({ ...wifiFormData, speed: e.target.value })}
-                disabled={!canEdit}
-              />
-            </div>
+          <div className="form-group full-width">
+            <label className="form-label">Catatan Transfer Penghuni</label>
+            <textarea
+              rows="2"
+              className="form-textarea"
+              value={bankFormData.paymentNotes}
+              onChange={(e) =>
+                setBankFormData({ ...bankFormData, paymentNotes: e.target.value })
+              }
+              disabled={!canEdit}
+            ></textarea>
+          </div>
 
-            {canEdit && (
-              <div className="modal-actions-row full-width">
-                <button type="submit" className="btn-primary">
-                  <IconCheck size={16} />
-                  <span>Simpan Wi-Fi</span>
-                </button>
-              </div>
-            )}
-          </form>
-        </div>
+          {canEdit && (
+            <div className="modal-actions-row full-width">
+              <button type="submit" className="btn-primary">
+                <IconCheck size={16} />
+                <span>Simpan Rekening</span>
+              </button>
+            </div>
+          )}
+        </form>
       </div>
 
-      {/* Card 3: Data Lokasi & Google Maps Gladiola */}
+      {/* Card 2: Data Lokasi & Google Maps Gladiola */}
       <div className="dashboard-card mt-6">
         <div className="chart-card-header">
           <div className="icon-badge-box bg-green-tint">
@@ -226,19 +153,20 @@ export const PengaturanView = () => {
         </div>
       </div>
 
-      {/* Card 4: Database Realtime & Cloud Gladiola (Permanen Terkunci) */}
-      <div className="dashboard-card mt-6">
-        <div className="chart-card-header">
-          <div className="icon-badge-box bg-blue-tint">
-            <IconCloud size={22} className="text-accent-blue" />
+      {/* Card 3: Database Realtime & Cloud Gladiola (Hanya untuk Super Admin) */}
+      {isSuperAdmin && (
+        <div className="dashboard-card mt-6">
+          <div className="chart-card-header">
+            <div className="icon-badge-box bg-blue-tint">
+              <IconCloud size={22} className="text-accent-blue" />
+            </div>
+            <div>
+              <h3 className="card-headline">Database Cloud & Sinkronisasi Realtime (Permanen)</h3>
+              <p className="card-subheadline">
+                Database terkunci permanen pada project <strong>gladiola-1d671</strong>. Sinkronisasi data antar seluruh perangkat (HP, laptop, tablet) berjalan otomatis dan realtime tanpa perlu pengaturan manual.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="card-headline">Database Cloud & Sinkronisasi Realtime (Permanen)</h3>
-            <p className="card-subheadline">
-              Database terkunci permanen pada project <strong>gladiola-1d671</strong>. Sinkronisasi data antar seluruh perangkat (HP, laptop, tablet) berjalan otomatis dan realtime tanpa perlu pengaturan manual.
-            </p>
-          </div>
-        </div>
 
         <div className="location-settings-box">
           {/* Status Bar */}
@@ -351,6 +279,7 @@ export const PengaturanView = () => {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

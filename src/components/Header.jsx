@@ -118,7 +118,7 @@ export const Header = () => {
       case 'pengaturan':
         return {
           title: 'Pengaturan Sistem',
-          subtitle: 'Nomor rekening pembayaran, konfigurasi Wi-Fi, dan informasi kos'
+          subtitle: 'Nomor rekening pembayaran dan informasi kos'
         };
       default:
         return {
