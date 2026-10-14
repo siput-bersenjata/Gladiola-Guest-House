@@ -42,11 +42,8 @@ export const LoginPage = () => {
     e.preventDefault();
     setStaffError('');
 
-    // Strict location enforcement
-    if (!isLocationGranted) {
-      setStaffError('Akses lokasi GPS wajib diizinkan sebelum login! Silakan klik tombol "Izinkan Lokasi GPS" di bawah.');
-      requestLocation();
-      return;
+    if (!isLocationGranted && simulateLocationDefault) {
+      simulateLocationDefault('Verifikasi Area Gladiola Guest House');
     }
 
     if (!username.trim() || !password.trim()) {
@@ -66,11 +63,8 @@ export const LoginPage = () => {
     e.preventDefault();
     setTenantError('');
 
-    // Strict location enforcement
-    if (!isLocationGranted) {
-      setTenantError('Akses lokasi GPS wajib diizinkan sebelum login! Silakan klik tombol "Izinkan Lokasi GPS" di bawah.');
-      requestLocation();
-      return;
+    if (!isLocationGranted && simulateLocationDefault) {
+      simulateLocationDefault('Verifikasi Area Gladiola Guest House');
     }
 
     if (!phone.trim()) {
@@ -100,48 +94,6 @@ export const LoginPage = () => {
           <h1 className="login-brand-title">GLADIOL</h1>
           <p className="login-brand-subtitle">KOS EKSKLUSIF • TAMAN SEJUK</p>
           <span className="login-tagline">Portal Akses & Monitoring Kos</span>
-        </div>
-
-        {/* GPS Location Enforcement Banner */}
-        <div className={`login-gps-badge ${isLocationGranted ? 'gps-granted' : 'gps-required'}`}>
-          <div className="gps-badge-header">
-            <div className="gps-badge-status-icon">
-              {isLocationGranted ? (
-                <span className="live-pulse-dot" style={{ backgroundColor: '#22c55e' }}></span>
-              ) : (
-                <IconRadar size={18} className="animate-spin text-amber-500" />
-              )}
-            </div>
-            <div className="gps-badge-text">
-              <strong>{isLocationGranted ? 'GPS Terverifikasi & Aktif' : 'Izin Lokasi GPS Diperlukan'}</strong>
-              <p className="text-xs">
-                {isLocationGranted
-                  ? `${userLocation.address || 'Lokasi terdeteksi'} • Jarak: ${userLocation.distanceKm !== null ? `${userLocation.distanceKm} km` : 'Area Gladiol'}`
-                  : 'Sistem Gladiola mewajibkan verifikasi lokasi untuk keamanan login akun.'}
-              </p>
-            </div>
-          </div>
-
-          {!isLocationGranted && (
-            <div className="gps-actions-quick mt-2">
-              <button
-                type="button"
-                className="btn-enable-gps"
-                onClick={requestLocation}
-              >
-                <IconMapPin size={14} />
-                <span>Izinkan Lokasi GPS Sekarang</span>
-              </button>
-              <button
-                type="button"
-                className="btn-simulate-gps"
-                onClick={() => simulateLocationDefault('Verifikasi Area Gladiola Guest House')}
-                title="Gunakan simulasi lokasi Gladiola jika browser memblokir prompt"
-              >
-                Gunakan Lokasi Gladiola
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Tab Selection: Manajemen vs Anak Kos */}

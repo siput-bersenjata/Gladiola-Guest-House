@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { deduplicatePayments, getNextMonthName } from '../data/initialData';
+import { deduplicatePayments, deduplicateElectricityBills, getNextMonthName } from '../data/initialData';
 import {
   IconPayment,
   IconCheck,
@@ -23,6 +23,7 @@ export const PembayaranView = () => {
     rooms,
     tenants,
     payments,
+    electricityBills,
     dailyBookings,
     handleSaveDailyBooking,
     handleUpdateDailyBookingPayment,
@@ -38,9 +39,11 @@ export const PembayaranView = () => {
     addToast
   } = useApp();
 
+  const isAnakKos = currentUser && currentUser.role === 'anak_kos';
+
   // Mode Tampilan: 'list' (Daftar Tagihan & Pembayaran) | 'booking_form' (Pindah Halaman Reservasi Kamar)
   const [viewMode, setViewMode] = useState('list');
-  const [activeTabCategory, setActiveTabCategory] = useState('bulanan'); // 'bulanan' | 'harian'
+  const [activeTabCategory, setActiveTabCategory] = useState('bulanan'); // 'bulanan' | 'harian' | 'listrik'
 
   // Booking Form State (Formulir Reservasi Kamar Harian)
   const [bookingForm, setBookingForm] = useState({
@@ -58,7 +61,7 @@ export const PembayaranView = () => {
 
   const [filterStatus, setFilterStatus] = useState('all');
   const [dailyPaymentFilter, setDailyPaymentFilter] = useState('all'); // 'all' | 'DP Lunas' | 'Lunas Penuh'
-  const [filterMonth, setFilterMonth] = useState('Oktober 2026');
+  const [filterMonth, setFilterMonth] = useState(currentUser?.role === 'anak_kos' ? 'all' : 'Oktober 2026');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCustomMonthModalOpen, setIsCustomMonthModalOpen] = useState(false);
   const [customMonthInput, setCustomMonthInput] = useState('');
@@ -98,11 +101,27 @@ export const PembayaranView = () => {
 
   // Clean deduplicated payments list (strictly enforces 1 bill per room per month)
   // Menampilkan HANYA kamar yang ada penghuni kos nya (jika kamar kos kosong, jangan tampilkan data tagihannya)
+  // KHUSUS AKUN ANAK KOS: Hanya tampilkan pembayaran khusus kamar miliknya sendiri, jangan tampilkan data riwayat anak kos lainnya!
   const cleanPaymentsList = useMemo(() => {
     const deduped = deduplicatePayments(payments || []);
     return deduped.filter((p) => {
       if (!p || !p.roomNumber) return false;
       const roomNum = String(p.roomNumber).trim().toLowerCase();
+
+      // Khusus Akun Anak Kos: Batasi HANYA pada kamar miliknya sendiri
+      if (isAnakKos) {
+        const myRoom = currentUser?.roomNumber ? String(currentUser.roomNumber).trim().toLowerCase() : '';
+        const myPhone = currentUser?.phone ? currentUser.phone.replace(/\D/g, '') : '';
+        const payPhone = p.tenantPhone ? p.tenantPhone.replace(/\D/g, '') : '';
+
+        const roomMatches = myRoom && roomNum === myRoom;
+        const phoneMatches = myPhone && payPhone && (myPhone === payPhone || payPhone.endsWith(myPhone) || myPhone.endsWith(payPhone));
+        const nameMatches = currentUser?.name && p.tenantName && p.tenantName.toLowerCase().includes(currentUser.name.toLowerCase());
+
+        if (!roomMatches && !phoneMatches && !nameMatches) {
+          return false;
+        }
+      }
 
       // 1. KONEKSI UTAMA: Cek unit kamar di daftar master rooms (halaman kamar)
       const roomObj = (rooms || []).find(
@@ -142,7 +161,62 @@ export const PembayaranView = () => {
 
       return true;
     });
-  }, [payments, rooms, tenants]);
+  }, [payments, rooms, tenants, isAnakKos, currentUser]);
+
+  // Clean deduplicated electricity bills list (khusus anak kos: hanya kamar miliknya)
+  const cleanElectricityList = useMemo(() => {
+    const deduped = deduplicateElectricityBills(electricityBills || []);
+    return deduped.filter((b) => {
+      if (!b || !b.roomNumber) return false;
+      const roomNum = String(b.roomNumber).trim().toLowerCase();
+
+      if (isAnakKos) {
+        const myRoom = currentUser?.roomNumber ? String(currentUser.roomNumber).trim().toLowerCase() : '';
+        const myPhone = currentUser?.phone ? currentUser.phone.replace(/\D/g, '') : '';
+        const billPhone = b.tenantPhone ? b.tenantPhone.replace(/\D/g, '') : '';
+
+        const roomMatches = myRoom && roomNum === myRoom;
+        const phoneMatches = myPhone && billPhone && (myPhone === billPhone || billPhone.endsWith(myPhone) || myPhone.endsWith(billPhone));
+        const nameMatches = currentUser?.name && b.tenantName && b.tenantName.toLowerCase().includes(currentUser.name.toLowerCase());
+
+        if (!roomMatches && !phoneMatches && !nameMatches) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [electricityBills, isAnakKos, currentUser]);
+
+  // Metrik dan status riwayat khusus akun anak kos: berapa bulan lunas, bulan apa belum lunas, dan listrik bulan sebelumnya
+  const anakKosMetrics = useMemo(() => {
+    if (!isAnakKos) return null;
+
+    // Filter status sewa kamar anak kos
+    const lunasRent = cleanPaymentsList.filter((p) => p.status === 'Tervalidasi');
+    const unpaidRent = cleanPaymentsList.filter((p) => p.status !== 'Tervalidasi');
+    const lunasRentMonths = lunasRent.map((p) => p.month);
+    const unpaidRentMonths = unpaidRent.map((p) => p.month);
+    const totalRentPaid = lunasRent.reduce((acc, p) => acc + (p.amount || 0), 0);
+
+    // Filter status listrik kamar anak kos
+    const lunasElec = cleanElectricityList.filter((b) => b.paymentStatus === 'Lunas');
+    const unpaidElec = cleanElectricityList.filter((b) => b.paymentStatus !== 'Lunas');
+    const lunasElecMonths = lunasElec.map((b) => b.month);
+    const unpaidElecMonths = unpaidElec.map((b) => b.month);
+
+    return {
+      lunasRentCount: lunasRent.length,
+      lunasRentMonths,
+      unpaidRentCount: unpaidRent.length,
+      unpaidRentMonths,
+      totalRentPaid,
+      lunasElecCount: lunasElec.length,
+      lunasElecMonths,
+      unpaidElecCount: unpaidElec.length,
+      unpaidElecMonths
+    };
+  }, [isAnakKos, cleanPaymentsList, cleanElectricityList]);
 
   // Distinct list of all available months across clean payments and presets
   const availableMonths = useMemo(() => {
@@ -985,37 +1059,163 @@ export const PembayaranView = () => {
         </div>
       </div>
 
-      {/* Switcher Tab Kategori: Tagihan Kos Bulanan vs Pembayaran Sewa Harian */}
-      <div className="tab-category-switcher">
-        <button
-          type="button"
-          className={`tab-category-btn ${activeTabCategory === 'bulanan' ? 'active-bulanan' : ''}`}
-          onClick={() => setActiveTabCategory('bulanan')}
-        >
-          <span>🏡 Tagihan Kos Bulanan ({cleanPaymentsList.length} Tagihan)</span>
-        </button>
+      {/* Switcher Tab Kategori: Tagihan Kos Bulanan vs Pembayaran Sewa Harian / Listrik */}
+      {!isAnakKos ? (
+        <div className="tab-category-switcher">
+          <button
+            type="button"
+            className={`tab-category-btn ${activeTabCategory === 'bulanan' ? 'active-bulanan' : ''}`}
+            onClick={() => setActiveTabCategory('bulanan')}
+          >
+            <span>🏡 Tagihan Kos Bulanan ({cleanPaymentsList.length} Tagihan)</span>
+          </button>
 
-        <button
-          type="button"
-          className={`tab-category-btn ${activeTabCategory === 'harian' ? 'active-harian' : ''}`}
-          onClick={() => setActiveTabCategory('harian')}
-        >
-          <span>⚡ Pembayaran & Booking Sewa Harian ({dailyBookings.length} Reservasi)</span>
-        </button>
+          <button
+            type="button"
+            className={`tab-category-btn ${activeTabCategory === 'harian' ? 'active-harian' : ''}`}
+            onClick={() => setActiveTabCategory('harian')}
+          >
+            <span>⚡ Pembayaran & Booking Sewa Harian ({dailyBookings.length} Reservasi)</span>
+          </button>
 
-        <button
-          type="button"
-          className="btn-primary-sm"
-          onClick={() => setViewMode('booking_form')}
-          style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <IconPlus size={14} />
-          <span>Buat Booking Kamar Baru</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            className="btn-primary-sm"
+            onClick={() => setViewMode('booking_form')}
+            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <IconPlus size={14} />
+            <span>Buat Booking Kamar Baru</span>
+          </button>
+        </div>
+      ) : (
+        <div className="tab-category-switcher">
+          <button
+            type="button"
+            className={`tab-category-btn ${activeTabCategory === 'bulanan' ? 'active-bulanan' : ''}`}
+            onClick={() => setActiveTabCategory('bulanan')}
+          >
+            <span>🏡 Riwayat Pembayaran Sewa Kos ({cleanPaymentsList.length} Bulan)</span>
+          </button>
 
-      {/* RENDER KONTEN TAB: SEWA HARIAN VS KOS BULANAN */}
-      {activeTabCategory === 'harian' ? (
+          <button
+            type="button"
+            className={`tab-category-btn ${activeTabCategory === 'listrik' ? 'active-harian' : ''}`}
+            onClick={() => setActiveTabCategory('listrik')}
+          >
+            <span>⚡ Riwayat Pembayaran Listrik ({cleanElectricityList.length} Bulan)</span>
+          </button>
+        </div>
+      )}
+
+      {/* RENDER KONTEN TAB: SEWA HARIAN VS KOS BULANAN VS LISTRIK */}
+      {isAnakKos && activeTabCategory === 'listrik' ? (
+        <>
+          {/* Summary Metrics Cards Khusus Tagihan Listrik Anak Kos */}
+          <div className="pembayaran-stats-grid">
+            <div className="pembayaran-stat-card card-success">
+              <span className="stat-metric-label">Status Listrik Bulan Lalu</span>
+              <span className="stat-metric-value">{anakKosMetrics.lunasElecCount} Bulan Lunas</span>
+              <span className="stat-metric-subtext">
+                {anakKosMetrics.lunasElecMonths.length > 0
+                  ? `Lunas: ${anakKosMetrics.lunasElecMonths.join(', ')}`
+                  : 'Belum ada pembayaran listrik'}
+              </span>
+            </div>
+
+            <div className={`pembayaran-stat-card ${anakKosMetrics.unpaidElecCount > 0 ? 'card-warning' : 'card-success'}`}>
+              <span className="stat-metric-label">Tagihan Listrik Belum Lunas</span>
+              <span className="stat-metric-value">
+                {anakKosMetrics.unpaidElecCount > 0
+                  ? `${anakKosMetrics.unpaidElecCount} Bulan Belum Bayar`
+                  : 'Semua Lunas'}
+              </span>
+              <span className="stat-metric-subtext">
+                {anakKosMetrics.unpaidElecCount > 0
+                  ? `Bulan: ${anakKosMetrics.unpaidElecMonths.join(', ')}`
+                  : 'Tidak ada tagihan listrik tertunggak'}
+              </span>
+            </div>
+
+            <div className="pembayaran-stat-card card-primary">
+              <span className="stat-metric-label">Tarif Listrik Standar</span>
+              <span className="stat-metric-value">Rp 1.750 / kWh</span>
+              <span className="stat-metric-subtext">Kamar {currentUser?.roomNumber} ({currentUser?.name})</span>
+            </div>
+
+            <div className="pembayaran-stat-card card-info">
+              <span className="stat-metric-label">Total Bulan Tercatat</span>
+              <span className="stat-metric-value">{cleanElectricityList.length} Catatan</span>
+              <span className="stat-metric-subtext">Pencatatan PLN Gladiola Kos</span>
+            </div>
+          </div>
+
+          {/* Tabel Riwayat Listrik */}
+          <div className="dashboard-card no-padding">
+            <div className="table-responsive-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Bulan & ID</th>
+                    <th>Stand Meter Awal</th>
+                    <th>Stand Meter Akhir</th>
+                    <th>Pemakaian</th>
+                    <th>Tarif / kWh</th>
+                    <th>Total Tagihan Listrik</th>
+                    <th>Status Pembayaran</th>
+                    <th>Dicatat Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cleanElectricityList.length > 0 ? (
+                    cleanElectricityList.map((b) => (
+                      <tr key={b.id}>
+                        <td>
+                          <div>
+                            <strong className="text-gray-900">{b.month}</strong>
+                            <span className="tenant-subtext">{b.id}</span>
+                          </div>
+                        </td>
+                        <td>{b.meterStart} kWh</td>
+                        <td>{b.meterEnd} kWh</td>
+                        <td>
+                          <span className="badge-pill-outline">{b.kwhUsage} kWh</span>
+                        </td>
+                        <td>Rp {(b.ratePerKwh || 1750).toLocaleString('id-ID')}</td>
+                        <td className="font-bold text-gray-900">
+                          Rp {(b.totalBill || 0).toLocaleString('id-ID')}
+                        </td>
+                        <td>
+                          {b.paymentStatus === 'Lunas' ? (
+                            <span className="badge-status badge-success">
+                              <IconCheck size={12} />
+                              <span>Lunas</span>
+                            </span>
+                          ) : (
+                            <span className="badge-status badge-danger">
+                              <IconClock size={12} />
+                              <span>Belum Bayar</span>
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="tenant-subtext">{b.recordedBy || 'Pengelola Kos'}</span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#6b7280' }}>
+                        Belum ada catatan pemakaian listrik untuk kamar {currentUser?.roomNumber}.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : activeTabCategory === 'harian' ? (
         <>
           {/* Summary Metrics Cards Khusus Sewa Harian */}
           <div className="pembayaran-stats-grid">
@@ -1279,31 +1479,75 @@ export const PembayaranView = () => {
       ) : (
         <>
           {/* Summary Metrics Cards */}
-          <div className="pembayaran-stats-grid">
-        <div className="pembayaran-stat-card card-primary">
-          <span className="stat-metric-label">Total Tagihan ({filterMonth === 'all' ? 'Semua' : filterMonth})</span>
-          <span className="stat-metric-value">{metrics.totalCount} Kamar</span>
-          <span className="stat-metric-subtext">Rp {metrics.totalAmount.toLocaleString('id-ID')}</span>
-        </div>
+          {isAnakKos && anakKosMetrics ? (
+            <div className="pembayaran-stats-grid">
+              <div className="pembayaran-stat-card card-success">
+                <span className="stat-metric-label">Status Sewa Kos Saya</span>
+                <span className="stat-metric-value">{anakKosMetrics.lunasRentCount} Bulan Lunas</span>
+                <span className="stat-metric-subtext">
+                  {anakKosMetrics.lunasRentMonths.length > 0
+                    ? `Lunas: ${anakKosMetrics.lunasRentMonths.join(', ')}`
+                    : 'Belum ada pembayaran sewa lunas'}
+                </span>
+              </div>
 
-        <div className="pembayaran-stat-card card-success">
-          <span className="stat-metric-label">Tervalidasi (Lunas)</span>
-          <span className="stat-metric-value">{metrics.verifiedCount} Lunas ({metrics.percentage}%)</span>
-          <span className="stat-metric-subtext">Rp {metrics.verifiedAmount.toLocaleString('id-ID')}</span>
-        </div>
+              <div className={`pembayaran-stat-card ${anakKosMetrics.unpaidRentCount > 0 ? 'card-warning' : 'card-success'}`}>
+                <span className="stat-metric-label">Tagihan Sewa Belum Lunas</span>
+                <span className="stat-metric-value">
+                  {anakKosMetrics.unpaidRentCount > 0
+                    ? `${anakKosMetrics.unpaidRentCount} Bulan Belum Lunas`
+                    : 'Semua Bulan Lunas'}
+                </span>
+                <span className="stat-metric-subtext">
+                  {anakKosMetrics.unpaidRentCount > 0
+                    ? `Bulan: ${anakKosMetrics.unpaidRentMonths.join(', ')}`
+                    : 'Tidak ada tagihan tertunggak'}
+                </span>
+              </div>
 
-        <div className="pembayaran-stat-card card-warning">
-          <span className="stat-metric-label">Menunggu Validasi</span>
-          <span className="stat-metric-value">{metrics.pendingCount} Tagihan</span>
-          <span className="stat-metric-subtext">Rp {metrics.pendingAmount.toLocaleString('id-ID')}</span>
-        </div>
+              <div className="pembayaran-stat-card card-primary">
+                <span className="stat-metric-label">Total Sewa Terbayar</span>
+                <span className="stat-metric-value">Rp {anakKosMetrics.totalRentPaid.toLocaleString('id-ID')}</span>
+                <span className="stat-metric-subtext">Kamar {currentUser?.roomNumber} ({currentUser?.name})</span>
+              </div>
 
-        <div className="pembayaran-stat-card card-info">
-          <span className="stat-metric-label">Belum Bayar</span>
-          <span className="stat-metric-value">{metrics.unpaidCount} Kamar</span>
-          <span className="stat-metric-subtext">Rp {metrics.unpaidAmount.toLocaleString('id-ID')}</span>
-        </div>
-      </div>
+              <div className="pembayaran-stat-card card-info">
+                <span className="stat-metric-label">Pembayaran Listrik (Bulan Lalu)</span>
+                <span className="stat-metric-value">{anakKosMetrics.lunasElecCount} Bulan Lunas</span>
+                <span className="stat-metric-subtext">
+                  {anakKosMetrics.lunasElecMonths.length > 0
+                    ? `Lunas: ${anakKosMetrics.lunasElecMonths.join(', ')}`
+                    : 'Belum ada pembayaran listrik'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="pembayaran-stats-grid">
+              <div className="pembayaran-stat-card card-primary">
+                <span className="stat-metric-label">Total Tagihan ({filterMonth === 'all' ? 'Semua' : filterMonth})</span>
+                <span className="stat-metric-value">{metrics.totalCount} Kamar</span>
+                <span className="stat-metric-subtext">Rp {metrics.totalAmount.toLocaleString('id-ID')}</span>
+              </div>
+
+              <div className="pembayaran-stat-card card-success">
+                <span className="stat-metric-label">Tervalidasi (Lunas)</span>
+                <span className="stat-metric-value">{metrics.verifiedCount} Lunas ({metrics.percentage}%)</span>
+                <span className="stat-metric-subtext">Rp {metrics.verifiedAmount.toLocaleString('id-ID')}</span>
+              </div>
+
+              <div className="pembayaran-stat-card card-warning">
+                <span className="stat-metric-label">Menunggu Validasi</span>
+                <span className="stat-metric-value">{metrics.pendingCount} Tagihan</span>
+                <span className="stat-metric-subtext">Rp {metrics.pendingAmount.toLocaleString('id-ID')}</span>
+              </div>
+
+              <div className="pembayaran-stat-card card-info">
+                <span className="stat-metric-label">Belum Bayar</span>
+                <span className="stat-metric-value">{metrics.unpaidCount} Kamar</span>
+                <span className="stat-metric-subtext">Rp {metrics.unpaidAmount.toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+          )}
 
       {/* Filter Toolbar & Actions (Tombol Terbitkan Tagihan Dihapus Sesuai Permintaan) */}
       <div className="section-toolbar">
@@ -1608,6 +1852,88 @@ export const PembayaranView = () => {
           </table>
         </div>
       </div>
+
+      {/* Khusus Akun Anak Kos: Tampilkan juga Riwayat Pembayaran Listrik Per Bulan (termasuk yang sudah lunas pada bulan sebelumnya) */}
+      {isAnakKos && (
+        <div className="dashboard-card no-padding mt-6" style={{ marginTop: '24px' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h3 className="card-headline" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <IconLightning size={20} className="text-amber-500" />
+                <span>Riwayat Pembayaran & Tagihan Listrik Per Bulan</span>
+              </h3>
+              <p className="card-subheadline">
+                Unit Kamar {currentUser?.roomNumber} ({currentUser?.name}) • Tarif Listrik Standar Rp 1.750 / kWh
+              </p>
+            </div>
+            <span style={{ fontSize: '0.80rem', fontWeight: 600, color: '#15803d', background: '#dcfce7', padding: '4px 10px', borderRadius: '12px' }}>
+              ✓ Riwayat Bulan Lalu Tercatat Lunas
+            </span>
+          </div>
+
+          <div className="table-responsive-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Bulan & ID</th>
+                  <th>Stand Meter Awal</th>
+                  <th>Stand Meter Akhir</th>
+                  <th>Pemakaian</th>
+                  <th>Tarif / kWh</th>
+                  <th>Total Tagihan Listrik</th>
+                  <th>Status Pembayaran</th>
+                  <th>Dicatat Oleh</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cleanElectricityList.length > 0 ? (
+                  cleanElectricityList.map((b) => (
+                    <tr key={b.id}>
+                      <td>
+                        <div>
+                          <strong className="text-gray-900">{b.month}</strong>
+                          <span className="tenant-subtext">{b.id}</span>
+                        </div>
+                      </td>
+                      <td>{b.meterStart} kWh</td>
+                      <td>{b.meterEnd} kWh</td>
+                      <td>
+                        <span className="badge-pill-outline">{b.kwhUsage} kWh</span>
+                      </td>
+                      <td>Rp {(b.ratePerKwh || 1750).toLocaleString('id-ID')}</td>
+                      <td className="font-bold text-gray-900">
+                        Rp {(b.totalBill || 0).toLocaleString('id-ID')}
+                      </td>
+                      <td>
+                        {b.paymentStatus === 'Lunas' ? (
+                          <span className="badge-status badge-success">
+                            <IconCheck size={12} />
+                            <span>Lunas</span>
+                          </span>
+                        ) : (
+                          <span className="badge-status badge-danger">
+                            <IconClock size={12} />
+                            <span>Belum Bayar</span>
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="tenant-subtext">{b.recordedBy || 'Pengelola Kos'}</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}>
+                      Belum ada catatan pemakaian listrik untuk kamar {currentUser?.roomNumber}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </>
   )}
 

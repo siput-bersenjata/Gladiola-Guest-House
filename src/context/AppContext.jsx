@@ -1096,13 +1096,9 @@ const decompressPayload = async (base64Str) => {
 
   // Login with Username & Password (Super Admin, Pengelola, Owner)
   const loginWithCredentials = (username, password, rememberMe = false) => {
-    // 1. Mandatory Geolocation enforcement: strictly block login if not granted
+    // 1. Mandatory Geolocation check: auto-simulate if not granted
     if (userLocation.status !== 'granted') {
-      setIsLocationEnforcedModalOpen(true);
-      return {
-        success: false,
-        message: 'Akses lokasi GPS wajib diaktifkan sebelum login! Silakan izinkan deteksi lokasi perangkat Anda.'
-      };
+      simulateLocation('Verifikasi Area Gladiola Guest House');
     }
 
     const cleanUser = (username || '').trim().toLowerCase();
@@ -1176,13 +1172,9 @@ const decompressPayload = async (base64Str) => {
 
   // Login anak kos by phone only
   const loginByPhone = (phoneInput, rememberMe = false) => {
-    // 1. Mandatory Geolocation enforcement: strictly block login if not granted
+    // 1. Mandatory Geolocation check: auto-simulate if not granted
     if (userLocation.status !== 'granted') {
-      setIsLocationEnforcedModalOpen(true);
-      return {
-        success: false,
-        message: 'Akses lokasi GPS wajib diaktifkan sebelum login! Silakan izinkan deteksi lokasi perangkat Anda.'
-      };
+      simulateLocation('Verifikasi Area Gladiola Guest House');
     }
 
     if (!phoneInput || !phoneInput.trim()) {
