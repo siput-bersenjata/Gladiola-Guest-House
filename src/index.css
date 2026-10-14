@@ -2296,10 +2296,20 @@ html, body {
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-main);
   vertical-align: middle;
+  transition: background-color 0.15s ease;
+}
+
+/* Zigzag / Zebra Striping agar mudah dibaca */
+.data-table tbody tr:nth-child(even) td {
+  background-color: #edf5f0;
+}
+
+.data-table tbody tr:nth-child(odd) td {
+  background-color: #ffffff;
 }
 
 .data-table tbody tr:hover td {
-  background: #f9fbf8;
+  background-color: #e2ede5 !important;
 }
 
 .tenant-cell-info {
@@ -4117,8 +4127,17 @@ html, body {
   transition: background-color 0.15s ease;
 }
 
+/* Zigzag / Zebra Striping agar mudah dibaca */
+.monitoring-table tbody tr:nth-child(even) td {
+  background-color: #edf5f0;
+}
+
+.monitoring-table tbody tr:nth-child(odd) td {
+  background-color: #ffffff;
+}
+
 .monitoring-table tr:hover td {
-  background-color: var(--forest-50);
+  background-color: #e2ede5 !important;
 }
 
 .monitoring-table tr:last-child td {
@@ -5649,12 +5668,20 @@ html, body {
   border-bottom: 1px solid rgba(27, 67, 50, 0.06);
   color: var(--text-main);
   vertical-align: middle;
-  background: #ffffff;
   transition: background-color 0.15s ease;
 }
 
+/* Zigzag / Zebra Striping agar mudah dibaca */
+.penyewa-table tbody tr:nth-child(even) td {
+  background-color: #edf5f0;
+}
+
+.penyewa-table tbody tr:nth-child(odd) td {
+  background-color: #ffffff;
+}
+
 .penyewa-table tbody tr:hover td {
-  background: #f8fbf9;
+  background-color: #e2ede5 !important;
 }
 
 .penyewa-table tbody tr:last-child td {
