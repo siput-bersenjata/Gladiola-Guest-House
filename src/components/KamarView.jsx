@@ -444,8 +444,9 @@ export const KamarView = () => {
                         className="form-input-phone"
                         value={formData.dailyPrice}
                         onChange={(e) => setFormData({ ...formData, dailyPrice: parseInt(e.target.value) || 0 })}
-                        step="25000"
-                        min="50000"
+                        onWheel={(e) => e.currentTarget.blur()}
+                        onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault(); }}
+                        min="0"
                         required
                         disabled={isOwnerReadOnly}
                       />
@@ -462,8 +463,9 @@ export const KamarView = () => {
                         className="form-input-phone"
                         value={formData.price}
                         onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
-                        step="50000"
-                        min="500000"
+                        onWheel={(e) => e.currentTarget.blur()}
+                        onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault(); }}
+                        min="0"
                         required
                         disabled={isOwnerReadOnly}
                       />
@@ -474,120 +476,8 @@ export const KamarView = () => {
               </div>
             </div>
 
-            {/* Section Khusus Sewa Harian: Jadwal Booking & Tombol Memilih Tanggal Booking */}
-            {formData.category === 'Harian' && (
-              <div
-                className="form-section-block"
-                style={{
-                  border: '1.5px solid #c4b5fd',
-                  background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)',
-                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.08)'
-                }}
-              >
-                <div
-                  className="form-section-header"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '12px',
-                    marginBottom: '14px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div
-                      style={{
-                        background: '#7c3aed',
-                        color: '#ffffff',
-                        padding: '10px',
-                        borderRadius: '10px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 2px 6px rgba(124, 58, 237, 0.3)'
-                      }}
-                    >
-                      <IconCalendar size={22} />
-                    </div>
-                    <div>
-                      <h3 className="form-section-title" style={{ color: '#5b21b6', fontSize: '1.1rem' }}>
-                        Jadwal & Pemilihan Tanggal Booking
-                      </h3>
-                      <p className="form-section-subtitle" style={{ color: '#6d28d9' }}>
-                        Pilih rentang tanggal menginap tamu harian/transit untuk Kamar {formData.number || 'ini'}
-                      </p>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: '#6b21a8', background: '#f5f3ff', border: '1px solid #e9d5ff', padding: '8px 14px', borderRadius: '8px', fontWeight: 600 }}>
-                    ⚡ Reservasi booking kamar harian dilakukan terpusat melalui tombol <strong>Buat Booking Kamar</strong> di menu Pembayaran.
-                  </div>
-                </div>
-
-                {/* Info reservasi aktif kamar ini */}
-                <div style={{ background: '#ffffff', borderRadius: '10px', padding: '14px 18px', border: '1px solid #e9d5ff' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: roomDailyBookings.length > 0 ? '12px' : '4px', flexWrap: 'wrap', gap: '8px' }}>
-                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#4c1d95' }}>
-                      Daftar Reservasi Booking ({roomDailyBookings.length} Terjadwal):
-                    </span>
-                    <span style={{ fontSize: '0.80rem', color: '#6b7280', background: '#f3e8ff', padding: '3px 10px', borderRadius: '12px', fontWeight: 600 }}>
-                      Tarif: <strong>Rp {(formData.dailyPrice || 250000).toLocaleString('id-ID')}</strong> / malam
-                    </span>
-                  </div>
-
-                  {roomDailyBookings.length === 0 ? (
-                    <div style={{ fontSize: '0.84rem', color: '#6b7280', padding: '10px 0', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <IconClock size={16} className="text-gray-400" />
-                      <span>Belum ada reservasi booking tanggal untuk unit kamar ini. Klik tombol <strong>"Pilih Tanggal Booking"</strong> di atas untuk memesan tanggal check-in & check-out tamu.</span>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {roomDailyBookings.map((b) => (
-                        <div
-                          key={b.id}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '10px 14px',
-                            background: '#faf5ff',
-                            borderRadius: '8px',
-                            border: '1px solid #ddd6fe',
-                            fontSize: '0.84rem'
-                          }}
-                        >
-                          <div>
-                            <strong style={{ color: '#5b21b6', fontSize: '0.90rem' }}>{b.guestName}</strong>
-                            <span style={{ color: '#6b7280', marginLeft: '6px' }}>({b.guestCity || '-'}, {b.guestPhone || '-'})</span>
-                            <div style={{ fontSize: '0.78rem', color: '#4b5563', marginTop: '3px' }}>
-                              📅 Check-in: <strong>{formatDateIndo(b.checkIn)}</strong> s/d <strong>{formatDateIndo(b.checkOut)}</strong> ({b.totalNights || 1} malam)
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontWeight: 800, color: '#15803d', fontSize: '0.92rem' }}>
-                              Rp {(b.totalCost || 0).toLocaleString('id-ID')}
-                            </span>
-                            <div style={{ fontSize: '0.74rem', color: '#6b7280', marginTop: '2px' }}>
-                              <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '10px',
-                                background: b.paymentStatus === 'Lunas' ? '#dcfce7' : '#fef3c7',
-                                color: b.paymentStatus === 'Lunas' ? '#15803d' : '#b45309',
-                                fontWeight: 600
-                              }}>
-                                {b.paymentStatus}
-                              </span> • {b.stayStatus || 'Terkonfirmasi'}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Section 2: Status & Penghuni */}
+            {/* Section 2: Status & Penghuni (tidak perlu untuk kamar Sewa Harian) */}
+            {formData.category !== 'Harian' && (
             <div className="form-section-block">
               <div className="form-section-header">
                 <IconUsers size={20} className="text-primary-green" />
@@ -640,6 +530,7 @@ export const KamarView = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Section 3: Kelistrikan & Token Listrik PLN Tetap (Hanya untuk Kos Bulanan, disembunyikan/dihapus saat Sewa Harian) */}
             {formData.category !== 'Harian' && (
